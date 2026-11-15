@@ -26,6 +26,7 @@
 | **GitHub 全闭环** | webhook → 票 → 真模型 → 评论回到原 issue（本地假服务器端到端验收） |
 | **配置治理** | `scripts/cordis.patch.template.yml` 单一真相源；启动前自动同步编译产物到 profile |
 | **命令面板（C11-01）** | 输入 `/` 浮出真实 `commands/list` 候选，搜索/补全/参数提示，斜杠命令绝不进模型消息 |
+| **会话导出（C11-06）** | 顶栏一键导出 Markdown（与界面视图一致）/ JSONL（原始日志不丢字段），命令执行记录可见 |
 | **剧本编辑器（C9-04）** | 图 + 表单 + 源码三视图；增删节点/条件边/人闸/回退上限、改名、调顺序，编辑即回写 `.flow`，实时校验 + 导出 |
 | `apps/desktop` | 会话树 + 对话 + 工具卡片 + 上下文条 + 票列表/详情 + 剧本流程图与编辑器（全走 Remote） |
 
@@ -52,11 +53,12 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 npm run build                     # 编译各包到 lib/（纯 Node 可加载）
-npm test                          # 106 个用例（剧本/编辑器/命令面板/记忆/插件/领域/持久化/GitHub 出入/信息源）
+npm test                          # 121 个用例（剧本/编辑器/命令面板/会话解析/导出/记忆/插件/领域/持久化/GitHub 出入/信息源）
 npm run check:ui                  # 前端 tsc --noEmit（含 vite/client 类型）
 npm run build:ui                  # Vite 构建桌面渲染层
 npm run verify:playbook-editor    # 9 步编辑 → 文本回写 → 编译成 skill 包
 npm run verify:command-palette    # 真实宿主：命令清单 → 过滤 → 执行 → 不进模型消息
+npm run verify:session-export     # 真实宿主：session/page → Markdown / JSONL 落盘
 
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill              # 确认 harness 的 skills/list 里能看到它
@@ -85,8 +87,13 @@ npm run verify:source-hub         # 一个宿主同时挂三种来源（内置/�
 否则模型调用需审批的工具时会停在 `approval/asked` 不再前进。桌面 UI 走
 `workspace-write`，保留人工审批闸门。
 
-`spikes/p05-transport/` 里有一份已安装的 `@deepseek-ai/dsh`（1.3GB，已被 gitignore），
-供 `verify:port`、`gen:remotes` 与事件探针使用。
+**harness 的两个路径（别混）**：
+
+- **源码检出**：`D:\code\deepseek-harness`（纯源码、只读扫描），`verify:contract` 与升级流水线读它。
+  换位置就设 `DSH_HARNESS_ROOT`（环境变量或 `.env`，见 `.env.example`）。它**没有构建产物，不能拿来启动宿主**。
+- **运行时安装**：`spikes/p05-transport/node_modules`（已装 `@deepseek-ai/dsh@0.2.2-rc.3`，1.3GB，已 gitignore），
+  供启动宿主、`gen:remotes`、`verify:port` 与事件探针使用；换位置设 `DSH_DSH_MODULES`。
+- `npm run gen:remotes` 会同时打印两者版本，不一致时给 WARN——契约探针的结论必须建立在同一版本上。
 
 ## 两条硬边界
 

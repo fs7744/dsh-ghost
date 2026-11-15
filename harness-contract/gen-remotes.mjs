@@ -7,12 +7,15 @@
  * 手写调用必错，生成才能跟上 harness 升级。
  *
  * 用法:
- *   node gen-remotes.mjs [--modules <node_modules>] [--out remotes.json]
- * 默认读取 spikes/p05-transport/node_modules（已安装 @deepseek-ai/dsh@0.2.2-rc.3）。
+ *   node gen-remotes.mjs [--modules <node_modules>] [--out remotes.json] [--ts <file>]
+ * 默认读**运行时安装目录** spikes/p05-transport/node_modules（有编译产物 lib/typert.remote-client.js），
+ * 可用 DSH_DSH_MODULES / .env 覆盖。源码检出（DSH_HARNESS_ROOT）只用于契约校验，
+ * 纯源码没有 descriptor 产物，不能在这里扫描；脚本会打印两者版本以便发现错配。
  */
 import { readdirSync, existsSync, writeFileSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
+import { readVersion, resolveDshModules, resolveHarnessRoot } from '../scripts/harness-paths.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const argv = process.argv.slice(2)
@@ -21,7 +24,7 @@ const argOf = (name, fallback) => {
   return index >= 0 ? argv[index + 1] : fallback
 }
 
-const modules = resolve(argOf('--modules', join(HERE, '..', 'spikes', 'p05-transport', 'node_modules')))
+const modules = resolveDshModules(argOf('--modules', undefined))
 const outPath = resolve(argOf('--out', join(HERE, 'remotes.json')))
 const tsOut = argOf('--ts', undefined)
 
@@ -107,6 +110,16 @@ writeFileSync(outPath, JSON.stringify(document, null, 2))
 
 const byPackage = new Map()
 for (const e of endpoints) byPackage.set(e.package, (byPackage.get(e.package) ?? 0) + 1)
+
+// 源码检出（契约）与运行时安装（宿主）必须是同一版本，否则契约探针的结论不可信。
+const harnessRoot = resolveHarnessRoot(undefined)
+const sourceVersion = harnessRoot === undefined ? undefined : readVersion(join(harnessRoot, 'package.json'))
+const installedVersion = readVersion(join(modules, '@deepseek-ai', 'dsh', 'package.json'))
+process.stdout.write(`源码检出  ${harnessRoot ?? '(未找到)'}  ${sourceVersion ?? '?'}\n`)
+process.stdout.write(`运行时包  ${modules}  ${installedVersion ?? '?'}\n`)
+if (sourceVersion !== undefined && installedVersion !== undefined && sourceVersion !== installedVersion) {
+  process.stdout.write(`WARN  源码检出 ${sourceVersion} 与运行时 ${installedVersion} 版本不一致，契约探针结论可能失真\n`)
+}
 process.stdout.write(`扫描 ${files.length} 个包，得到 ${endpoints.length} 个 Remote 端点 → ${outPath}\n`)
 for (const [name, count] of [...byPackage].sort((a, b) => b[1] - a[1])) {
   process.stdout.write(`  ${String(count).padStart(3)}  ${name}\n`)

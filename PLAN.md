@@ -183,7 +183,7 @@ pnpm run upgrade:harness -- 0.2.3        # 唯一的升级入口
 
 1. 改 `package.json` 的 `@deepseek-ai/*` 版本（单点）
 2. `pnpm install`
-3. `node scripts/verify-harness-contract.mjs`（契约面）
+3. `node scripts/verify-harness-contract.mjs`（契约面；读 `DSH_HARNESS_ROOT` 指向的源码检出，缺省 `D:\code\deepseek-harness`，纯源码只读）
 4. `pnpm typecheck`（类型面，比探针精确）
 5. `pnpm test`（行为面）
 6. 冒烟：起一个只装我们 bundle 的 profile，用 renderer 跑通一条 Ticket
@@ -406,6 +406,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 - 压缩三层全是白拿：工具结果裁剪（`compaction-tool-result-pruner`）、自动压缩（`compaction-basic`）、图片离位（`compaction-image-offload`）；手动 `/compact` 走 `dsh-command-compact`。
 - 会话操作白拿：`session/create`、`session/list`、`session/page`、`session/selectModel`、`session/projections`、`session/fork`、`session/cancel`。
 - **我们要补的 7 项**：命令面板、命令通道、压缩策略配置、上下文占用条（含压缩点标记，可展开看被压掉的原文）、checkpoint/rewind UI、会话导出、`/init` 等价的 `GHOST.md` 草案生成。
+
+**会话导出已落地（C11-06）**：`apps/desktop/src/session-log.ts` 把 `toBubbles` 抽成纯模块（界面、导出、验收共用一份解析），`export.ts` 产出 Markdown（与界面视图一致）与 JSONL（`session/page` 原始记录一行一条不丢字段）。顶栏两个按钮直接下载；`npm run verify:session-export` 在真实宿主上验到 5 条记录 → 两种格式落盘、命令执行记录可见。
 
 **命令面板 MVP 已落地（C11-01）**：`apps/desktop/src/palette.ts` 做纯逻辑（斜杠解析、模糊排序、循环选择），`command-palette.ts` 做候选浮层与键盘接管，`send()` 把 `/` 开头的输入一律改走 `commands/execute`。命令清单来自 `commands/list`、不硬编码；`npm run verify:command-palette` 在真实宿主上验到 6 条命令、执行 `/compact` 成功、且 `user/message` 数量 `0 → 0`——命令确实没进模型消息。`!` 直通与 `@` 引用目前只做识别提示，完整实现依赖 P3 的终端面板与文件树（见 [docs/COMMANDS.md](docs/COMMANDS.md) §4.1）。
 

@@ -9,9 +9,10 @@ import flowSource from '../../../packages/playbook/examples/ticket-flow.flow?raw
 import { mountFlowEditor } from './flow-editor.ts'
 import { mountCommandPalette } from './command-palette.ts'
 import { isCommandLine, parseSlash, toCommandItems, type CommandItem } from './palette.ts'
+import { toBubbles, type Bubble, type LogRecord } from './session-log.ts'
+import { downloadText, exportFilename, exportJsonl, exportMarkdown } from './export.ts'
 
 type Transport = ReturnType<typeof createTransport>
-type LogRecord = { type: string; event?: { type: string; seq: number; data: Record<string, unknown> } }
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 app.innerHTML = `
@@ -22,6 +23,10 @@ app.innerHTML = `
       <button data-tab="flow">剧本</button>
     </nav>
     <span class="status" id="conn">连接中…</span>
+    <nav class="exports">
+      <button data-export="md" title="导出当前会话为 Markdown">导出 MD</button>
+      <button data-export="jsonl" title="导出当前会话原始日志为 JSONL">导出 JSONL</button>
+    </nav>
   </header>
   <aside><h2>会话</h2><div id="sessions"></div></aside>
   <main>
@@ -61,78 +66,7 @@ const state = {
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char] as string))
 
-type Bubble =
-  | { kind: 'user'; text: string }
-  | { kind: 'assistant'; text: string; tool?: string }
-  | { kind: 'toolcall'; name: string; text: string }
-  | { kind: 'tool'; name: string; text: string }
-  | { kind: 'note'; text: string }
-
-/** 从会话日志里抽出可显示的消息。 */
-function toBubbles(records: readonly LogRecord[]): Bubble[] {
-  const bubbles: Bubble[] = []
-  const callNames = new Map<string, string>()
-  for (const record of records) {
-    const event = record.type === 'event' ? record.event : undefined
-    if (event === undefined) continue
-    const data = event.data as {
-      message?: { content?: Array<{ type: string; text?: string; name?: string }> }
-      content?: Array<{ type: string; text?: string }>
-      result?: unknown
-      reason?: { kind?: string }
-      callId?: string
-      id?: string
-      name?: string
-      arguments?: unknown
-      toolCallId?: string
-    }
-    if (event.type === 'user/message') {
-      const text = (data.content ?? []).filter(part => part.type === 'text').map(part => part.text ?? '').join('\n')
-      if (text !== '') bubbles.push({ kind: 'user', text })
-    } else if (event.type === 'assistant/message') {
-      const parts = data.message?.content ?? []
-      const text = parts.filter(part => part.type === 'text').map(part => part.text ?? '').join('')
-      const tool = parts.find(part => part.type === 'tool-call')?.name
-      if (text !== '' || tool !== undefined) bubbles.push({ kind: 'assistant', text, ...(tool === undefined ? {} : { tool }) })
-    } else if (event.type === 'tool/call') {
-      const callId = data.callId ?? data.id ?? ''
-      const name = String(data.name ?? 'tool')
-      callNames.set(callId, name)
-      bubbles.push({ kind: 'toolcall', name, text: summarize(parseMaybe(data.arguments)) })
-    } else if (event.type === 'tool/result') {
-      const callId = data.callId ?? data.id ?? ''
-      const name = callNames.get(callId) ?? String(data.name ?? 'tool')
-      // 工具结果在 message.content[] 里；没有就退回原始 JSON
-      const parts = data.message?.content ?? []
-      const text = parts.filter(part => part.type === 'text').map(part => part.text ?? '').join('\n')
-      bubbles.push({ kind: 'tool', name, text: text === '' ? summarize(data, 600) : text.slice(0, 600) })
-    } else if (event.type === 'turn/end') {
-      const reason = data.reason?.kind
-      if (reason !== undefined) bubbles.push({ kind: 'note', text: `回合结束（${reason}）` })
-    }
-  }
-  return bubbles
-}
-
-/** 工具参数常是 JSON 字符串，尽量解析后展示。 */
-function parseMaybe(value: unknown): unknown {
-  if (typeof value !== 'string') return value
-  try { return JSON.parse(value) } catch { return value }
-}
-
-/** 把任意值压成一小段可读文本。 */
-function summarize(value: unknown, limit = 240): string {
-  if (value === undefined || value === null) return ''
-  if (typeof value === 'string') return value.slice(0, limit)
-  try {
-    const text = JSON.stringify(value, null, 1)
-    if (text === undefined) return ''
-    // 工具参数里常见的长文本字段单独截断
-    return text.length > limit ? `${text.slice(0, limit)}…` : text
-  } catch {
-    return String(value).slice(0, limit)
-  }
-}
+// 会话日志解析（toBubbles）与导出已抽到 session-log.ts / export.ts，纯函数、可单测。
 
 /**
  * 待答问题（agent 通过 ask_user_question 提问）：渲染成横幅，点选项即应答。
@@ -353,6 +287,32 @@ async function ensureModel(sessionId: string): Promise<string | undefined> {
   }
 }
 
+/** 导出当前会话：Markdown 从视图模型生成，JSONL 保留 session/page 的原始记录。 */
+async function exportSession(format: 'md' | 'jsonl'): Promise<void> {
+  const transport = state.transport
+  const sessionId = state.active
+  if (transport === undefined || sessionId === undefined) {
+    el('f-state').textContent = '没有可导出的会话'
+    return
+  }
+  try {
+    const page = await transport.call('session/page', {
+      request: { address: { kind: 'session', sessionId }, maxMessages: 500 },
+    })
+    const records = (page as { records?: LogRecord[] })?.records ?? []
+    const title = state.sessions.find(session => session.sessionId === sessionId)?.title
+    const ext: 'md' | 'jsonl' = format === 'md' ? 'md' : 'jsonl'
+    const content = format === 'md'
+      ? exportMarkdown(toBubbles(records), { sessionId, ...(title === undefined ? {} : { title }) })
+      : exportJsonl(records)
+    downloadText(exportFilename(sessionId, ext), content,
+      format === 'md' ? 'text/markdown;charset=utf-8' : 'application/x-ndjson;charset=utf-8')
+    el('f-state').textContent = `已导出 ${records.length} 条记录（${format.toUpperCase()}）`
+  } catch (error) {
+    el('f-state').textContent = `导出失败：${String(error).slice(0, 60)}`
+  }
+}
+
 /** 发送一条消息，并轮询到出现新记录。 */
 async function send(): Promise<void> {
   const transport = state.transport
@@ -399,6 +359,9 @@ async function main(): Promise<void> {
     })
   })
   el('send').addEventListener('click', () => { void send() })
+  document.querySelectorAll<HTMLButtonElement>('[data-export]').forEach(button => {
+    button.addEventListener('click', () => { void exportSession(button.dataset.export === 'jsonl' ? 'jsonl' : 'md') })
+  })
   // 输入框键盘事件由命令面板统一接管（普通 Enter 仍回到 send()）。
 
   const token = new URLSearchParams(location.search).get('token')

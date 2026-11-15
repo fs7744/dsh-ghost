@@ -144,3 +144,10 @@ details.tool pre { white-space:pre-wrap; background:var(--surface-mid); padding:
   border:1px solid var(--outline); border-radius:999px; padding:0 6px; }
 .pempty { color:var(--on-surface-variant); font-size:12px; padding:8px 10px; }
 .pfoot { color:var(--on-surface-variant); font-size:11px; padding:6px 10px 4px; border-top:1px solid var(--outline); margin-top:4px; }
+
+/* ---- 会话导出（C11-06） ---- */
+.exports { margin-left:auto; display:flex; gap:4px; }
+.exports button { background:var(--surface-high); color:var(--on-surface-variant);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:3px 9px; font:inherit; font-size:11px; cursor:pointer; }
+.exports button:hover { border-color:var(--accent); color:var(--accent); }

@@ -8,12 +8,14 @@
  *
  * 用法:
  *   node scripts/verify-harness-contract.mjs [--harness <dir>] [--contract <file>] [--json] [--verbose]
+ * harness 根目录由 scripts/harness-paths.mjs 统一解析，可用 DSH_HARNESS_ROOT 或 .env 指定。
  *
  * 退出码: 0 = 无 error 级漂移；1 = 有；2 = 用法/环境错误。
  */
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { harnessCandidates, resolveHarnessRoot } from './harness-paths.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SOURCE_EXT = /\.(ts|tsx|mts)$/
@@ -38,16 +40,11 @@ function parseArgs(argv) {
   return out
 }
 
-/** 没有显式传入时，按常见布局猜 harness 根目录。 */
+/** 检出根目录统一由 harness-paths 解析（显式参数 > DSH_HARNESS_ROOT > .env > 默认布局）。 */
 function resolveHarness(explicit) {
-  const candidates = explicit
-    ? [explicit]
-    : [join(HERE, '..', '..', 'deepseek-harness-master'), join(HERE, '..', '..', 'deepseek-harness'), join(HERE, '..', 'harness')]
-  for (const candidate of candidates) {
-    const dir = resolve(candidate)
-    if (existsSync(join(dir, 'packages')) && existsSync(join(dir, 'pnpm-workspace.yaml'))) return dir
-  }
-  process.stderr.write(`没找到 harness 检出，用 --harness <dir> 指定。试过:\n${candidates.map(c => '  ' + resolve(c)).join('\n')}\n`)
+  const dir = resolveHarnessRoot(explicit)
+  if (dir !== undefined) return dir
+  process.stderr.write(`没找到 harness 检出，用 --harness <dir> 或 DSH_HARNESS_ROOT 指定。试过:\n${harnessCandidates(explicit).map(c => '  ' + c).join('\n')}\n`)
   process.exit(2)
 }
 
