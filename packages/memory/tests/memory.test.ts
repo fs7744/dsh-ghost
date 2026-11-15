@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { MemoryStore, candidates, gate } from '../src/index.ts'
+import { MemoryStore, candidates, gate, memoryTools } from '../src/index.ts'
 
 const tempRoot = () => mkdtemp(join(tmpdir(), 'ghost-mem-'))
 const fixedNow = () => new Date('2026-11-15T08:00:00.000Z')
@@ -84,4 +84,36 @@ test('常驻块形态：小预算内可写，超预算拒绝而不是静默截�
 test('候选句子只挑带信号词的', () => {
   const found = candidates('这次先这样。以后统一用 pnpm。今天天气不错。约定：提交后必须推送。')
   assert.deepEqual(found, ['以后统一用 pnpm。', '约定：提交后必须推送。'])
+})
+
+test('工具：list 空态 → write → list 有标题 → read 有正文', async () => {
+  const root = await tempRoot()
+  const store = new MemoryStore({ root, mode: 'indexed', now: fixedNow })
+  await store.init()
+  const [list, read, write] = memoryTools(store)
+  assert.ok(list !== undefined && read !== undefined && write !== undefined)
+
+  assert.equal(await list.execute({}), '还没有任何记忆。')
+  assert.equal(await write.execute({ name: 'build', title: '构建用 pnpm', text: '统一 pnpm。', source: 'task-1' }), '已记住。')
+  assert.match(await list.execute({}), /build — 构建用 pnpm/)
+  assert.equal((await read.execute({ name: 'build' })).trim(), '统一 pnpm。')
+})
+
+test('工具：写入被拒时把原因原样返回（让模型自愈）', async () => {
+  const root = await tempRoot()
+  const store = new MemoryStore({ root, mode: 'indexed', now: fixedNow })
+  await store.init()
+  const write = memoryTools(store).find(tool => tool.name === 'memory_write')
+  assert.ok(write !== undefined)
+
+  const rejected = await write.execute({ name: 'x', text: '本次临时这样。', source: 'task-1' })
+  assert.match(rejected, /未写入/)
+  assert.match(rejected, /一次性上下文/)
+})
+
+test('工具描述足够短（常驻成本受控）', () => {
+  const tools = memoryTools(new MemoryStore({ root: 'unused', mode: 'indexed' }))
+  for (const tool of tools) {
+    assert.ok(tool.description.length <= 120, `${tool.name} 描述过长：${tool.description.length}`)
+  }
 })
