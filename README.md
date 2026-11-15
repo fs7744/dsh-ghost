@@ -19,6 +19,7 @@
 | `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门 + 三个模型工具（10 个测试全绿） |
 | `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已验通模型侧可见并被调用** |
 | `superagent` | 主动型 agent 的领域核心（15 个文件，零 harness 依赖）：Ticket 状态机 / 策略 / 引擎 / 内存仓库 |
+| **真模型验证** | 真实模型（hy3）自己调用 `memory_write` 写入记忆，11.3s 完成 |
 
 ## 文档
 
@@ -49,6 +50,7 @@ npm run build                       # 编译成 lib/（纯 Node 可加载）
 npm run smoke:plugin                # 编译产物冒烟（不启 harness）
 npm run verify:plugin-boot          # 把插件挂进 profile 真启动一次
 npm run verify:tool-visibility      # 假模型端点跑一轮：工具→模型→调用→结果回传
+npm run verify:real-model           # 真模型端到端（需要 .env 里的 WB_BASE_URL / WB_KEY）
 ```
 
 `spikes/p05-transport/` 里有一份已安装的 `@deepseek-ai/dsh`（1.3GB，已被 gitignore），

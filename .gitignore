@@ -6,3 +6,4 @@ result.json
 out/
 .dsh/
 .ghost/
+.env

@@ -24,7 +24,8 @@
     "smoke:plugin": "node scripts/smoke-built-plugin.mjs",
     "verify:plugin-boot": "node scripts/verify-plugin-boot.mjs",
     "verify:tool-visibility": "node --experimental-transform-types scripts/verify-tool-visibility.mjs",
-    "test:core": "node --test --experimental-transform-types packages/superagent/tests/stage.test.ts"
+    "test:core": "node --test --experimental-transform-types packages/superagent/tests/stage.test.ts",
+    "verify:real-model": "node --experimental-transform-types scripts/verify-real-model.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

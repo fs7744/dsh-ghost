@@ -366,7 +366,9 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **已实现（`packages/memory`，10 个测试）**：`indexed`（项目：索引常驻 + `entries/` 按需）与 `block`（用户：单文件常驻块，硬预算）两种形态；写入闸门拒"缺来源/一次性措辞/非法名"；覆盖前留 `.bak`，写入原子。超预算**明确拒绝并提示归档**，不静默截断。
 
-**插件已装进真实 harness**：`npm pack` → 装进 profile → `cordis.patch.yml` 插一行 → 启动，自检文件确认三个工具就位，且**用 `ctx.tools.get()` 从运行中的服务查回**（`present: true` 三条）。**模型侧也已验通**（`npm run verify:tool-visibility`）：用假 Messages 端点跑一轮，捕获到的请求里 `tools` 共 34 个、含我们的三个；端点回 `tool_use: memory_list`，工具在宿主执行后以 `tool_result` 回到第三轮请求。不需要任何 key。这是本仓库代码第一次真正跑在 harness 进程里。
+**插件已装进真实 harness**：`npm pack` → 装进 profile → `cordis.patch.yml` 插一行 → 启动，自检文件确认三个工具就位，且**用 `ctx.tools.get()` 从运行中的服务查回**（`present: true` 三条）。**真模型也验通了**（`npm run verify:real-model`，11.3s）：接 `http://127.0.0.1:7864/v1` 的 hy3，模型自主决定调用 `memory_write`，写入 `entries/package-manager-pnpm.md`，内容与 source 都正确。
+
+**假模型端点也验过**（`npm run verify:tool-visibility`）：用假 Messages 端点跑一轮，捕获到的请求里 `tools` 共 34 个、含我们的三个；端点回 `tool_use: memory_list`，工具在宿主执行后以 `tool_result` 回到第三轮请求。不需要任何 key。这是本仓库代码第一次真正跑在 harness 进程里。
 
 工具层（`memory_list` / `memory_read` / `memory_write`）已定义并可执行：描述即说明书（每条 ≤120 字符）、只回人话、写入被拒时把原因原样返回让模型自愈。**尚未挂进 `agent.ctx.tools.register`**——那一步需要把 harness 依赖装到仓库根。
 
