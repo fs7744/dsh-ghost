@@ -39,9 +39,9 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 
-# 剧本
-node --test --experimental-strip-types packages/playbook/tests/playbook.test.ts
-node --experimental-strip-types scripts/compile-playbook.mjs packages/playbook/examples/ticket-flow.flow
+npm run test:playbook               # 剧本解析/编译的 10 个用例
+npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
+npm run verify:skill                # 确认 harness 的 skills/list 里能看到它
 ```
 
 `spikes/p05-transport/` 里有一份已安装的 `@deepseek-ai/dsh`（1.3GB，已被 gitignore），
@@ -54,5 +54,12 @@ node --experimental-strip-types scripts/compile-playbook.mjs packages/playbook/e
 
 ## 许可
 
-应用与内部包为专有；对外插件契约为 Apache-2.0；示例剧本为 MIT。详见 [docs/LICENSING.md](docs/LICENSING.md)。
-上游 `deepseek-harness` 与 `dsh-superagent` 均为 MIT，其版权声明随分发保留。
+| 路径 | 许可 | 文件 |
+|---|---|---|
+| 其余全部（应用、内部包、文档） | **专有**（All rights reserved） | [LICENSE](LICENSE) |
+| `packages/model-adapter-kit/**`、`docs/PLAYBOOK.md` 格式规范 | **Apache-2.0** | [LICENSE-APACHE](LICENSE-APACHE) |
+| `packages/playbook/examples/**`、`playbooks/**` | **MIT** | [LICENSE-MIT](LICENSE-MIT) |
+
+上游 `deepseek-harness`（MIT, © 2026 DeepSeek）与 `dsh-superagent`（MIT, © 2026 DeepSeek Harness Team）的版权声明随分发保留。
+
+Built on DeepSeek Harness. Not affiliated with or endorsed by DeepSeek.

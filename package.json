@@ -13,7 +13,10 @@
     "gen:remotes": "node harness-contract/gen-remotes.mjs --ts packages/harness-port/src/remotes.generated.ts",
     "verify:contract": "node scripts/verify-harness-contract.mjs",
     "verify:port": "node --experimental-strip-types scripts/verify-port.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "deploy:skill": "node --experimental-strip-types scripts/deploy-skill.mjs",
+    "verify:skill": "node --experimental-strip-types scripts/verify-skill.mjs",
+    "test:playbook": "node --test --experimental-strip-types packages/playbook/tests/playbook.test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
