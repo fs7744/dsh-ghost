@@ -39,6 +39,28 @@ export declare class GhostTickets extends TypertRemoteService {
     acceptTicket(input: AcceptInput): {
         ticketId: string;
     };
+    /**
+     * 取一张票的详情。
+     * @param input - 票号
+     * @returns 详情，找不到返回 undefined
+     */
+    getTicket(input: {
+        id: string;
+    }): {
+        ticket?: TicketDetail;
+    };
+}
+/** 票详情（含派活历史），给界面的详情页用。 */
+export interface TicketDetail extends TicketView {
+    inputs: number;
+    assignments: Array<{
+        id: string;
+        state: string;
+        report: {
+            state: string;
+            summary: string;
+        } | null;
+    }>;
 }
 /** 外部事件归一化后的输入。 */
 export interface AcceptInput {

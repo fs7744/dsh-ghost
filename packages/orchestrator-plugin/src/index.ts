@@ -49,6 +49,7 @@ export interface TicketView {
 // 每个宿主进程只挂一个 orchestrator，这足够安全，也不依赖 this。
 let viewSlot: (() => TicketView[]) | undefined
 let acceptSlot: ((input: AcceptInput) => { ticketId: string }) | undefined
+let detailSlot: ((id: string) => TicketDetail | undefined) | undefined
 
 export class GhostTickets extends TypertRemoteService {
   constructor(ctx: Context, view: () => TicketView[]) {
@@ -76,6 +77,22 @@ export class GhostTickets extends TypertRemoteService {
     if (accept === undefined) throw new Error('orchestrator 未就绪')
     return accept(input)
   }
+
+  /**
+   * 取一张票的详情。
+   * @param input - 票号
+   * @returns 详情，找不到返回 undefined
+   */
+  @Remote('get')
+  getTicket(input: { id: string }): { ticket?: TicketDetail } {
+    return { ...(detailSlot?.(input.id) === undefined ? {} : { ticket: detailSlot?.(input.id) as TicketDetail }) }
+  }
+}
+
+/** 票详情（含派活历史），给界面的详情页用。 */
+export interface TicketDetail extends TicketView {
+  inputs: number
+  assignments: Array<{ id: string; state: string; report: { state: string; summary: string } | null }>
 }
 
 /** 外部事件归一化后的输入。 */
@@ -189,6 +206,28 @@ export function apply(ctx: Context, config: Config = {}): void {
     return { ticketId: decision.ticketId ?? '' }
   }
   acceptSlot = accept
+
+  /** 票详情：派活历史与输入数。 */
+  const detail = (id: string): TicketDetail | undefined => {
+    const ticket = repo.tickets.get(id)
+    if (ticket === undefined) return undefined
+    return {
+      id: ticket.id,
+      title: ticket.title,
+      stage: ticketStage(ticket),
+      createdAt: ticket.createdAt,
+      report: ticket.assignments.at(-1)?.report?.summary ?? null,
+      inputs: ticket.inputs.length,
+      assignments: ticket.assignments.map(assignment => ({
+        id: assignment.id,
+        state: assignment.state,
+        report: assignment.report === undefined
+          ? null
+          : { state: assignment.report.state, summary: assignment.report.summary },
+      })),
+    }
+  }
+  detailSlot = detail
   ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length)
 
   ctx.effect(() => ctx.tools.register({

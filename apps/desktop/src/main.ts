@@ -192,11 +192,46 @@ function renderTickets(payload: unknown): void {
   box.innerHTML = tickets.map(ticket => {
     const stage = `${ticket.stage.stage}${ticket.stage.action === undefined ? '' : `/${ticket.stage.action}`}`
     const tone = ticket.stage.stage === 'person' ? 'person' : ticket.stage.stage === 'ended' ? 'ended' : 'working'
-    return `<div class="trow">
+    return `<div class="trow" data-ticket="${ticket.id}" style="cursor:pointer">
       <span class="tstage ${tone}">${stage}</span>
       <span class="ttitle" title="${escapeHtml(ticket.title)}">${escapeHtml(ticket.title)}</span>
     </div>`
   }).join('')
+  box.querySelectorAll<HTMLDivElement>('.trow[data-ticket]').forEach(row => {
+    row.addEventListener('click', () => { void openTicket(row.dataset.ticket ?? '') })
+  })
+}
+
+/** 打开一张票的详情：走 ghostTickets/get Remote。 */
+async function openTicket(id: string): Promise<void> {
+  const transport = state.transport
+  if (transport === undefined || id === '') return
+  try {
+    const result = await transport.call('ghostTickets/get' as never, { input: { id } } as never) as { ticket?: {
+      id: string; title: string; stage: { stage: string; action?: string }; createdAt: string; report: string | null
+      inputs: number; assignments: Array<{ id: string; state: string; report: { state: string; summary: string } | null }>
+    } }
+    const ticket = result.ticket
+    if (ticket === undefined) {
+      el('node').innerHTML = '<div class="id">这张票不在仓库里（可能已过期）。</div>'
+      return
+    }
+    const assignments = ticket.assignments.length === 0
+      ? '<div class="id">还没有派活记录</div>'
+      : ticket.assignments.map(assignment => `<div class="arow">
+          <span class="tstage">${escapeHtml(assignment.state)}</span>
+          <span class="ttitle">${escapeHtml(assignment.report?.summary ?? '（无报告）')}</span>
+        </div>`).join('')
+    el('node').innerHTML = `<dl>
+      <dt>票号</dt><dd>${escapeHtml(ticket.id.slice(0, 12))}</dd>
+      <dt>标题</dt><dd>${escapeHtml(ticket.title)}</dd>
+      <dt>阶段</dt><dd>${JSON.stringify(ticket.stage)}</dd>
+      <dt>输入</dt><dd>${ticket.inputs} 条</dd>
+      <dt>派活</dt><dd>${assignments}</dd>
+    </dl>`
+  } catch (error) {
+    el('node').innerHTML = `<div class="err">${escapeHtml(String(error).slice(0, 120))}</div>`
+  }
 }
 
 /** 上下文占用条：projectedTokens / contextWindow。 */

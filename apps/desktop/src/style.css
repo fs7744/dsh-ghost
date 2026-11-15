@@ -91,3 +91,4 @@ details.tool pre { white-space:pre-wrap; background:var(--surface-mid); padding:
 .tstage.person { background:#3d2f0b; color:#f0d9a8; }
 .tstage.ended { opacity:.6; }
 .ttitle { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.arow { display:flex; gap:8px; align-items:baseline; font-size:12px; margin-top:4px; }

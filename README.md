@@ -23,7 +23,7 @@
 | `orchestrator-plugin` | 引擎常驻宿主：`ghost_ticket` 工具 + `ghostTickets/list` Remote + 持久化 |
 | `superagent` | 领域核心（16 文件，零 harness 依赖）；**30 个用例**；`npm run ticket` 跑真实工单闭环 |
 | **真模型验证** | 真实模型（hy3）自己调用 `memory_write` 写入记忆，11.3s 完成 |
-| `apps/desktop` | 会话树 + 对话（真模型）+ 工具卡片 + 上下文条 + 票列表（走 Remote）+ 剧本流程图 |
+| `apps/desktop` | 会话树 + 对话（真模型）+ 工具卡片 + 上下文条 + 票列表与详情（全走 Remote）+ 剧本流程图 |
 
 ## 文档
 

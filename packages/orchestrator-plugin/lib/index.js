@@ -61,18 +61,22 @@ export const inject = ['tools'];
 // 每个宿主进程只挂一个 orchestrator，这足够安全，也不依赖 this。
 let viewSlot;
 let acceptSlot;
+let detailSlot;
 let GhostTickets = (() => {
     let _classSuper = TypertRemoteService;
     let _instanceExtraInitializers = [];
     let _listTickets_decorators;
     let _acceptTicket_decorators;
+    let _getTicket_decorators;
     return class GhostTickets extends _classSuper {
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
             _listTickets_decorators = [Remote('list')];
             _acceptTicket_decorators = [Remote('accept')];
+            _getTicket_decorators = [Remote('get')];
             __esDecorate(this, null, _listTickets_decorators, { kind: "method", name: "listTickets", static: false, private: false, access: { has: obj => "listTickets" in obj, get: obj => obj.listTickets }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _acceptTicket_decorators, { kind: "method", name: "acceptTicket", static: false, private: false, access: { has: obj => "acceptTicket" in obj, get: obj => obj.acceptTicket }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _getTicket_decorators, { kind: "method", name: "getTicket", static: false, private: false, access: { has: obj => "getTicket" in obj, get: obj => obj.getTicket }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
         constructor(ctx, view) {
@@ -97,6 +101,14 @@ let GhostTickets = (() => {
             if (accept === undefined)
                 throw new Error('orchestrator 未就绪');
             return accept(input);
+        }
+        /**
+         * 取一张票的详情。
+         * @param input - 票号
+         * @returns 详情，找不到返回 undefined
+         */
+        getTicket(input) {
+            return { ...(detailSlot?.(input.id) === undefined ? {} : { ticket: detailSlot?.(input.id) }) };
         }
     };
 })();
@@ -190,6 +202,28 @@ export function apply(ctx, config = {}) {
         return { ticketId: decision.ticketId ?? '' };
     };
     acceptSlot = accept;
+    /** 票详情：派活历史与输入数。 */
+    const detail = (id) => {
+        const ticket = repo.tickets.get(id);
+        if (ticket === undefined)
+            return undefined;
+        return {
+            id: ticket.id,
+            title: ticket.title,
+            stage: ticketStage(ticket),
+            createdAt: ticket.createdAt,
+            report: ticket.assignments.at(-1)?.report?.summary ?? null,
+            inputs: ticket.inputs.length,
+            assignments: ticket.assignments.map(assignment => ({
+                id: assignment.id,
+                state: assignment.state,
+                report: assignment.report === undefined
+                    ? null
+                    : { state: assignment.report.state, summary: assignment.report.summary },
+            })),
+        };
+    };
+    detailSlot = detail;
     ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length);
     ctx.effect(() => ctx.tools.register({
         name: 'ghost_ticket',
