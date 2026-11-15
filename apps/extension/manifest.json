@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "dsh-ghost 助手",
+  "version": "0.1.0",
+  "description": "在浏览器侧栏里直接和本机 dsh-ghost 对话：配对一次，之后在任意页面都能问。",
+  "permissions": ["storage", "sidePanel", "cookies", "tabs"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "打开 dsh-ghost 侧栏"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

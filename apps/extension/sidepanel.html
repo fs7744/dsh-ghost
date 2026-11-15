@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>dsh-ghost</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header>
+    <strong>dsh-ghost</strong>
+    <span id="state" class="state">未配对</span>
+    <button id="toggle-pair" class="ghost" type="button">配对</button>
+  </header>
+
+  <section id="pair" class="pair hidden">
+    <p class="hint">在 dsh-ghost 应用「设置 → 浏览器扩展」里复制配对码与应用地址。</p>
+    <input id="app-url" type="url" placeholder="http://127.0.0.1:端口" />
+    <input id="code" type="text" inputmode="numeric" placeholder="6 位配对码" maxlength="6" />
+    <button id="do-pair" type="button">配对</button>
+    <p id="pair-error" class="error"></p>
+  </section>
+
+  <main id="stream" class="stream"></main>
+
+  <footer>
+    <textarea id="input" rows="2" placeholder="问点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
+    <button id="send" type="button">发送</button>
+  </footer>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

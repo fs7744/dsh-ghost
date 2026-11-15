@@ -6,5 +6,5 @@
  *  - 真正 spawn 浏览器、跑系统脚本的是插件层（宿主进程内）。
  */
 export { browserCandidates, clickExpression, CdpClient, fillExpression, findBrowser, launchArgs, launchBrowser, parseDevToolsUrl, READ_TEXT_EXPRESSION, truncateText, } from './browser.js';
-export { clickScript, elementsScript, escapePowerShellString, isWindows, keysScript, parseElements, screenshotScript, typeScript, } from './computer.js';
+export { clickScript, elementsScript, escapePowerShellString, invokeScript, isWindows, keysScript, parseElements, screenshotScript, setValueScript, typeScript, } from './computer.js';
 export { BROWSER_CHANNELS, bundledChromiumPresent, createBrowserEngine, hostAllowed, } from './engine.js';

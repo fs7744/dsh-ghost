@@ -19,6 +19,10 @@ export interface StaticServerDeps {
   logger: Logger
   /** 模型配置落地文件；缺省用内存（重启即丢，只适合测试）。 */
   modelsFile?: string
+  /** 扩展配对：校验配对码，换出宿主地址与 Cookie。 */
+  pairExtension?: (code: string) => Promise<
+    { origin: string; cookieName: string; cookieValue: string; cwd: string } | undefined
+  >
 }
 
 export interface StaticServer {
@@ -58,6 +62,10 @@ export async function startStaticServer(deps: StaticServerDeps): Promise<StaticS
     }
     if (isLocalModelsApi(path)) {
       void handleLocalModels(req, res, path, modelsApi)
+      return
+    }
+    if (path === '/extension/pair') {
+      void handleExtensionPair(req, res, deps)
       return
     }
     const resolved = resolveStaticPath(deps.distDir, path)
@@ -166,4 +174,48 @@ function proxyHttp(req: http.IncomingMessage, res: http.ServerResponse, harnessP
     res.end('harness unavailable')
   })
   req.pipe(upstream)
+}
+
+/**
+ * 扩展配对：POST /extension/pair { code } → { origin, cookie }。
+ * 换 Cookie 的动作在壳里做（token 不出壳）；扩展只拿到「地址 + 会话 Cookie」。
+ */
+async function handleExtensionPair(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  deps: StaticServerDeps,
+): Promise<void> {
+  if (req.method !== 'POST') {
+    res.writeHead(405)
+    res.end('method not allowed')
+    return
+  }
+  let body = ''
+  req.on('data', chunk => { body += chunk })
+  req.on('end', () => {
+    void (async (): Promise<void> => {
+      let code = ''
+      try {
+        const parsed = JSON.parse(body) as { code?: unknown }
+        code = typeof parsed.code === 'string' ? parsed.code : ''
+      } catch {
+        res.writeHead(400)
+        res.end('bad json')
+        return
+      }
+      if (deps.pairExtension === undefined) {
+        res.writeHead(501)
+        res.end('pairing disabled')
+        return
+      }
+      const result = await deps.pairExtension(code)
+      if (result === undefined) {
+        res.writeHead(401)
+        res.end('invalid code')
+        return
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+      res.end(JSON.stringify(result))
+    })()
+  })
 }

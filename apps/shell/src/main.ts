@@ -21,6 +21,8 @@ import { configureUpdater } from './electron-updater.ts'
 import { startStaticServer, type StaticServer } from './electron-static.ts'
 import { createHostLauncher } from './electron-host-launcher.ts'
 import { readProxyEnv } from './proxy-env.ts'
+import { createPairingStore } from './extension-pairing.ts'
+import { LOCAL_HOST } from './urls.ts'
 import {
   createClock, createSleeper, createFs, createLogger, createPortAllocator, createHealthProbe,
 } from './electron-platform.ts'
@@ -224,7 +226,7 @@ async function main(): Promise<void> {
       })
       shellWindow.hideMenu()
 
-      const ipc = registerIpc({
+  const ipc = registerIpc({
         fs, clock, logger, configPath,
         getConfig, setConfig, vault, telemetry,
         currentToken: () => currentToken,
@@ -239,6 +241,7 @@ async function main(): Promise<void> {
         onLaunchOnStartupChanged: enabled => shellApp.setLoginItemSettings(enabled),
         setTickets: value => { ticketCache = value },
         workspaceRoot: () => config.workspaceDir !== '' ? config.workspaceDir : join(paths.userData, 'workspace'),
+        issuePairingCode: () => pairing.issue(),
       })
 
       buildApplicationMenu({
@@ -288,14 +291,43 @@ async function main(): Promise<void> {
     }
   }
 
-  const onHostReady = async (info: HostLaunchInfo): Promise<void> => {
+  // 浏览器扩展配对：应用里出 6 位码，扩展输入后换到宿主地址与 Cookie（token 不出壳）。
+  const pairing = createPairingStore()
+  let harnessPortNow = 0
+
+  const pairExtension = async (code: string): Promise<
+    { origin: string; cookieName: string; cookieValue: string; cwd: string } | undefined
+  > => {
+    if (!pairing.verify(code)) return undefined
+    const port = harnessPortNow
+    if (port === 0) return undefined
+    const origin = `http://${LOCAL_HOST}:${port}`
+    try {
+      const response = await fetch(`${origin}/connect?token=${encodeURIComponent(currentToken)}&interactions=answer`, {
+        redirect: 'manual',
+      })
+      const raw = (response.headers.getSetCookie?.() ?? []).map(value => value.split(';')[0]).join('; ')
+      if (raw === '') return undefined
+      const [cookieName = '', ...rest] = raw.split('=')
+      const cookieValue = rest.join('=')
+      if (cookieName === '') return undefined
+      const cwd = config.workspaceDir !== '' ? config.workspaceDir : join(paths.userData, 'workspace')
+      return { origin, cookieName, cookieValue, cwd }
+    } catch {
+      return undefined
+    }
+  }
+
+      const onHostReady = async (info: HostLaunchInfo): Promise<void> => {
     currentToken = info.token
+    harnessPortNow = info.port
     if (staticSrv === null) {
       staticSrv = await startStaticServer({
         distDir: paths.distDir,
         harnessPort: info.port,
         logger,
         modelsFile: join(paths.userData, 'models.json'),
+        pairExtension,
       })
       staticPort = staticSrv.port
     } else {

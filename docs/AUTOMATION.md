@@ -36,6 +36,8 @@
 | `browser_screenshot()` | 截图存到工作区，返回路径（模型可用 `read_image` 看） |
 | `browser_close()` | 关掉浏览器 |
 | `computer_elements()` | 列出桌面上可访问的界面元素（控件名 / 类型 / 坐标） |
+| **`computer_invoke(name)`** | **按控件名直接操作**（点「保存」「登录」）：UI Automation 的 InvokePattern → LegacyIAccessible → 聚焦+回车，**不需要截图、不需要坐标** |
+| **`computer_set_value(name, text)`** | **按控件名填值**（ValuePattern → 聚焦+全选+输入） |
 | `computer_click(x, y, button?)` | 坐标点击（左/右/双击） |
 | `computer_type(text)` | 输入文本（Unicode，中文可用） |
 | `computer_keys(keys)` | 特殊按键（ENTER / TAB / CTRL+A…） |
@@ -54,9 +56,19 @@
 | 特殊按键 | `SendKeys` | ENTER / TAB / `^a` 等 |
 | **元素树** | `UIAutomationClient` | 控件名、类型、AutomationId、坐标、可用性 |
 
-**元素树是关键**：先读到控件（“保存”“登录”“提交”……），再按名字/类型定位，
-而不是盲点坐标——盲点在高 DPI、缩放、窗口移动下基本不可用。坐标点击仍然保留，
-因为有些东西没有可访问性树（自绘控件、Canvas）。
+**元素树是关键，也是「不用截图」的正解**：业界成熟的做法就是**可访问性树 + 语义化动作**，
+不是截图找按钮。我们这套直接实现了语义化动作：
+
+| 动作 | 走的 UIA 模式 |
+|---|---|
+| 点按钮 | `InvokePattern.Invoke()` |
+| 没有 Invoke 时 | `LegacyIAccessiblePattern.DoDefaultAction()` |
+| 还没有 | `SetFocus()` + 回车（最保守） |
+| 填输入框 | `ValuePattern.SetValue()`，退化为聚焦 + 全选 + 输入 |
+
+所以 `computer_invoke("保存")` 这种**按名字操作**是可用的主路径；
+坐标点击只是兜底（自绘控件、Canvas 没有可访问性树）。截图同理——
+只在「画面上根本没有控件」时才需要（比如看视频、画图）。
 
 实现方式：**PowerShell + 系统自带 .NET 组件**，不需要编译原生程序、不需要额外依赖；
 所有动作都由固定脚本模板生成，**不执行用户提供的任意脚本**。

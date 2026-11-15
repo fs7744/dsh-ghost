@@ -11,8 +11,8 @@ export {
   type BrowserCandidate, type LaunchedBrowser,
 } from './browser.ts'
 export {
-  clickScript, elementsScript, escapePowerShellString, isWindows, keysScript, parseElements,
-  screenshotScript, typeScript,
+  clickScript, elementsScript, escapePowerShellString, invokeScript, isWindows, keysScript,
+  parseElements, screenshotScript, setValueScript, typeScript,
 } from './computer.ts'
 export {
   BROWSER_CHANNELS, bundledChromiumPresent, createBrowserEngine, hostAllowed,

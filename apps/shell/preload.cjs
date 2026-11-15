@@ -17,6 +17,7 @@ const shellApi = {
   reportTickets: tickets => ipcRenderer.invoke('tickets:report', tickets),
   saveWorkspaceFile: (relativePath, content) => ipcRenderer.invoke('workspace:save', relativePath, content),
   git: (op, payload) => ipcRenderer.invoke('workspace:git', op, payload),
+  extensionPairing: () => ipcRenderer.invoke('extension:pairing'),
   appInfo: () => ipcRenderer.invoke('app:info'),
   telemetryExport: () => ipcRenderer.invoke('telemetry:export'),
   telemetryClear: () => ipcRenderer.invoke('telemetry:clear'),

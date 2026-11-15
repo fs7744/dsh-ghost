@@ -17,8 +17,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
-  clickScript, createBrowserEngine, elementsScript, findBrowser, hostAllowed, isWindows, keysScript,
-  parseElements, screenshotScript, truncateText, typeScript,
+  clickScript, createBrowserEngine, elementsScript, findBrowser, hostAllowed, invokeScript, isWindows,
+  keysScript, parseElements, screenshotScript, setValueScript, truncateText, typeScript,
   type BrowserEngine,
 } from '@dsh-ghost/automation'
 
@@ -333,6 +333,58 @@ export function apply(ctx: Context, config: Config): void {
         if (keys === '') return '缺少 keys。'
         const result = await runScript(keysScript(keys))
         return result.ok ? `已发送 ${keys}。` : `按键失败：${result.stderr.slice(0, 160)}`
+      },
+    },
+    {
+      name: 'computer_invoke',
+      description: '按**控件名**直接操作桌面元素（例如点「保存」「登录」按钮）——用 UI Automation 的语义化动作，不需要截图、不需要坐标。',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '控件上显示的名字' },
+          controlType: { type: 'string', description: '控件类型（可选），如 Button / Edit / MenuItem' },
+        },
+        required: ['name'],
+        additionalProperties: false,
+      },
+      execute: async args => {
+        const blocked = computerEnabled()
+        if (blocked !== undefined) return blocked
+        const name = String(args['name'] ?? '').trim()
+        if (name === '') return '缺少 name（控件名）。'
+        const controlType = String(args['controlType'] ?? '').trim()
+        const result = await runScript(invokeScript(name, controlType))
+        if (!result.ok) return `操作失败：${result.stderr.slice(0, 160)}`
+        const outcome = result.stdout.trim()
+        if (outcome === 'not-found') return `找不到控件：${name}`
+        if (outcome === 'no-action') return `控件「${name}」不支持直接操作，请用坐标点击。`
+        return `已操作控件「${name}」（${outcome}）`
+      },
+    },
+    {
+      name: 'computer_set_value',
+      description: '按**控件名**给输入框填值（例如「搜索框」），不需要截图、不需要坐标。',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '控件名' },
+          text: { type: 'string', description: '要填的文本' },
+        },
+        required: ['name', 'text'],
+        additionalProperties: false,
+      },
+      execute: async args => {
+        const blocked = computerEnabled()
+        if (blocked !== undefined) return blocked
+        const name = String(args['name'] ?? '').trim()
+        const text = String(args['text'] ?? '')
+        if (name === '') return '缺少 name（控件名）。'
+        const result = await runScript(setValueScript(name, text))
+        if (!result.ok) return `填值失败：${result.stderr.slice(0, 160)}`
+        const outcome = result.stdout.trim()
+        if (outcome === 'not-found') return `找不到控件：${name}`
+        if (outcome === 'no-action') return `控件「${name}」不能直接填值。`
+        return `已给「${name}」填值（${outcome}）`
       },
     },
     {

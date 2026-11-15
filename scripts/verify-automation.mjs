@@ -10,7 +10,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { execFile } from 'node:child_process'
 import { join } from 'node:path'
 import {
-  clickScript, createBrowserEngine, elementsScript, parseElements, screenshotScript,
+  clickScript, createBrowserEngine, elementsScript, invokeScript, parseElements, screenshotScript,
+  setValueScript,
 } from '../packages/automation/lib/index.js'
 
 const REPO = join(import.meta.dirname, '..')
@@ -86,6 +87,19 @@ if (process.platform !== 'win32') {
       { timeout: 30_000, windowsHide: true }, () => resolve(undefined))
   })
   check(true, '鼠标点击脚本执行完成')
+
+  // 按控件名操作（元素级动作，不需要截图/坐标）：用不存在的控件名验证「找不到」路径。
+  const invokeOut = await new Promise(resolve => {
+    execFile('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', invokeScript('__no_such_control__')],
+      { timeout: 60_000, windowsHide: true }, (_error, stdout) => resolve(String(stdout ?? '')))
+  })
+  check(invokeOut.trim() === 'not-found', '按控件名调用：对不存在的控件返回 not-found（元素级动作可用）')
+
+  const setValueOut = await new Promise(resolve => {
+    execFile('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', setValueScript('__no_such_control__', 'x')],
+      { timeout: 60_000, windowsHide: true }, (_error, stdout) => resolve(String(stdout ?? '')))
+  })
+  check(setValueOut.trim() === 'not-found', '按控件名填值：对不存在的控件返回 not-found')
 }
 
 rmSync(TMP, { recursive: true, force: true })

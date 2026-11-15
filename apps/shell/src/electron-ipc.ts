@@ -44,6 +44,8 @@ export interface IpcDeps {
   workspaceRoot(): string
   /** 执行 git 的入口（测试可注入；默认走 execFile，不经 shell）。 */
   git?: GitRunner
+  /** 出浏览器扩展的配对码（6 位、一次性、5 分钟有效）。 */
+  issuePairingCode?(): { code: string; expiresAt: number }
 }
 
 export interface IpcApi {
@@ -150,6 +152,13 @@ export function registerIpc(deps: IpcDeps): IpcApi {
   })
 
   // Git 视图：变更 / 差异 / 冲突 / 解决冲突。只暴露固定操作，不接受任意命令。
+  // 浏览器扩展配对码：界面显示给用户，输入扩展后换宿主地址与 Cookie。
+  ipcMain.handle('extension:pairing', () => {
+    const ticket = deps.issuePairingCode?.()
+    if (ticket === undefined) return { ok: false, error: '配对不可用' }
+    return { ok: true, code: ticket.code, expiresAt: ticket.expiresAt }
+  })
+
   ipcMain.handle('workspace:git', async (_event: unknown, op: unknown, payload: unknown) => {
     const runner = deps.git ?? execGit
     const cwd = deps.workspaceRoot()

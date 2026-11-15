@@ -31,3 +31,16 @@ export declare function elementsScript(limit?: number): string;
 export declare function parseElements(output: string): UiElement[];
 /** Windows 平台判定（电脑操控只在 Windows 上做）。 */
 export declare function isWindows(platform: string): boolean;
+/**
+ * 按控件名直接操作（**不需要截图、不需要坐标**）——这是业界成熟的路径：
+ * Windows UI Automation 提供 InvokePattern（点按钮）、ValuePattern（填输入框）、
+ * TogglePattern（勾选）等**语义化动作**，比「截图找按钮 + 点坐标」稳得多。
+ *
+ * 策略：先找同名控件（可带类型过滤）→ 优先 InvokePattern → 再退回
+ * LegacyIAccessible.DoDefaultAction → 最后才 SetFocus + 回车（最保守）。
+ */
+export declare function invokeScript(name: string, controlType?: string): string;
+/**
+ * 按控件名填值（ValuePattern；没有就退回聚焦 + 全选 + 粘贴）。
+ */
+export declare function setValueScript(name: string, text: string): string;

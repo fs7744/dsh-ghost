@@ -169,3 +169,84 @@ export function parseElements(output: string): UiElement[] {
 export function isWindows(platform: string): boolean {
   return platform === 'win32'
 }
+
+/**
+ * 按控件名直接操作（**不需要截图、不需要坐标**）——这是业界成熟的路径：
+ * Windows UI Automation 提供 InvokePattern（点按钮）、ValuePattern（填输入框）、
+ * TogglePattern（勾选）等**语义化动作**，比「截图找按钮 + 点坐标」稳得多。
+ *
+ * 策略：先找同名控件（可带类型过滤）→ 优先 InvokePattern → 再退回
+ * LegacyIAccessible.DoDefaultAction → 最后才 SetFocus + 回车（最保守）。
+ */
+export function invokeScript(name: string, controlType = ''): string {
+  return `$ErrorActionPreference='Stop'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+$target = $null
+foreach ($el in $all) {
+  try {
+    if ($el.Current.Name -ne '${escapePowerShellString(name)}') { continue }
+    ${controlType === '' ? '' : `if ($el.Current.ControlType.ProgrammaticName -notlike '*${escapePowerShellString(controlType)}*') { continue }`}
+    $target = $el
+    break
+  } catch { }
+}
+if ($null -eq $target) { Write-Output 'not-found'; exit 0 }
+try {
+  $pattern = $target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+  $pattern.Invoke()
+  Write-Output 'invoked'
+  exit 0
+} catch { }
+try {
+  $legacy = $target.GetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern)
+  $legacy.DoDefaultAction()
+  Write-Output 'invoked-legacy'
+  exit 0
+} catch { }
+try {
+  $target.SetFocus()
+  Add-Type -AssemblyName System.Windows.Forms
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  Write-Output 'focused-entered'
+  exit 0
+} catch { }
+Write-Output 'no-action'`
+}
+
+/**
+ * 按控件名填值（ValuePattern；没有就退回聚焦 + 全选 + 粘贴）。
+ */
+export function setValueScript(name: string, text: string): string {
+  return `$ErrorActionPreference='Stop'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+Add-Type -AssemblyName System.Windows.Forms
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+$target = $null
+foreach ($el in $all) {
+  try {
+    if ($el.Current.Name -ne '${escapePowerShellString(name)}') { continue }
+    $target = $el
+    break
+  } catch { }
+}
+if ($null -eq $target) { Write-Output 'not-found'; exit 0 }
+try {
+  $pattern = $target.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  $pattern.SetValue('${escapePowerShellString(text)}')
+  Write-Output 'set'
+  exit 0
+} catch { }
+try {
+  $target.SetFocus()
+  [System.Windows.Forms.SendKeys]::SendWait('^a')
+  [System.Windows.Forms.SendKeys]::SendWait('${escapePowerShellString(text)}')
+  Write-Output 'focused-typed'
+  exit 0
+} catch { }
+Write-Output 'no-action'`
+}

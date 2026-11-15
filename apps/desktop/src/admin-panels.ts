@@ -180,6 +180,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       <section><h3 data-t="settings.llmServices"></h3><div data-sec="llm"></div></section>
       <section><h3 data-t="settings.proxy"></h3><div data-sec="proxy"></div></section>
       <section><h3 data-t="settings.skin"></h3><div data-sec="skin"></div></section>
+      <section><h3 data-t="settings.extension"></h3><div data-sec="extension"></div></section>
       <section><h3 data-t="ui.extensions"></h3><div data-sec="slots"></div></section>
       <section><h3 data-t="admin.settings"></h3><div data-sec="settings"></div></section>
     </div>`
@@ -233,6 +234,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     await renderLlmServices(host, services)
     await renderProxySection(host, services)
     await renderSkinSection(host, services)
+    await renderExtensionSection(host, services)
     await renderExtensionSlots(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length}`
   }
@@ -267,6 +269,10 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
         services.notice(result.ok ? services.t('settings.skin.copied') : result.reason)
         void load()
       })
+      return
+    }
+    if (action === 'generate-pairing') {
+      void generatePairingCode(host, services)
       return
     }
     if (action === 'reload-skin') {
@@ -423,6 +429,46 @@ async function renderSkinSection(host: HTMLElement, services: PanelServices): Pr
     + (vars.length === 0 ? '' : `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
         <span class="ldetail">${escapeHtml(vars.join('、'))}</span></div>`)
     + `<div class="lrow"><button data-act="reload-skin" data-t="settings.skin.reload"></button></div>`
+}
+
+/** 浏览器扩展区：给出应用地址与一次性配对码。 */
+async function renderExtensionSection(host: HTMLElement, services: PanelServices): Promise<void> {
+  const box = host.querySelector<HTMLElement>('[data-sec="extension"]')
+  if (box === null) return
+  const shell = (globalThis as unknown as {
+    shellApi?: { extensionPairing?: () => Promise<{ ok?: boolean; code?: string; error?: string }> }
+  }).shellApi
+  const origin = globalThis.location?.origin ?? ''
+  if (shell?.extensionPairing === undefined) {
+    box.innerHTML = `<div class="empty">${escapeHtml(services.t('settings.extension.needShell'))}</div>`
+    return
+  }
+  box.innerHTML = `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.extension.address'))}</span>
+      <span class="ldetail">${escapeHtml(origin)}</span></div>`
+    + `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.extension.code'))}</span>
+      <span class="ldetail" data-role="pairing-code">—</span>
+      <button data-act="generate-pairing" data-t="settings.extension.generate"></button></div>`
+    + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.extension.hint'))}</span></div>`
+}
+
+/** 生成一次性配对码并显示。 */
+async function generatePairingCode(host: HTMLElement, services: PanelServices): Promise<void> {
+  const shell = (globalThis as unknown as {
+    shellApi?: { extensionPairing?: () => Promise<{ ok?: boolean; code?: string; error?: string }> }
+  }).shellApi
+  if (shell?.extensionPairing === undefined) {
+    services.notice(services.t('settings.extension.needShell'))
+    return
+  }
+  const result = await shell.extensionPairing()
+  const target = host.querySelector<HTMLElement>('[data-role="pairing-code"]')
+  if (!result?.ok || result.code === undefined) {
+    if (target !== null) target.textContent = '—'
+    services.notice(result?.error ?? services.t('common.unavailable'))
+    return
+  }
+  if (target !== null) target.textContent = result.code
+  services.notice(services.t('settings.extension.generated'))
 }
 
 /** 扩展插槽区：把 settings.sections 插槽渲染到设置页。 */
