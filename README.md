@@ -43,7 +43,7 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 
-npm test                            # 53 个用例（剧本/记忆/插件/核心）
+npm test                            # 54 个用例（剧本/记忆/插件/核心）
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill                # 确认 harness 的 skills/list 里能看到它
 npm run build                       # 编译成 lib/（纯 Node 可加载）

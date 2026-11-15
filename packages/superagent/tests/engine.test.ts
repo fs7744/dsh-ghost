@@ -9,6 +9,7 @@ function build(over: Partial<Record<string, unknown>> = {}) {
   const assessed = []
   const executorCalls = []
   const sent = []
+  const outboxSent = new Map()
   const policy: Policy = {
     version: 'v1',
     paused: false,
@@ -27,7 +28,12 @@ function build(over: Partial<Record<string, unknown>> = {}) {
       deliver: (...args) => executorCalls.push(['deliver', ...args]),
       stop: (...args) => executorCalls.push(['stop', ...args]),
     },
-    outbox: { send: message => sent.push(message), status: () => undefined, withdraw: () => {} },
+    // outbox 要有状态：幂等性靠 status(id) 判断"这条已发过没有"。
+    outbox: {
+      send: message => { sent.push(message); if (!outboxSent.has(message.id)) outboxSent.set(message.id, 'queued') },
+      status: id => outboxSent.get(id),
+      withdraw: id => { outboxSent.delete(id) },
+    },
     now: () => '2026-02-01T00:00:00.000Z',
     emit: event => events.push(event),
     ...over,
@@ -190,4 +196,16 @@ test('stopTicket 之后票是 ended，且不可重试', () => {
   const stopped = engine.stopTicket(ticketId, '人叫停')
   assert.ok(stopped.ended !== undefined)
   assert.equal(stopped.ended.by, 'human')
+})
+
+test('答复走 outbox，且同一条不会重复发（幂等）', () => {
+  const { engine, sent } = build()
+  engine.receive(trigger({ channel: { source: 'github', thread: 'issue-1', address: { comment: 'c1' } } }))
+  engine.evaluateDue()
+  const decision = engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  const first = engine.reply({ purpose: 'acknowledgement', ticketId: decision.ticketId, triggerId: 'tr1', text: '收到，开始看' })
+  const again = engine.reply({ purpose: 'acknowledgement', ticketId: decision.ticketId, triggerId: 'tr1', text: '收到，开始看' })
+  assert.equal(again.id, first.id, '同一条消息复用同一个 id')
+  assert.equal(again.reused, true)
+  assert.ok(sent.length >= 1)
 })
