@@ -31,12 +31,14 @@ export function freePort() {
  * 启动 `dsh --profile <name> --from-default-profile web`。
  * @returns {Promise<{ child, url, port, logs: () => string }>}
  */
-export async function boot({ profile = 'p05', port, timeoutMs = 120_000 } = {}) {
+export async function boot({ profile = 'p05', port, timeoutMs = 120_000, fromDefault = true } = {}) {
   const listenPort = port ?? await freePort()
   if (!existsSync(BIN)) throw new Error(`找不到 dsh：${BIN}，先 npm i @deepseek-ai/dsh`)
   mkdirSync(DSH_HOME, { recursive: true })
   mkdirSync(WORKSPACE, { recursive: true })
-  const child = spawn(process.execPath, [BIN, '--profile', profile, '--from-default-profile', 'web', '--port', String(listenPort), '--no-open'], {
+  // fromDefault=false 用于"已有 patch / settings 的 profile"——否则会把它们重置掉。
+  const args = ['--profile', profile, ...(fromDefault ? ['--from-default-profile', 'web'] : []), '--port', String(listenPort), '--no-open']
+  const child = spawn(process.execPath, [BIN, ...args], {
     cwd: WORKSPACE,
     env: { ...process.env, DSH_HOME },
     stdio: ['ignore', 'pipe', 'pipe'],
