@@ -407,6 +407,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 - 会话操作白拿：`session/create`、`session/list`、`session/page`、`session/selectModel`、`session/projections`、`session/fork`、`session/cancel`。
 - **我们要补的 7 项**：命令面板、命令通道、压缩策略配置、上下文占用条（含压缩点标记，可展开看被压掉的原文）、checkpoint/rewind UI、会话导出、`/init` 等价的 `GHOST.md` 草案生成。
 
+**Checkpoint / rewind 已落地（C11-05）**：`apps/desktop/src/rewind.ts` 从 `session/page` 提取 `user/message` 作为 checkpoint，消息右侧「↩ 回退」确认后调 `session/fork` 并带精确 `atSeq`。原会话不动、新会话是事件前缀，回退永远可撤销。`npm run verify:rewind` 实测 atSeq=2 → 新会话 4/5 条记录、原会话 5 条不变。注意省略 `atSeq` 的默认 fork 要求「有已完成回合」，UI 始终带 `atSeq` 规避。
+
 **会话导出已落地（C11-06）**：`apps/desktop/src/session-log.ts` 把 `toBubbles` 抽成纯模块（界面、导出、验收共用一份解析），`export.ts` 产出 Markdown（与界面视图一致）与 JSONL（`session/page` 原始记录一行一条不丢字段）。顶栏两个按钮直接下载；`npm run verify:session-export` 在真实宿主上验到 5 条记录 → 两种格式落盘、命令执行记录可见。
 
 **命令面板 MVP 已落地（C11-01）**：`apps/desktop/src/palette.ts` 做纯逻辑（斜杠解析、模糊排序、循环选择），`command-palette.ts` 做候选浮层与键盘接管，`send()` 把 `/` 开头的输入一律改走 `commands/execute`。命令清单来自 `commands/list`、不硬编码；`npm run verify:command-palette` 在真实宿主上验到 6 条命令、执行 `/compact` 成功、且 `user/message` 数量 `0 → 0`——命令确实没进模型消息。`!` 直通与 `@` 引用目前只做识别提示，完整实现依赖 P3 的终端面板与文件树（见 [docs/COMMANDS.md](docs/COMMANDS.md) §4.1）。

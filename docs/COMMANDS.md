@@ -81,6 +81,9 @@
 
 **C11-06 会话导出**：`apps/desktop/src/session-log.ts` 把 `toBubbles` 从 `main.ts` 抽成纯模块（界面、导出、验收共用一份解析），`export.ts` 提供 Markdown / JSONL，顶栏两个按钮直接下载。Markdown 从视图模型生成（与界面看到的完全一致），JSONL 保留 `session/page` 原始记录、一行一条不丢字段；代码围栏长度自适应，正文里的 ``` 不会撑破格式。斜杠命令的 `command/run` 也渲染成 note，导出里看得见执行过什么。验收：`npm run verify:session-export`（真实宿主 5 条记录 → 两种格式落盘）、`npm run test:session-log` + `npm run test:export`（15 个用例）。
 
+**C11-05 Checkpoint / rewind**：`apps/desktop/src/rewind.ts` 从 `session/page` 里找 `user/message` 事件作为 checkpoint（seq + 文本预览），每条「你」的消息右侧有「↩ 回退」按钮，确认后调 `session/fork` 并带精确的 `atSeq`。**原会话不动、新会话是事件前缀**，所以回退永远可撤销。验收：`npm run verify:rewind`（真实宿主：atSeq=2 → 新会话 4/5 条记录、原会话不变）、`npm run test:rewind`（6 用例）。
+注意：省略 `atSeq` 的默认 fork 要求「有已完成回合」，只有命令日志的会话会报 `session/fork-unavailable`；UI 始终带 `atSeq`，不走这条路径。
+
 **边界**：`!` shell 直通与 `@` 文件引用目前只做**识别与提示**——完整直通要终端面板、文件选择要文件树，都属 P3；不在 MVP 里假装支持。
 
 ## 5. 不做

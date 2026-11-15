@@ -11,6 +11,7 @@ import { mountCommandPalette } from './command-palette.ts'
 import { isCommandLine, parseSlash, toCommandItems, type CommandItem } from './palette.ts'
 import { toBubbles, type Bubble, type LogRecord } from './session-log.ts'
 import { downloadText, exportFilename, exportJsonl, exportMarkdown } from './export.ts'
+import { findRewindPoints, forkRequest, rewindLabel, type RewindPoint } from './rewind.ts'
 
 type Transport = ReturnType<typeof createTransport>
 
@@ -59,6 +60,7 @@ const state = {
   sessions: [] as Array<{ sessionId: string; title?: string }>,
   active: undefined as string | undefined,
   commands: [] as CommandItem[],
+  rewindPoints: [] as RewindPoint[],
   events: 0,
   busy: false,
 }
@@ -184,19 +186,25 @@ function renderProjections(projections: unknown): void {
   num.textContent = `${(pressure.projectedTokens / 1000).toFixed(1)}k / ${(pressure.contextWindow / 1000).toFixed(0)}k · ${turns} 回合`
 }
 
-function renderStream(bubbles: readonly Bubble[]): void {
+function renderStream(bubbles: readonly Bubble[], points: readonly RewindPoint[] = []): void {
   const stream = el('stream')
   if (bubbles.length === 0) {
     stream.innerHTML = '<div class="empty">这个会话还没有消息。</div>'
     return
   }
+  let userIndex = 0
   stream.innerHTML = bubbles.map(bubble => {
     if (bubble.kind === 'note') return `<div class="note">${escapeHtml(bubble.text)}</div>`
     if (bubble.kind === 'toolcall') return `<div class="tcard call"><div class="thead">调用 ${escapeHtml(bubble.name)}</div><pre>${escapeHtml(bubble.text)}</pre></div>`
     if (bubble.kind === 'tool') return `<div class="tcard result"><div class="thead">${escapeHtml(bubble.name)} 结果</div><pre>${escapeHtml(bubble.text)}</pre></div>`
-    const who = bubble.kind === 'user' ? '你' : 'Ghost'
-    const chip = bubble.kind === 'assistant' && bubble.tool !== undefined ? `<div class="chip">调用 ${escapeHtml(bubble.tool)}</div>` : ''
-    return `<div class="msg ${bubble.kind}"><div class="who">${who}</div><div class="body">${escapeHtml(bubble.text) === '' ? '<i>（无文本）</i>' : escapeHtml(bubble.text)}</div>${chip}</div>`
+    if (bubble.kind === 'user') {
+      const point = points[userIndex]
+      userIndex += 1
+      const rewind = point === undefined ? '' : `<button class="rewind" data-rewind="${point.seq}" title="从这条消息分叉出新会话">↩ 回退</button>`
+      return `<div class="msg user"><div class="who">你${rewind}</div><div class="body">${escapeHtml(bubble.text)}</div></div>`
+    }
+    const chip = bubble.tool !== undefined ? `<div class="chip">调用 ${escapeHtml(bubble.tool)}</div>` : ''
+    return `<div class="msg ${bubble.kind}"><div class="who">Ghost</div><div class="body">${escapeHtml(bubble.text) === '' ? '<i>（无文本）</i>' : escapeHtml(bubble.text)}</div>${chip}</div>`
   }).join('')
   stream.scrollTop = stream.scrollHeight
 }
@@ -226,7 +234,8 @@ async function openSession(sessionId: string): Promise<number> {
   const page = await transport.call('session/page', { request: { address: { kind: 'session', sessionId }, maxMessages: 60 } })
   const records = (page as { records?: LogRecord[] })?.records ?? []
   el('f-records').textContent = `${records.length} 条记录`
-  renderStream(toBubbles(records))
+  state.rewindPoints = findRewindPoints(records)
+  renderStream(toBubbles(records), state.rewindPoints)
   try {
     const projections = await transport.call('session/projections', { request: { sessionId } })
     renderProjections(projections)
@@ -313,6 +322,28 @@ async function exportSession(format: 'md' | 'jsonl'): Promise<void> {
   }
 }
 
+/** 回退到某个 checkpoint：fork 出新会话，原会话不动，所以永远可撤销。 */
+async function rewindTo(point: RewindPoint): Promise<void> {
+  const transport = state.transport
+  const source = state.active
+  if (transport === undefined || source === undefined) return
+  try {
+    const result = await transport.call('session/fork', forkRequest(source, point))
+    const sessionId = (result as { sessionId?: string })?.sessionId
+    if (sessionId === undefined) {
+      el('f-state').textContent = '回退失败：宿主没返回新会话号'
+      return
+    }
+    // 先立刻在会话树里显示分支（400ms 内有反馈），事件流稍后会同步真实列表
+    state.sessions = [...state.sessions.filter(session => session.sessionId !== sessionId),
+      { sessionId, title: `回退 · 第 ${point.index} 条` }]
+    el('f-state').textContent = `已回退到新会话 ${sessionId.slice(-6)}`
+    await openSession(sessionId)
+  } catch (error) {
+    el('f-state').textContent = `回退失败：${String(error).slice(0, 60)}`
+  }
+}
+
 /** 发送一条消息，并轮询到出现新记录。 */
 async function send(): Promise<void> {
   const transport = state.transport
@@ -359,6 +390,12 @@ async function main(): Promise<void> {
     })
   })
   el('send').addEventListener('click', () => { void send() })
+  el('stream').addEventListener('click', event => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>('[data-rewind]')
+    if (button === null) return
+    const point = state.rewindPoints.find(item => item.seq === Number(button.dataset.rewind))
+    if (point !== undefined && window.confirm(rewindLabel(point))) void rewindTo(point)
+  })
   document.querySelectorAll<HTMLButtonElement>('[data-export]').forEach(button => {
     button.addEventListener('click', () => { void exportSession(button.dataset.export === 'jsonl' ? 'jsonl' : 'md') })
   })
