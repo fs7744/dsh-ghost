@@ -9,5 +9,6 @@
  * 另带工具结果截断：大输出只保留头部，避免把整棵树塞回上下文。
  */
 export { beginBoot, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, pruneUnusedTools, recordToolCall, restoreTool, type ToolLedger, type ToolPruneOptions, type ToolUseStat, } from './tool-prune.ts';
-export { buildSessionBrief, countMemoryEntries, type SessionBriefOptions, } from './brief.ts';
+export { buildMemoryBlock, buildSessionBrief, countMemoryEntries, type SessionBriefOptions, } from './brief.ts';
+export { estimateTokens, planCompaction, type ChatMessage, type CompactionPlan, type CompactionPlanOptions, } from './compaction.ts';
 export { LoopGuard, normalizeFailure, truncateToolResult, type LoopGuardOptions, } from './loop-guard.ts';

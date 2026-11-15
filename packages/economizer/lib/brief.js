@@ -21,39 +21,51 @@ function extractEntries(index, maxEntries) {
     return { lines: all.slice(0, maxEntries), total: all.length };
 }
 /**
+ * 只拼记忆块（不带任务）：普通聊天与开票共用同一段文本。
+ * 条目不足时返回空串，调用方原样发消息，零额外 token。
+ */
+export function buildMemoryBlock(index, options = {}) {
+    const maxChars = options.maxChars ?? 1200;
+    const minEntries = options.minEntries ?? 3;
+    const maxEntries = options.maxEntries ?? 24;
+    const total = countMemoryEntries(index);
+    if (total < minEntries)
+        return '';
+    const { lines } = extractEntries(index, maxEntries);
+    const header = '已知项目记忆（仅索引；需要正文再调 memory_read）：';
+    const tail = total > lines.length ? `（另有 ${total - lines.length} 条，用 memory_list 查看）` : '';
+    const body = [header, ...lines, ...(tail === '' ? [] : [tail])].join('\n');
+    const block = `<project-memory>\n${body}\n</project-memory>`;
+    if (block.length <= maxChars)
+        return block;
+    // 超预算：按行装，装不下就截断，绝不把一行切成半个名字。
+    const kept = [];
+    let used = header.length + 2;
+    for (const line of lines) {
+        if (used + line.length + 1 > maxChars - 32)
+            break;
+        kept.push(line);
+        used += line.length + 1;
+    }
+    if (kept.length === 0)
+        return '';
+    return `<project-memory>\n${header}\n${kept.join('\n')}\n（已截断）\n</project-memory>`;
+}
+/**
  * 拼任务 + 记忆索引。没有足够条目时原样返回任务，一个字符都不多花。
  * @param task - 票标题 / 用户任务
  * @param index - MEMORY.md 文本
  */
 export function buildSessionBrief(task, index, options = {}) {
     const cleanTask = task.trim();
-    const maxChars = options.maxChars ?? 1200;
-    const minEntries = options.minEntries ?? 3;
-    const maxEntries = options.maxEntries ?? 24;
     if (cleanTask === '')
         return '';
-    const total = countMemoryEntries(index);
-    if (total < minEntries)
+    const block = buildMemoryBlock(index, options);
+    if (block === '')
         return cleanTask;
-    const { lines } = extractEntries(index, maxEntries);
-    const header = '已知项目记忆（仅索引；需要正文再调 memory_read）：';
-    const tail = total > lines.length ? `（另有 ${total - lines.length} 条，用 memory_list 查看）` : '';
-    const body = [header, ...lines, ...(tail === '' ? [] : [tail])].join('\n');
-    const block = `<project-memory>\n${body}\n</project-memory>`;
-    const budget = Math.max(0, maxChars - cleanTask.length - 2);
+    const budget = Math.max(0, (options.maxChars ?? 1200) - cleanTask.length - 2);
     if (block.length <= budget)
         return `${cleanTask}\n\n${block}`;
-    // 超预算：按行装，装不下就截断，绝不把一行切成半个名字。
-    const kept = [];
-    let used = header.length + 2;
-    for (const line of lines) {
-        if (used + line.length + 1 > budget - 32)
-            break;
-        kept.push(line);
-        used += line.length + 1;
-    }
-    if (kept.length === 0)
-        return cleanTask;
-    const clipped = `<project-memory>\n${header}\n${kept.join('\n')}\n（已截断）\n</project-memory>`;
-    return `${cleanTask}\n\n${clipped}`;
+    const short = buildMemoryBlock(index, { ...options, maxChars: budget });
+    return short === '' ? cleanTask : `${cleanTask}\n\n${short}`;
 }

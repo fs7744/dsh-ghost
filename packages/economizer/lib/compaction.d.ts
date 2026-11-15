@@ -1,0 +1,41 @@
+/**
+ * 上下文预算与触发判断（纯逻辑）。
+ *
+ * 范围说明（重要）：**就地压缩本身由宿主 `/compact` 完成**，就像 Claude Code、
+ * Codex、Cursor 那样——宿主没暴露改写历史的接口（`session/page` 只读、
+ * `session/prompt` 只追加），我们无法自己替换旧消息。
+ * 我们负责的是另一半，也是真正属于产品体验的部分：
+ *  - 估算当前上下文占用的 token（决定什么时候该压）；
+ *  - 给出一个可解释的触发计划；
+ *  - 决定用哪种模式（就地压缩 / 关闭）。
+ */
+/** 会话里的一条消息（够用即可，不追求还原宿主事件结构）。 */
+export interface ChatMessage {
+    role: 'user' | 'assistant' | 'tool' | 'note';
+    text: string;
+}
+export interface CompactionPlanOptions {
+    /** 上下文预算（估算 token），默认 12000。 */
+    maxTokens?: number;
+    /** 少于多少条消息不触发，默认 8。 */
+    minMessages?: number;
+}
+export interface CompactionPlan {
+    /** 是否该压缩。 */
+    compress: boolean;
+    /** 当前上下文估算 token。 */
+    estimatedTokens: number;
+    /** 消息条数。 */
+    messageCount: number;
+    /** 超过预算多少（估算 token）。 */
+    overflowTokens: number;
+}
+/**
+ * 估算 token：CJK 约 1 字 1 token，其余约 4 字符 1 token。
+ * 只是量级判断，不追求与真实分词器一致。
+ */
+export declare function estimateTokens(text: string): number;
+/**
+ * 判断当前上下文是否该压缩。
+ */
+export declare function planCompaction(messages: readonly ChatMessage[], options?: CompactionPlanOptions): CompactionPlan;

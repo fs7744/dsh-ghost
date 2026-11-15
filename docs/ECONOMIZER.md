@@ -17,13 +17,15 @@ TokenEconomizer 的结论是：不改模型、不改 agent，只从历史会话�
 
 ### 1. 会话前置简报（对标 micro-skills）
 
-实现：`packages/economizer/src/brief.ts` + 编排插件开票时注入。
+实现：`packages/economizer/src/brief.ts` + `ghostMemory/brief` Remote + 桌面聊天/开票两条路径都注入。
 
 - 数据源：`.ghost/memory/MEMORY.md`（索引，每行一条名字+标题）。
 - 触发门槛：**至少 3 条**才注入，避免为两条笔记白付 header。
 - 预算：默认 **1200 字符**（约 300 token），按行裁剪，不切半个条目。
 - 内容只有索引，正文仍用 `memory_read`；模型开局就知道“以前定过什么”，不用先 `memory_list` 再逐条读。
 - 空记忆 / 读不到文件时**原样返回任务**，零额外 token。
+- **普通聊天也前置了**（`apps/desktop/src/chat-context.ts` 的 `composeChatMessage`）：
+  用户原话在前、记忆块在后；开票路径仍用 `buildSessionBrief`。
 
 ### 2. 工具剪枝（对标 tool pruning）
 
@@ -64,26 +66,20 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
 
 `truncateToolResult` 默认 **12000 字符**（约 3k token）。超长结果只留头部，并注明原文长度与“用更精确查询”的提示。
 
-## 配置
+### 5. 历史压缩：自动就地压缩（和主流产品同一做法）
 
-编排插件 `ghost-orchestrator`：
+实现：`packages/economizer/src/compaction.ts`（预算与触发计划）+ `apps/desktop/src/chat-context.ts`（执行）。
 
-| 键 | 默认 | 说明 |
-|---|---|---|
-| `briefFile` | `<stateFile 目录>/memory/MEMORY.md` | 前置简报来源；指向空文件即关闭 |
-| `toolPrune` | `true` | `false` 关闭自动剪枝（账本仍记录） |
-| `keepTools` | `[]` | 永不剪的工具名 |
-| `maxToolResultChars` | `12000` | 单次工具结果上限 |
-| `loopGuard` | `true` | `false` 关闭重复失败提示 |
+- **谁负责什么**：宿主没有改写历史的接口（`session/page` 只读、`session/prompt` 只追加），
+  所以「替换旧消息」只能由宿主做——我们调宿主 `/compact`，这正是
+  **Claude Code `/compact`、Codex `/compact`、Cursor 的 summarize & continue** 的做法。
+  我们负责另一半、也是产品体验的部分：
+  - **自动触发**：不用用户记得敲命令；
+  - **预算判断**：按估算 token（CJK 1 字≈1 token，其余 4 字符≈1 token）对比阈值；
+  - **可解释**：界面直接显示「已就地压缩历史（约 N token → 预算 M）」；
+  - **可关闭**：`localStorage.dsh-ghost.compactMode = 'off'`；阈值用
+    `localStorage.dsh-ghost.contextTokens` 覆盖（默认 12000，设为 0 即关闭）。
+- **不做的事**：不新开会话、不自研就地摘要。抽掉「摘要续接」方案是因为
+  换会话会让宿主侧的连续性与工具状态断裂，代价大于省下的 token；
+  真正想要的是同一个会话里少花 token，那就该在同一个会话里压缩。
 
-## 不做什么（保持诚实）
-
-- **不压缩历史**：上下文压缩是 harness 的 `/compact` 与 `evolution/compaction` 配置，两套东西不混。
-- **不自动改用户 AGENTS.md / settings**：简报只读记忆索引；剪枝只影响本插件注册的可选工具。
-- **不调 judge 模型**：循环判定是确定性的；TokenEconomizer 的 judge 置信度机制没有照搬。
-- **没有真实成本基准**：暂无“省了 X%”的实测数字，只有定义体积与注入预算的静态估算；等有稳定的真实会话样本再补。
-
-## 验证
-
-- `npm run test:economizer`：9 个纯逻辑用例（剪枝门槛/观察期/恢复、简报门槛/预算、循环归一化、截断边界）。
-- 编排插件接入后，`npm run test:shell` / `verify:all -- --only=local` 仍全绿。

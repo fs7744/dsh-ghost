@@ -5,6 +5,7 @@
  * 对话读 `session/page`，写 `session/prompt`；图读 `.flow` 源文件现场编译。
  */
 import { createTransport } from '@dsh-ghost/harness-port'
+import { composeChatMessage, contextBudget, loadBrief, planCompaction } from './chat-context.ts'
 import flowSource from '../../../packages/playbook/examples/ticket-flow.flow?raw'
 import { mountFlowEditor } from './flow-editor.ts'
 import { mountCommandPalette } from './command-palette.ts'
@@ -394,6 +395,12 @@ async function send(): Promise<void> {
   const before = Number.parseInt(el('f-records').textContent ?? '0', 10)
   el('f-state').textContent = '发送中…'
   try {
+    // 历史超预算就先就地压缩（宿主 /compact，和主流产品同一做法）。
+    const budgetHint = contextBudget()
+    const decision = await planCompaction({ transport, sessionId: state.active })
+    // 前置记忆索引（普通聊天也有，不再只走开票那条路）。
+    const brief = await loadBrief(transport)
+    const body = composeChatMessage(text, brief)
     const picked = await ensureModel(state.active)
     if (picked !== undefined) el('f-state').textContent = `模型 ${picked}`
     await transport.call('session/prompt', {
@@ -402,16 +409,21 @@ async function send(): Promise<void> {
         sessionId: state.active,
         mode: 'queue',
         content: [
-          ...(text === '' ? [] : [{ type: 'text' as const, text }]),
+          ...(body === '' ? [] : [{ type: 'text' as const, text: body }]),
           ...receipts.map(receiptId => ({ type: 'file' as const, receiptId })),
         ],
       },
     })
-    el('f-state').textContent = '已投递，等模型…'
+    if (decision.action === 'host') {
+      el('f-state').textContent = `已就地压缩历史（约 ${decision.estimatedTokens} token → 预算 ${budgetHint}）`
+    } else {
+      el('f-state').textContent = '已投递，等模型…'
+    }
+    const baseline = before
     for (let i = 0; i < 60; i += 1) {
       await new Promise(r => setTimeout(r, 1200))
       const count = await openSession(state.active)
-      if (count > before) { el('f-state').textContent = '已更新'; break }
+      if (count > baseline) { el('f-state').textContent = '已更新'; break }
     }
   } catch (error) {
     el('f-state').textContent = `发送失败：${String(error).slice(0, 60)}`

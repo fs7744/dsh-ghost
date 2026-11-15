@@ -9,5 +9,6 @@
  * 另带工具结果截断：大输出只保留头部，避免把整棵树塞回上下文。
  */
 export { beginBoot, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, pruneUnusedTools, recordToolCall, restoreTool, } from './tool-prune.js';
-export { buildSessionBrief, countMemoryEntries, } from './brief.js';
+export { buildMemoryBlock, buildSessionBrief, countMemoryEntries, } from './brief.js';
+export { estimateTokens, planCompaction, } from './compaction.js';
 export { LoopGuard, normalizeFailure, truncateToolResult, } from './loop-guard.js';

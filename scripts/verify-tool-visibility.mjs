@@ -77,6 +77,12 @@ try {
   const selected = await transport.call('session/selectModel', { request: { sessionId: created?.sessionId, provider: 'mock', model: 'mock-1' } })
   process.stdout.write(`模型    ${JSON.stringify(selected?.selected)}\n`)
 
+  // 前置简报 Remote：桌面聊天与开票都靠它把记忆索引前置。
+  const brief = await transport.call('ghostMemory/brief', {}).catch(() => undefined)
+  const briefOk = typeof brief?.text === 'string' && typeof brief?.entries === 'number'
+  process.stdout.write(`${briefOk ? 'PASS' : 'FAIL'}  ghostMemory/brief 可用（entries=${String(brief?.entries)}）\n`)
+  if (!briefOk) failures += 1
+
   await transport.call('session/prompt', {
     request: {
       requestId: `req-${Date.now()}`,

@@ -11,6 +11,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { MemoryStore, memoryTools, type EntryMeta, type JsonSchema, type MemoryWrite, type WriteOutcome } from '@dsh-ghost/memory'
+import { buildMemoryBlock, countMemoryEntries } from '@dsh-ghost/economizer'
 // 纯逻辑模块只做类型引用（type-only，编译后擦除）；运行时值走下方的惰性动态 import。
 // 这样即使宿主 profile 未同步这些包，插件本体仍能加载，现有 ghostMemory/* 不受影响。
 import type {
@@ -38,6 +39,10 @@ export interface Config {
   maxResidentBytes?: number
   /** 仓库根目录，供 `ghostInit/draft` 扫描生成 GHOST.md 草案；缺省取宿主 cwd。 */
   repoRoot?: string
+  /** 前置简报的字符预算，默认 1200。 */
+  briefChars?: number
+  /** 少于这么多条记忆就不产出简报，默认 3。 */
+  briefMinEntries?: number
 }
 
 /** 工具返回值：一个文本块。 */
@@ -48,6 +53,10 @@ interface MemoryToolValue {
 /** 界面通过 Remote 能用到的记忆能力。 */
 export interface MemoryApi {
   list(): Promise<EntryMeta[]>
+  /** 给会话前置用的一小段记忆索引（条目不足时 text 为空）。 */
+  brief(): Promise<{ text: string; entries: number }>
+  /** 给会话前置用的一小段记忆索引（条目不足时 text 为空）。 */
+  brief(): Promise<{ text: string; entries: number }>
   read(name: string): Promise<string | undefined>
   write(write: MemoryWrite): Promise<WriteOutcome>
   remove(name: string): Promise<boolean>
@@ -350,6 +359,12 @@ export class GhostMemoryRemote extends TypertRemoteService {
     return { removed: await requireApi().remove(input.name) }
   }
 
+  /** 前置简报：把索引压成一小段，供桌面聊天/开票在模型看到上下文之前注入。 */
+  @Remote('brief')
+  async brief(): Promise<{ text: string; entries: number }> {
+    return requireApi().brief()
+  }
+
   /** 总开关当前状态。 */
   @Remote('status')
   status(): { enabled: boolean } {
@@ -418,6 +433,15 @@ export function apply(ctx: Context, config: Config): void {
 
   const api: MemoryApi = {
     list: async () => { await store.init(); return store.list() },
+    brief: async () => {
+      await store.init()
+      const index = await store.resident()
+      const text = buildMemoryBlock(index, {
+        maxChars: config.briefChars ?? 1200,
+        minEntries: config.briefMinEntries ?? 3,
+      })
+      return { text, entries: countMemoryEntries(index) }
+    },
     read: async name => { await store.init(); return store.read(name) },
     write: async write => {
       if (!enabled) return { ok: false, reasons: ['记忆写入已关闭'] }

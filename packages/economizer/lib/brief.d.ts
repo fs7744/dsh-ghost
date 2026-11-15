@@ -18,6 +18,11 @@ export interface SessionBriefOptions {
 /** 从 MEMORY.md 里数出索引条目（只认 `- ` 开头的行）。 */
 export declare function countMemoryEntries(index: string): number;
 /**
+ * 只拼记忆块（不带任务）：普通聊天与开票共用同一段文本。
+ * 条目不足时返回空串，调用方原样发消息，零额外 token。
+ */
+export declare function buildMemoryBlock(index: string, options?: SessionBriefOptions): string;
+/**
  * 拼任务 + 记忆索引。没有足够条目时原样返回任务，一个字符都不多花。
  * @param task - 票标题 / 用户任务
  * @param index - MEMORY.md 文本

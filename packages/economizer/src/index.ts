@@ -13,8 +13,12 @@ export {
   type ToolLedger, type ToolPruneOptions, type ToolUseStat,
 } from './tool-prune.ts'
 export {
-  buildSessionBrief, countMemoryEntries, type SessionBriefOptions,
+  buildMemoryBlock, buildSessionBrief, countMemoryEntries, type SessionBriefOptions,
 } from './brief.ts'
+export {
+  estimateTokens, planCompaction,
+  type ChatMessage, type CompactionPlan, type CompactionPlanOptions,
+} from './compaction.ts'
 export {
   LoopGuard, normalizeFailure, truncateToolResult, type LoopGuardOptions,
 } from './loop-guard.ts'

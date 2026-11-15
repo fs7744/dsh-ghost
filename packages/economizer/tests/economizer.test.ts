@@ -2,8 +2,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  beginBoot, buildSessionBrief, countMemoryEntries, emptyLedger, estimateToolChars,
-  LoopGuard, normalizeFailure, pruneUnusedTools, recordToolCall, restoreTool, truncateToolResult,
+  beginBoot, buildMemoryBlock, buildSessionBrief, countMemoryEntries, emptyLedger,
+  estimateTokens, estimateToolChars, LoopGuard, normalizeFailure, planCompaction,
+  pruneUnusedTools, recordToolCall, restoreTool, truncateToolResult,
 } from '../src/index.ts'
 
 const OPTIONAL = ['orchestrator_settings_save', 'orchestrator_eval']
@@ -104,4 +105,36 @@ test('disabled 列表会活过启动，restore 后从列表移除', () => {
   const restored = restoreTool(next, 'orchestrator_eval')
   restored.disabled = (restored.disabled ?? []).filter(name => name !== 'orchestrator_eval')
   assert.deepEqual(restored.disabled, [])
+})
+
+test('记忆块可以单独给普通聊天用', () => {
+  const block = buildMemoryBlock(MEMORY)
+  assert.match(block, /^<project-memory>/)
+  assert.equal(buildMemoryBlock('- `a` — one\n'), '', '不足 3 条不注入')
+  assert.equal(buildSessionBrief('任务', MEMORY).startsWith('任务'), true)
+})
+
+test('token 估算对中英文量级区分', () => {
+  assert.equal(estimateTokens('abcd'), 1)
+  assert.equal(estimateTokens('你好'), 2)
+  assert.equal(estimateTokens('a'.repeat(400)), 100)
+})
+
+test('上下文触发计划：超预算且消息够多才压缩', () => {
+  const small = Array.from({ length: 12 }, (_, index) => ({ role: 'user' as const, text: `问题 ${index}` }))
+  const noPlan = planCompaction(small, { maxTokens: 100_000 })
+  assert.equal(noPlan.compress, false)
+  assert.equal(noPlan.messageCount, 12)
+
+  const big = Array.from({ length: 20 }, (_, index) => ({
+    role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+    text: 'x'.repeat(2000),
+  }))
+  const plan = planCompaction(big, { maxTokens: 1000 })
+  assert.equal(plan.compress, true)
+  assert.ok(plan.overflowTokens > 0)
+  assert.equal(plan.estimatedTokens, plan.messageCount * 500)
+
+  const few = Array.from({ length: 3 }, () => ({ role: 'user' as const, text: 'x'.repeat(4000) }))
+  assert.equal(planCompaction(few, { maxTokens: 1000 }).compress, false, '消息太少不触发')
 })

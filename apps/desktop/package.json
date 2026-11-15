@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "dsh-ghost 桌面端渲染层（先用 Vite 在浏览器里跑，Electron 壳后接）",
+  "description": "dsh-ghost \u684c\u9762\u7aef\u6e32\u67d3\u5c42\uff08\u5148\u7528 Vite \u5728\u6d4f\u89c8\u5668\u91cc\u8dd1\uff0cElectron \u58f3\u540e\u63a5\uff09",
   "scripts": {
     "dev": "vite",
     "build": "vite build"
+  },
+  "dependencies": {
+    "@dsh-ghost/economizer": "0.0.0"
   }
 }

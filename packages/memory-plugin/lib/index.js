@@ -43,6 +43,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { MemoryStore, memoryTools } from '@dsh-ghost/memory';
+import { buildMemoryBlock, countMemoryEntries } from '@dsh-ghost/economizer';
 /** 插件名，cordis 用它做去重与诊断。 */
 export const name = 'ghost-memory';
 /** 依赖的工具注册表。 */
@@ -348,6 +349,7 @@ let GhostMemoryRemote = (() => {
     let _readEntry_decorators;
     let _writeEntry_decorators;
     let _removeEntry_decorators;
+    let _brief_decorators;
     let _status_decorators;
     let _toggle_decorators;
     return class GhostMemoryRemote extends _classSuper {
@@ -357,12 +359,14 @@ let GhostMemoryRemote = (() => {
             _readEntry_decorators = [Remote('read')];
             _writeEntry_decorators = [Remote('write')];
             _removeEntry_decorators = [Remote('remove')];
+            _brief_decorators = [Remote('brief')];
             _status_decorators = [Remote('status')];
             _toggle_decorators = [Remote('toggle')];
             __esDecorate(this, null, _listEntries_decorators, { kind: "method", name: "listEntries", static: false, private: false, access: { has: obj => "listEntries" in obj, get: obj => obj.listEntries }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _readEntry_decorators, { kind: "method", name: "readEntry", static: false, private: false, access: { has: obj => "readEntry" in obj, get: obj => obj.readEntry }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _writeEntry_decorators, { kind: "method", name: "writeEntry", static: false, private: false, access: { has: obj => "writeEntry" in obj, get: obj => obj.writeEntry }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _removeEntry_decorators, { kind: "method", name: "removeEntry", static: false, private: false, access: { has: obj => "removeEntry" in obj, get: obj => obj.removeEntry }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _brief_decorators, { kind: "method", name: "brief", static: false, private: false, access: { has: obj => "brief" in obj, get: obj => obj.brief }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _status_decorators, { kind: "method", name: "status", static: false, private: false, access: { has: obj => "status" in obj, get: obj => obj.status }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _toggle_decorators, { kind: "method", name: "toggle", static: false, private: false, access: { has: obj => "toggle" in obj, get: obj => obj.toggle }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
@@ -388,6 +392,10 @@ let GhostMemoryRemote = (() => {
         /** 删除一条并同步索引。 */
         async removeEntry(input) {
             return { removed: await requireApi().remove(input.name) };
+        }
+        /** 前置简报：把索引压成一小段，供桌面聊天/开票在模型看到上下文之前注入。 */
+        async brief() {
+            return requireApi().brief();
         }
         /** 总开关当前状态。 */
         status() {
@@ -454,6 +462,15 @@ export function apply(ctx, config) {
     }
     const api = {
         list: async () => { await store.init(); return store.list(); },
+        brief: async () => {
+            await store.init();
+            const index = await store.resident();
+            const text = buildMemoryBlock(index, {
+                maxChars: config.briefChars ?? 1200,
+                minEntries: config.briefMinEntries ?? 3,
+            });
+            return { text, entries: countMemoryEntries(index) };
+        },
         read: async (name) => { await store.init(); return store.read(name); },
         write: async (write) => {
             if (!enabled)

@@ -18,10 +18,24 @@ export interface Config {
     maxResidentBytes?: number;
     /** 仓库根目录，供 `ghostInit/draft` 扫描生成 GHOST.md 草案；缺省取宿主 cwd。 */
     repoRoot?: string;
+    /** 前置简报的字符预算，默认 1200。 */
+    briefChars?: number;
+    /** 少于这么多条记忆就不产出简报，默认 3。 */
+    briefMinEntries?: number;
 }
 /** 界面通过 Remote 能用到的记忆能力。 */
 export interface MemoryApi {
     list(): Promise<EntryMeta[]>;
+    /** 给会话前置用的一小段记忆索引（条目不足时 text 为空）。 */
+    brief(): Promise<{
+        text: string;
+        entries: number;
+    }>;
+    /** 给会话前置用的一小段记忆索引（条目不足时 text 为空）。 */
+    brief(): Promise<{
+        text: string;
+        entries: number;
+    }>;
     read(name: string): Promise<string | undefined>;
     write(write: MemoryWrite): Promise<WriteOutcome>;
     remove(name: string): Promise<boolean>;
@@ -142,6 +156,11 @@ export declare class GhostMemoryRemote extends TypertRemoteService {
         name: string;
     }): Promise<{
         removed: boolean;
+    }>;
+    /** 前置简报：把索引压成一小段，供桌面聊天/开票在模型看到上下文之前注入。 */
+    brief(): Promise<{
+        text: string;
+        entries: number;
     }>;
     /** 总开关当前状态。 */
     status(): {
