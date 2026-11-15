@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Engine, MemoryRepositories } from '../src/core/index.ts'
+import { Engine, MemoryRepositories, ticketStage } from '../src/core/index.ts'
 import type { EngineOptions, Policy, Trigger } from '../src/core/index.ts'
 
 /** 建一份全内存的引擎：端口用假的，断言靠 spy 数组。 */
@@ -22,7 +22,11 @@ function build(over: Partial<Record<string, unknown>> = {}) {
     policy: () => policy,
     scope: { scope: () => ({ listened: true, observed: false }) },
     assessor: { request: candidate => assessed.push(candidate) },
-    executor: { start: (...args) => executorCalls.push(['start', ...args]), deliver: (...args) => executorCalls.push(['deliver', ...args]), end: () => {} },
+    executor: {
+      start: (...args) => executorCalls.push(['start', ...args]),
+      deliver: (...args) => executorCalls.push(['deliver', ...args]),
+      stop: (...args) => executorCalls.push(['stop', ...args]),
+    },
     outbox: { send: message => sent.push(message), status: () => undefined, withdraw: () => {} },
     now: () => '2026-02-01T00:00:00.000Z',
     emit: event => events.push(event),
@@ -105,4 +109,85 @@ test('candidate 在评估前为空，评估后有值', () => {
   const candidate = engine.candidate('tr1')
   assert.ok(candidate !== undefined)
   assert.equal(candidate.thread.key, 'github:issue-1')
+})
+
+test('decide accept → 建出 ticket，且标题来自评估结果', () => {
+  const { engine, repo } = build()
+  engine.receive(trigger())
+  engine.evaluateDue()
+  const decision = engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  assert.equal(decision.kind, 'accept')
+  const ticketId = decision.ticketId
+  assert.ok(typeof ticketId === 'string' && ticketId.length > 0)
+  const ticket = repo.tickets.get(ticketId)
+  assert.ok(ticket !== undefined)
+  assert.equal(ticket.title, '修复构建')
+  assert.equal(ticket.ended, undefined, '新票是打开的')
+})
+
+test('decide ignore → 不建票', () => {
+  const { engine, repo } = build()
+  engine.receive(trigger())
+  engine.evaluateDue()
+  const before = repo.tickets
+  const decision = engine.decide('tr1', { kind: 'ignore', reason: '只是闲聊' })
+  assert.equal(decision.kind, 'ignore')
+  assert.equal(decision.ticketId, undefined)
+  assert.equal(before.get('nope'), undefined)
+})
+
+test('同一 trigger 重复 accept 不会建第二张票', () => {
+  const { engine } = build()
+  engine.receive(trigger())
+  engine.evaluateDue()
+  const first = engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  const again = engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  assert.equal(again.ticketId, first.ticketId)
+})
+
+test('建票后会派活给 executor', () => {
+  const { engine, executorCalls } = build()
+  engine.receive(trigger())
+  engine.evaluateDue()
+  engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  assert.ok(executorCalls.some(call => call[0] === 'start'), `期望 start，实际 ${JSON.stringify(executorCalls.map(c => c[0]))}`)
+})
+
+test('报告 ready → 票进入待评审', () => {
+  const { engine, repo } = build()
+  engine.receive(trigger())
+  engine.evaluateDue()
+  const decision = engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  const ticketId = decision.ticketId
+  const assignment = repo.tickets.get(ticketId).assignments.at(-1)
+  engine.assignmentStarted(ticketId, assignment.id)
+  engine.report(ticketId, { state: 'ready', summary: '改好了', at: '2026-02-01T01:00:00.000Z' })
+  const updated = repo.tickets.get(ticketId)
+  assert.equal(updated.assignments.at(-1).report.state, 'ready')
+})
+
+test('没有 follow 项时，report ready 直接结束票（领域规则，不是 bug）', () => {
+  const { engine, repo } = build()
+  engine.receive(trigger())
+  engine.evaluateDue()
+  const decision = engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  const ticketId = decision.ticketId
+  const assignment = repo.tickets.get(ticketId).assignments.at(-1)
+  engine.assignmentStarted(ticketId, assignment.id)
+  engine.report(ticketId, { state: 'ready', summary: '改好了', at: '2026-02-01T01:00:00.000Z' })
+  // 领域规则：ready 报告在没有 follow 项（如 PR 未合并）时即视为完成，票结束。
+  // 面板的"待人处理"看到的是那些还需要人动手的票（review / blocked / answer / delivery）。
+  const stage = ticketStage(repo.tickets.get(ticketId))
+  assert.equal(stage.stage, 'ended')
+})
+
+test('stopTicket 之后票是 ended，且不可重试', () => {
+  const { engine, repo } = build()
+  engine.receive(trigger())
+  engine.evaluateDue()
+  const decision = engine.decide('tr1', { kind: 'accept', title: '修复构建', scope: 'repo-a', reason: '明确要求' })
+  const ticketId = decision.ticketId
+  const stopped = engine.stopTicket(ticketId, '人叫停')
+  assert.ok(stopped.ended !== undefined)
+  assert.equal(stopped.ended.by, 'human')
 })

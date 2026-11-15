@@ -18,7 +18,7 @@
 | `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返（15 个测试全绿） |
 | `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门 + 三个模型工具（10 个测试全绿） |
 | `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已验通模型侧可见并被调用** |
-| `superagent` | 领域核心（15 文件，零 harness 依赖）；**状态机 10 + 引擎入口 8 个用例** |
+| `superagent` | 领域核心（15 文件，零 harness 依赖）；**状态机 10 + 引擎 15 个用例** |
 | **真模型验证** | 真实模型（hy3）自己调用 `memory_write` 写入记忆，11.3s 完成 |
 
 ## 文档
@@ -43,7 +43,7 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 
-npm test                            # 46 个用例（剧本/记忆/插件/核心）
+npm test                            # 53 个用例（剧本/记忆/插件/核心）
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill                # 确认 harness 的 skills/list 里能看到它
 npm run build                       # 编译成 lib/（纯 Node 可加载）
