@@ -18,11 +18,17 @@
     "verify:skill": "node --experimental-strip-types scripts/verify-skill.mjs",
     "test:playbook": "node --test --experimental-strip-types packages/playbook/tests/playbook.test.ts",
     "test:memory": "node --test --experimental-strip-types packages/memory/tests/memory.test.ts",
-    "test": "npm run test:playbook && npm run test:memory"
+    "test": "npm run test:playbook && npm run test:memory && npm run test:plugin",
+    "test:plugin": "node --test --experimental-strip-types packages/memory-plugin/tests/plugin.test.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
     "ws": "^8.23.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-agent": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.3"
   }
 }
