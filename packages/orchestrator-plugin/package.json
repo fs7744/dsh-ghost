@@ -11,7 +11,9 @@
     }
   },
   "dependencies": {
-    "@dsh-ghost/superagent": "0.0.0"
+    "@dsh-ghost/superagent": "0.0.0",
+    "@dsh-ghost/sink-github": "0.0.0",
+    "@dsh-ghost/source-hub": "0.0.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.1.0",

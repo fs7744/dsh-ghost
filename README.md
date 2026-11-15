@@ -6,24 +6,26 @@
 
 ## 现在是什么状态
 
-骨架期。**技术地基已全部验通**（不加载 harness 的任何 Web UI 也能取数、订阅事件、调用 224 个端点），产品代码刚刚开始。
+地基与主链路已打通：**外部事件 → 可插拔信息源 → 票 → 自动执行（真模型）→ 报告 → 回写来源会话**。
+桌面端第一屏可用，P3 其余界面项按 [PLAN.md](PLAN.md) 推进中。
 
 | 已完成 | 说明 |
 |---|---|
 | 契约探针 | 131 项检查，`contract.json`，0.2.2-rc.3 全绿 |
-| 通路 spike | 5/5：启动 → 换 Cookie → `POST /api/session/list` → 拿到真实数据 |
+| 通路 spike | 5/5：启动 → 换 Cookie → `POST /api/session/list` → 真实数据 |
 | 事件流 | `/api/remote.mux` + `$events` → `api-session/added` |
 | 端点生成 | 39 个包 / **224 个 Remote 端点** → 类型化调用表 |
 | `harness-port` | 传输层（调用 + 事件），零 `@deepseek-ai` 依赖 |
-| `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返（15 个测试全绿） |
-| `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门 + 三个模型工具（10 个测试全绿） |
-| `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已验通模型侧可见并被调用** |
-| `sink-github` | Outbox 端口的 GitHub 实现：幂等投递、状态可查、失败留 pending（6 个用例） |
-| `source-github` | webhook 签名校验 + 事件→Trigger 映射（issue/PR/评论，9 个用例） |
-| `orchestrator-plugin` | 引擎常驻宿主：`ghost_ticket` 工具 + `ghostTickets/list` Remote + 持久化 |
-| `superagent` | 领域核心（16 文件，零 harness 依赖）；**30 个用例**；`npm run ticket` 跑真实工单闭环 |
-| **真模型验证** | 真实模型（hy3）自己调用 `memory_write` 写入记忆，11.3s 完成 |
-| `apps/desktop` | 会话树 + 对话（真模型）+ 工具卡片 + 上下文条 + 票列表与详情（全走 Remote）+ 剧本流程图 |
+| `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返 |
+| `memory` + `memory-plugin` | 文件式记忆 + 三个模型工具；**已验通模型侧可见并被调用** |
+| `superagent` | 领域核心（16 文件，零 harness 依赖）；持久化票；`npm run ticket` 跑真实工单 |
+| `orchestrator-plugin` | 引擎常驻宿主：`ghost_ticket` + `ghostTickets/*` + `ghostSources/*` + **自动执行器** + Outbox |
+| `source-hub` | **可插拔信息源**：注册表 + 声明式映射 + 用户自定义 mapper + 通用签名（9 个用例） |
+| `source-github` / `sink-github` | webhook 入口（HMAC）与评论出口（幂等 Outbox） |
+| **自动执行闭环** | 开票后执行器自己 `followup` → 等回合 → 报告 → 票结束，无需人工推进 |
+| **GitHub 全闭环** | webhook → 票 → 真模型 → 评论回到原 issue（本地假服务器端到端验收） |
+| **配置治理** | `scripts/cordis.patch.template.yml` 单一真相源；启动前自动同步编译产物到 profile |
+| `apps/desktop` | 会话树 + 对话 + 工具卡片 + 上下文条 + 票列表/详情 + 剧本流程图（全走 Remote） |
 
 ## 文档
 
@@ -31,12 +33,13 @@
 
 1. [PLAN.md](PLAN.md) — 总纲：架构、分期、已定与待定
 2. [docs/FEATURES.md](docs/FEATURES.md) — 227 项功能账本（白拿 / 移植 / 自建）
-3. [docs/PLAYBOOK.md](docs/PLAYBOOK.md) — 剧本：图给人、文本给模型
-4. [docs/MEMORY.md](docs/MEMORY.md) — 记忆与进化
-5. [docs/COMMANDS.md](docs/COMMANDS.md) — 命令 / 压缩 / 回退 / 导出
-6. [docs/UI-STYLE.md](docs/UI-STYLE.md) — UI 与交互规范
-7. [docs/REVIEW.md](docs/REVIEW.md) — 评审：10 个风险与必改项
-8. [docs/LICENSING.md](docs/LICENSING.md) — 许可证与商标
+3. [docs/SOURCES.md](docs/SOURCES.md) — **可插拔信息源**：三种自定义方式、模板语法、mapper 契约
+4. [docs/PLAYBOOK.md](docs/PLAYBOOK.md) — 剧本：图给人、文本给模型
+5. [docs/MEMORY.md](docs/MEMORY.md) — 记忆与进化
+6. [docs/COMMANDS.md](docs/COMMANDS.md) — 命令 / 压缩 / 回退 / 导出
+7. [docs/UI-STYLE.md](docs/UI-STYLE.md) — UI 与交互规范
+8. [docs/REVIEW.md](docs/REVIEW.md) — 评审：10 个风险与必改项
+9. [docs/LICENSING.md](docs/LICENSING.md) — 许可证与商标
 
 ## 开发
 
@@ -46,24 +49,35 @@ npm run verify:contract           # 契约探针，需要一份 harness 检出
 npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
+npm run build                     # 编译各包到 lib/（纯 Node 可加载）
+npm test                          # 82 个用例（剧本/记忆/插件/领域/持久化/GitHub 出入/信息源）
 
-npm test                            # 73 个用例（剧本/记忆/插件/核心/持久化/GitHub 入与出）
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
-npm run verify:skill                # 确认 harness 的 skills/list 里能看到它
-npm run build                       # 编译成 lib/（纯 Node 可加载）
-npm run smoke:plugin                # 编译产物冒烟（不启 harness）
-npm run verify:plugin-boot          # 把插件挂进 profile 真启动一次
-npm run verify:tool-visibility      # 假模型端点跑一轮：工具→模型→调用→结果回传
-npm run verify:real-model           # 真模型端到端（需要 .env 里的 WB_BASE_URL / WB_KEY）
-npm run verify:auth                 # 安全边界：401 / 伪造 Cookie / 非本机 Host / 事件权限
-npm run verify:commands             # 斜杠命令：commands/list + commands/execute
-npm run check:secrets               # 扫描受版本控制的文件里有没有密钥
+npm run verify:skill              # 确认 harness 的 skills/list 里能看到它
+npm run smoke:plugin              # 编译产物冒烟（不启 harness）
+npm run verify:plugin-boot        # 把插件挂进 profile 真启动一次
+npm run verify:tool-visibility    # 假模型端点跑一轮：工具→模型→调用→结果回传
+npm run verify:real-model         # 真模型端到端（需要 .env 里的 WB_BASE_URL / WB_KEY）
+npm run verify:auth               # 安全边界：401 / 伪造 Cookie / 非本机 Host / 事件权限
+npm run verify:commands           # 斜杠命令：commands/list + commands/execute
+npm run check:secrets             # 扫描受版本控制的文件里有没有密钥
 
-npm run dev:ui                      # 起 harness + 前端（会自动读 .env），打印带 token 的地址
-npm run ticket                      # 跑一条工单：触发 → 准入 → 建票 → 派活（真模型）→ 报告
-npm run verify:github               # GitHub webhook：签名 → Trigger → 开票（本地回环投递）
-npm run verify:outbox               # GitHub 出口：真实 HTTP 假服务器验幂等与失败重试
+npm run dev:ui                    # 起 harness + 前端（自动读 .env，保留人工审批）
+npm run ticket                    # 触发 → 准入 → 建票 → 派活（真模型）→ 报告
+npm run verify:auto-run           # 开票后执行器自己跑完，不需人工推进
+npm run verify:github             # GitHub webhook：签名 → Trigger → 开票
+npm run verify:outbox             # GitHub 出口：真实 HTTP 假服务器验幂等与失败重试
+npm run verify:github-loop        # webhook → 票 → 真模型 → 评论回原 issue
+npm run verify:source-hub         # 一个宿主同时挂三种来源（内置/声明式/自定义 mapper）
 ```
+
+**改了包里的代码之后**：先 `npm run build`，再跑任意验收脚本。`scripts/lib-driver.mjs`
+会在启动宿主前把 `lib/` 同步进 profile 的插件目录，并从模板重新落盘
+`cordis.patch.yml`——不要直接改 `.dsh-home` 里的副本。
+
+**无人值守**：headless 验收会设 `DSH_PERMISSION_MODE=danger-full-access`，让审批请求立即被拒，
+否则模型调用需审批的工具时会停在 `approval/asked` 不再前进。桌面 UI 走
+`workspace-write`，保留人工审批闸门。
 
 `spikes/p05-transport/` 里有一份已安装的 `@deepseek-ai/dsh`（1.3GB，已被 gitignore），
 供 `verify:port`、`gen:remotes` 与事件探针使用。

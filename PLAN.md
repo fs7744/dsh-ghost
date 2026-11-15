@@ -336,11 +336,17 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **已验通（端到端）**：`.flow` → 编译 → 投放 `.dsh/skills/ticket-flow/SKILL.md` → harness `skills/list` 能看到它（`scripts/verify-skill.mjs`）。常驻 37 + 正文 48 token；带节点详情时正文 56（多 8 token 换"按需可查"）。
 
-**GitHub 出口也通了**：`packages/sink-github` 实现 Outbox 端口（幂等、状态可查、失败留 pending 待重试），用真实 HTTP 假服务器验过请求形状与幂等。现在"评论进来 → 票 → 评论回去"两端都在了，中间缺的执行器是下一块。
+**GitHub 出口也通了，全闭环已闭合**：`packages/sink-github` 实现 Outbox 端口（幂等、状态可查、失败留 pending 待重试）。`npm run verify:github-loop` 用两个本地回环假服务器验通整条链：webhook（HMAC）→ 票 → 真模型回合 → 报告 → 评论回到原 issue，正文就是票的报告；重复 flush 不刷屏，状态文件里能看到 `sent`。
 
-**触发源已接 GitHub**：`packages/source-github` 做签名校验与事件映射，`ghostTickets/accept` Remote 收下外部事件；本地回环投递验通（正确签名 202 / 错误签名 401，票在 Remote 上可见，被 @ 的标为 addressed）。
+**触发源已接 GitHub**：`packages/source-github` 做签名校验与事件映射；本地回环投递验通（正确签名 202 / 错误签名 401，被 @ 的标为 addressed）。
+
+**信息源做成可插拔**（不写死、用户可自定义）：`packages/source-hub` 提供注册表、通用签名（头名/算法/前缀可配）、声明式字段映射与用户自定义 `.mjs` mapper。一个宿主里同时挂 GitHub 内置适配器、一个与 GitHub 无关的声明式来源、一个用户 mapper，`ghostSources/list` / `ghostSources/ingest` 全部验通（`npm run verify:source-hub`，9 个单测）。详见 [docs/SOURCES.md](docs/SOURCES.md)。
 
 **引擎已常驻**：`packages/orchestrator-plugin` 把 Engine 挂进宿主，注册 `ghost_ticket` 工具。真实模型自己调用它开了票（`npm run verify:ticket-tool`）。界面右栏能看到票与阶段。票已持久化（`persisting()` 快照 + 启动读回），票状态已改成 Remote（`ghostTickets/list`，网关 source-mode 发现）。两条已知限制都已清掉。
+
+**执行器常驻且自动跑完**：开票后插件自己 `agent.followup` 到驱动会话，读会话快照事件等 `turn/end`（并有"日志静止"兜底），把最后的 assistant 文本交回 Engine，票 working → ended（`npm run verify:auto-run`）。无人值守时审批请求必须立即被拒（`DSH_PERMISSION_MODE=danger-full-access`），否则模型调用需审批的工具会停在 `approval/asked` 不再前进；桌面 UI 保留人工审批。
+
+**配置治理**：`scripts/cordis.patch.template.yml` 是唯一真相源；`scripts/lib-driver.mjs` 每次启动前把编译产物同步进 profile 插件目录并落盘 patch，`stop()` 恢复标准版。这修掉了"改了代码不生效"（profile 里装的是 tgz 快照）和"某个验收脚本整份重写 patch 冲掉 orchestrator 与默认模型"两类顽疾。
 
 **引擎已跑通真实闭环**（`npm run ticket`）：触发 → 准入 → 评估 → 建票 → 派活（真实模型回合）→ 报告 ready → 票 ended。这是 Engine 第一次被非测试代码驱动，执行器真的往 harness 发 prompt 并等回合结束。
 

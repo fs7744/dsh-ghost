@@ -6,9 +6,11 @@
 
 ## 0.1 进度快照（2026-11-15）
 
-**已完成 29 项 / 227**（含 C2-02、C2-03 基础版与 C11-02）：B1-01～08（领域核心 + 25 个用例）、C1-01（transport）、C1-02（契约 + 224 端点生成）、C1-03（探针）、C1-06（通路 spike）、C9-01（解析器）、C9-02（编译器 + 节点详情）、C9-09（包结构编译）、C10-01（记忆存储）、C10-02（记忆工具，真模型验通）、C10-04（写入门槛）。
+**已完成 33 项 / 227**（含 C2-02、C2-03 基础版、C11-02 与 C8-01/02/05 基础版）：B1-01～08（领域核心 + 25 个用例）、C1-01（transport）、C1-02（契约 + 224 端点生成）、C1-03（探针）、C1-06（通路 spike）、C9-01（解析器）、C9-02（编译器 + 节点详情）、C9-03（流程图渲染基础版）、C9-09（包结构编译）、C10-01（记忆存储）、C10-02（记忆工具，真模型验通）、C10-04（写入门槛）、C8-01（聊天流）、C8-02（工具卡片）、C8-05（会话树）。
 
-**下一批（按依赖顺序）**：C2 安全鉴权 3 → C9-03/04（图渲染与编辑器）→ C8 界面最小 8 项 → C11 命令面板。
+**本轮新增的工程件**（不单列进 227 项账本，但都有可跑的验收）：自动执行器（`verify:auto-run`）、可插拔信息源 `source-hub`（`verify:source-hub`，见 [SOURCES.md](SOURCES.md)）、GitHub 全闭环（`verify:github-loop`）、配置治理（patch 模板 + 启动同步）。
+
+**下一批（按依赖顺序）**：C9-04（图编辑器）→ C8 界面其余项 → C11 命令面板与压缩策略 → C10-03 记忆界面。
 其余（B2–B7 的宿主装配、C3 模型管理、C5 壳、C6 发布）依赖前三批，不宜提前。
 
 ## 0. 总量
@@ -312,6 +314,10 @@ Windows NSIS / macOS dmg + 公证 / Linux AppImage / 更新通道与灰度 / 发
 - ~~票不持久化~~ → **已修**：`persisting(repo, file)` 在每次事务后快照，启动时读回（4 个用例覆盖；重启验收通过）。局限：整体重写，票量大时要换 append-only/SQLite。
 - ~~票状态走文件桥~~ → **已修**：插件继承 `TypertRemoteService` 注册 `ghostTickets/list`（网关 source-mode 发现，无需预生成描述符），界面直接走 Remote。
   注意：网关调用 Remote 方法时 `this` 不保证是本实例，私有字段会抛错——用模块级槽位取视图。
+- ~~profile 里装的是 tgz 快照，改了源码不生效~~ → **已修**：`scripts/lib-driver.mjs` 在每次启动宿主前把编译产物同步进 profile 的插件目录；改完代码先 `npm run build`。
+- ~~验收脚本整份重写 `cordis.patch.yml`，冲掉 orchestrator 与默认模型~~ → **已修**：`scripts/cordis.patch.template.yml` 是唯一真相源，临时 patch 走 `boot({ patch })`，`stop()` 自动恢复。
+- **无人值守审批**：headless 宿主若保留 `ask` 策略，模型调用需审批的工具会停在 `approval/asked` 永不结束。验收层设 `DSH_PERMISSION_MODE=danger-full-access`（策略 `never`）；桌面 UI 走 `workspace-write` 保留人工审批。
+- **持久化仍是整体重写快照**：票量大时要换 append-only/SQLite。
 
 ### C9 剧本与技能包（12）
 

@@ -6,12 +6,11 @@
  * 这是唯一会花钱的验证脚本，跑一次只发 1~3 个请求。
  */
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { boot, stop, login, createTransport } from './lib-driver.mjs'
 
 const REPO = join(import.meta.dirname, '..')
-const PROFILE_DIR = join(REPO, 'spikes', 'p05-transport', '.dsh-home', 'profiles', 'p05')
 const MEMORY_ROOT = join(REPO, '.ghost', 'memory')
 
 /** 读 .env（不引第三方依赖）。 */
@@ -35,35 +34,14 @@ if (baseUrl === undefined || key === undefined) {
   process.stdout.write('缺少 WB_BASE_URL / WB_KEY（写进 .env）\n')
   process.exit(2)
 }
+// 凭据注入进程环境：宿主启动时由 lib-driver 从模板渲染进 profile 的 patch。
 process.env.WB_KEY = key
+process.env.WB_BASE_URL = baseUrl
+process.env.WB_MODEL = model
 
 // 每次从干净的记忆开始，才能证明是"这次写进去的"
 rmSync(MEMORY_ROOT, { recursive: true, force: true })
 mkdirSync(MEMORY_ROOT, { recursive: true })
-
-writeFileSync(join(PROFILE_DIR, 'cordis.patch.yml'), [
-  '# 真模型验证用的插件层（verify-real-model.mjs 生成）',
-  '- insert:',
-  '    - id: ghost-memory',
-  "      name: '@dsh-ghost/memory-plugin'",
-  '      config:',
-  `        root: '${MEMORY_ROOT.replace(/\\/g, '/')}'`,
-  '',
-  '- id: llm-pi-ai',
-  '  config:',
-  '    providers:',
-  '      wb:',
-  '        displayName: WorkBuddy Gateway',
-  '        api: openai-completions',
-  `        baseURL: ${baseUrl}`,
-  '        apiKeyEnv: WB_KEY',
-  '        models:',
-  `          - id: ${model}`,
-  '            name: ' + model,
-  '            contextWindow: 192000',
-  '            maxTokens: 8192',
-  '',
-].join('\n'))
 
 let failures = 0
 let server

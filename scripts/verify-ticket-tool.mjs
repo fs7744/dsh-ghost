@@ -19,6 +19,9 @@ if (existsSync(envFile)) {
 }
 const stateFile = join(REPO, '.ghost', 'tickets.json')
 rmSync(stateFile, { force: true })
+// 必须连快照一起删：persisting() 启动会读回旧票，否则状态文件一上来就有票，
+// 循环立刻退出，误以为模型开了新票。
+rmSync(`${stateFile}.snapshot.json`, { force: true })
 
 let server = await boot({ profile: 'p05', fromDefault: false })
 let second
@@ -57,18 +60,20 @@ try {
     process.stdout.write(`PASS  常驻引擎开出票：${ticket.id.slice(0, 8)} · ${ticket.title} · ${JSON.stringify(ticket.stage)}\n`)
   }
 
+  // 在同一个宿主里读 tool/call：票是工具调用开出来的，此时日志已经落定。
+  // （不要等重启后再读——会话落盘有时序，跨进程查旧 sessionId 会偶发 not-found。）
+  await new Promise(r => setTimeout(r, 1500))
+  const page = await transport.call('session/page', { request: { address: { kind: 'session', sessionId: created.sessionId }, maxMessages: 80 } })
+  const calls = (page.records ?? []).filter(record => record.event?.type === 'tool/call').map(record => record.event.data.name)
+
   // 持久化验收：重启一次宿主，票应当还在
   await stop(server.child)
   second = await boot({ profile: 'p05', fromDefault: false })
-  const transport2 = createTransport(await login(second.url, 'none'))
   await new Promise(r => setTimeout(r, 2000))
   const after = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : { tickets: [] }
   process.stdout.write(`${after.tickets.length > 0 ? 'PASS' : 'FAIL'}  重启后票仍在：${after.tickets.length} 张\n`)
   if (after.tickets.length === 0) failures += 1
 
-  // 用重启后的客户端读会话日志（harness 的会话是持久化的）
-  const page = await transport2.call('session/page', { request: { address: { kind: 'session', sessionId: created.sessionId }, maxMessages: 80 } })
-  const calls = (page.records ?? []).filter(record => record.event?.type === 'tool/call').map(record => record.event.data.name)
   process.stdout.write(`${calls.includes('ghost_ticket') ? 'PASS' : 'FAIL'}  会话里出现 tool/call：${calls.join(', ') || '(无)'}\n`)
   if (!calls.includes('ghost_ticket')) failures += 1
 } catch (error) {

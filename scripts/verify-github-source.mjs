@@ -7,11 +7,16 @@
  */
 import { createServer } from 'node:http'
 import { createHmac } from 'node:crypto'
+import { rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { boot, stop, login, createTransport } from './lib-driver.mjs'
 import { toTriggers, verifySignature } from '../packages/source-github/src/index.ts'
 
 const SECRET = 'local-dev-secret'
 const BOT = 'dsh-ghost'
+// 票状态会被 persisting() 持久化；不清快照就可能匹配到上一条验收留下的旧票。
+const REPO = join(import.meta.dirname, '..')
+rmSync(join(REPO, '.ghost', 'tickets.json.snapshot.json'), { force: true })
 
 const server = await boot({ profile: 'p05', fromDefault: false })
 let failures = 0
@@ -44,6 +49,7 @@ try {
             human: trigger.human,
             addressed: trigger.addressed === 'mention',
             ...(trigger.url === undefined ? {} : { url: trigger.url }),
+            ...(trigger.channel === undefined ? {} : { channel: trigger.channel }),
             actor: String(trigger.actor?.id ?? 'unknown'),
           },
         })

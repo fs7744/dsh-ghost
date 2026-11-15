@@ -19,7 +19,7 @@ if (existsSync(envFile)) {
     if (match !== null && process.env[match[1]] === undefined) process.env[match[1]] = match[2]
   }
 }
-const server = await boot({ profile: 'p05', fromDefault: false, timeoutMs: 150_000 })
+const server = await boot({ profile: 'p05', fromDefault: false, timeoutMs: 150_000, permissionMode: 'workspace-write' })
 const token = new URL(server.url).searchParams.get('token')
 process.stdout.write(`harness  ${server.url.replace(/token=[\w.-]+/, 'token=***')}\n`)
 

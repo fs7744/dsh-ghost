@@ -1,0 +1,81 @@
+# dsh-ghost 的宿主插件层 —— 单一真相源。
+# scripts/lib-driver.mjs 每次启动宿主前把它落盘到 profile 的 cordis.patch.yml；
+# 不要直接改 .dsh-home 里的副本（会被覆盖）。占位符由 renderPatch() 替换。
+- insert:
+    - id: ghost-memory
+      name: '@dsh-ghost/memory-plugin'
+      config:
+        root: '{{REPO}}/.ghost/memory'
+
+    - id: ghost-orchestrator
+      name: '@dsh-ghost/orchestrator-plugin'
+      config:
+        stateFile: '{{REPO}}/.ghost/tickets.json'
+        source: 'local'
+        # 信息源可插拔：内置 GitHub / 声明式映射 / 用户自定义 mapper。
+        # 密钥一律走 *Env 指向环境变量，不写进配置。详见 docs/SOURCES.md。
+        sources:
+          - id: github
+            kind: github
+            description: 'GitHub webhook（内置适配器）'
+            auth:
+              type: hmac
+              header: x-hub-signature-256
+              prefix: 'sha256='
+              secretEnv: GH_WEBHOOK_SECRET
+            options:
+              botLogin: dsh-ghost
+              mentionAliases: [ghost]
+
+          - id: forum
+            kind: generic
+            description: '任意 JSON webhook（声明式映射）'
+            auth:
+              type: token
+              header: x-forum-token
+              valueEnv: HUB_FORUM_TOKEN
+            mapping:
+              eventHeader: x-source-event
+              events: [message.created]
+              where:
+                - path: payload.kind
+                  equals: question
+              fields:
+                threadId: '{{payload.conversation}}#{{payload.id}}'
+                text: '{{payload.body}}'
+                actor: '{{payload.sender}}'
+                human: '{{payload.isHuman}}'
+                addressed:
+                  contains: ['@ghost']
+                channel:
+                  thread: '{{payload.conversation}}'
+                  address:
+                    number: '{{payload.id}}'
+
+          - id: mine
+            kind: custom
+            description: '用户自定义 .mjs mapper'
+            options:
+              mention: '@ghost'
+            mapper: '{{REPO}}/packages/source-hub/examples/im.mjs'
+
+- id: llm-pi-ai
+  config:
+    providers:
+      wb:
+        displayName: WorkBuddy Gateway
+        api: openai-completions
+        baseURL: {{BASE_URL}}
+        apiKeyEnv: WB_KEY
+        models:
+          - id: {{MODEL}}
+            name: {{MODEL}}
+            contextWindow: 192000
+            maxTokens: 8192
+
+# 新会话自动选中可用模型，避免默认模型不可用导致 session/model-unavailable。
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: wb
+    model: {{MODEL}}

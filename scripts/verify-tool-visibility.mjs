@@ -9,7 +9,7 @@
  */
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { boot, stop, login, createTransport } from './lib-driver.mjs'
 
@@ -36,9 +36,9 @@ fake.stdout.on('data', chunk => { fakeLogs += chunk.toString() })
 fake.stderr.on('data', chunk => { fakeLogs += chunk.toString() })
 await sleep(700)
 
-// 2) 把 mock 路由写进 profile 的 patch（base 的 llm-pi-ai 行是 dormant：零路由）
-writeFileSync(join(PROFILE_DIR, 'cordis.patch.yml'), [
-  '# dsh-ghost 的插件层（由 verify-tool-visibility.mjs 生成）',
+// 2) 临时 mock 路由（由 boot 的 patch 参数落盘，stop 时自动恢复标准 patch）
+const mockPatch = [
+  '# 工具可见性验收的临时 patch（mock 路由，stop 后恢复标准版）',
   '- insert:',
   '    - id: ghost-memory',
   "      name: '@dsh-ghost/memory-plugin'",
@@ -60,14 +60,14 @@ writeFileSync(join(PROFILE_DIR, 'cordis.patch.yml'), [
   '            contextWindow: 200000',
   '            maxTokens: 8192',
   '',
-].join('\n'))
+].join('\n')
 
 process.env.MOCK_KEY = 'mock-key'
 
 let failures = 0
 let server
 try {
-  server = await boot({ profile: 'p05', fromDefault: false })
+  server = await boot({ profile: 'p05', fromDefault: false, patch: mockPatch })
   const session = await login(server.url, 'none')
   const transport = createTransport({ ...session, onError: error => process.stdout.write(`WARN  ${String(error)}\n`) })
 

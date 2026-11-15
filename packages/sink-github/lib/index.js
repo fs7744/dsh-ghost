@@ -1,0 +1,73 @@
+/**
+ * 创建 GitHub 评论出口。
+ * @param options - 令牌、仓库与投递函数
+ */
+export function createGithubSink(options) {
+    const apiBase = options.apiBase ?? 'https://api.github.com';
+    const table = new Map();
+    const headers = {
+        authorization: `Bearer ${options.token}`,
+        accept: 'application/vnd.github+json',
+        'content-type': 'application/json',
+        'x-github-api-version': '2022-11-28',
+    };
+    const post = options.post ?? (async (url, body, requestHeaders) => {
+        try {
+            const response = await fetch(url, { method: 'POST', headers: requestHeaders, body: JSON.stringify(body) });
+            if (!response.ok)
+                return { ok: false, error: `HTTP ${response.status}` };
+            const json = await response.json();
+            return { ok: true, ...(json.id === undefined ? {} : { commentId: String(json.id) }) };
+        }
+        catch (error) {
+            return { ok: false, error: String(error) };
+        }
+    });
+    /** 消息对应到哪个 issue/PR 号。 */
+    const targetOf = (message) => message.channel.address.number ?? (message.channel.thread.includes('#') ? message.channel.thread.split('#')[1] : undefined);
+    return {
+        send(message) {
+            // 幂等：已存在就保留第一条，不覆盖
+            if (table.has(message.id))
+                return;
+            table.set(message.id, { message, status: 'pending', attempts: 0 });
+        },
+        status(id) {
+            return table.get(id)?.status;
+        },
+        withdraw(id) {
+            const entry = table.get(id);
+            // 已经发出去的收不回；未发的直接丢弃
+            if (entry !== undefined && entry.status === 'pending')
+                entry.status = 'dropped';
+        },
+        async flush() {
+            let sent = 0;
+            let failed = 0;
+            for (const entry of table.values()) {
+                if (entry.status !== 'pending')
+                    continue;
+                const number = targetOf(entry.message);
+                if (number === undefined) {
+                    entry.status = 'dropped';
+                    entry.error = 'no-target';
+                    continue;
+                }
+                entry.attempts += 1;
+                const result = await post(`${apiBase}/repos/${options.repo}/issues/${number}/comments`, { body: entry.message.text }, headers);
+                if (result.ok) {
+                    entry.status = 'sent';
+                    sent += 1;
+                    if (result.commentId !== undefined)
+                        entry.commentId = result.commentId;
+                }
+                else {
+                    entry.error = result.error ?? 'unknown';
+                    failed += 1;
+                }
+            }
+            return { sent, failed };
+        },
+        entries: () => [...table.values()],
+    };
+}
