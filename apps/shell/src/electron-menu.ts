@@ -19,7 +19,7 @@ export interface MenuDeps {
 }
 
 export function buildApplicationMenu(deps: MenuDeps): void {
-  const template = [
+  const template: Parameters<typeof Menu.buildFromTemplate>[0] = [
     {
       label: deps.translate('menu.file'),
       submenu: [

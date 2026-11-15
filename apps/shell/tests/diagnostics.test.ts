@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  buildDiagnosticZip, collectDiagnostics, redactText, redactValue,
+  buildDiagnosticZip, clipTickets, collectDiagnostics, redactText, redactValue,
   type DiagnosticCollector, type DiagnosticFile,
 } from '../src/diagnostics.ts'
 import { FakeClock } from './fakes.ts'
@@ -131,4 +131,17 @@ test('空文件列表与空 knownSecrets 不抛错且仍生成合法 EOCD', () =
   const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength)
   assert.equal(view.getUint32(0, true), 0x06054b50)
   assert.equal(redactText('plain text', []), 'plain text')
+})
+
+test('clipTickets 只留白名单字段并限条数，避免诊断包塞进整棵树', () => {
+  const tickets = Array.from({ length: 120 }, (_, index) => ({
+    id: `t${index}`, title: `标题 ${index}`, stage: { stage: 'working' },
+    report: 'x'.repeat(10_000), secretInternal: 'nope',
+  }))
+  const clipped = clipTickets(tickets) as Array<Record<string, unknown>>
+  assert.equal(clipped.length, 100)
+  assert.deepEqual(Object.keys(clipped[0] ?? {}).sort(), ['id', 'stage', 'title'])
+  assert.equal(clipped[0]?.report, undefined)
+  assert.equal(clipped[0]?.secretInternal, undefined)
+  assert.deepEqual(clipTickets('not-an-array'), [])
 })

@@ -124,3 +124,24 @@ test('超长正文先截断再发，避免 422 永久失败', async () => {
   assert.ok(body.length < 200)
   assert.match(body, /已截断，原文 500 字/)
 })
+
+test('429 按 Retry-After 退避，期间不重复打 API', async () => {
+  let calls = 0
+  let clock = 1_000
+  const sink = createGithubSink({
+    token: 't', repo: 'r', now: () => clock,
+    post: async () => {
+      calls += 1
+      return { ok: false, error: 'HTTP 429', retryAfterMs: 5_000 }
+    },
+  })
+  sink.send(message())
+  await sink.flush()
+  assert.equal(calls, 1)
+  assert.equal(sink.status('m1'), 'pending')
+  await sink.flush()
+  assert.equal(calls, 1, '退避期内不应再请求')
+  clock = 7_000
+  await sink.flush()
+  assert.equal(calls, 2)
+})

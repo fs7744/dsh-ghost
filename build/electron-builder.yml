@@ -16,8 +16,11 @@ files:
   - apps/shell/dist/**/*
   - apps/shell/onboarding.html
   - apps/shell/about.html
+  - apps/shell/preload.cjs
   - apps/desktop/dist/**/*
   - package.json
+  # 运行时在 resources/runtime（asar 外）；asar 内不需要 node_modules。
+  - "!node_modules/**"
 
 extraResources:
   - from: apps/desktop/dist
@@ -47,8 +50,9 @@ win:
       arch:
         - x64
   artifactName: dsh-ghost-${version}-win-x64.${ext}
-  signingHashAlgorithms:
-    - sha256
+  signtoolOptions:
+    signingHashAlgorithms:
+      - sha256
   # 自定义协议（C5-03）：dsh-ghost:// 深链唤醒由单实例锁处理。
   protocols:
     - name: dsh-ghost

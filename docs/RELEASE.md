@@ -68,18 +68,21 @@
 
 1. **代码签名**：证书（PFX）与口令需 CI secret `CSC_LINK` / `CSC_KEY_PASSWORD`（或
    `WIN_CSC_*`）。未注入时产出**未签名**安装包，仅内部测试。
-2. **Electron 内置 Node / ABI**：harness 要求 Node >= 24.9 且用 node-pty / koffi /
-   node:sqlite。Electron 44 内置 Node 版本、原生模块 ABI 匹配需按 PLAN §8.5 实测；
-   本机 node 为 v22.22.2、electron 包未安装，故**未运行 electron、未 npm install**。
-3. **真实安装包与 NSIS 安装/卸载**：需 `npm ci` 安装 electron / electron-builder 后构建，
-   并在干净 Windows 机器上跑安装、文件关联、协议唤醒、开机启动。
+2. ✅ **Electron 内置 Node / ABI 已实测**：Electron **44.7.0**（自带 Node 24.21.0）下
+   `node-pty` / `koffi` / `node:sqlite` 均可加载；真实壳启动到 `healthy`。
+   ⚠️ harness 有 Electron 指纹白名单：44.x 只认 44.0.0 / 44.7.0，44.11.x 会被拒绝；
+   升级 Electron 必须重跑 `docs/RELEASE.md §6` 的冒烟。
+3. **真实安装包与 NSIS 安装/卸载**：`--dir` 与 NSIS 安装包均已产出并校验了 asar 启动；
+   但本机未执行安装/卸载，文件关联、协议唤醒、开机启动、干净机器仍需实测。
+   打包用 `CSC_IDENTITY_AUTO_DISCOVERY=false` 跳过签名；未签名包不能作为正式发布物。
 4. **真实图标与许可文件**：`build/resources/` 目前是占位说明（见 `apps/shell/ASSETS.md`），
    发第一版安装包前必须补齐原创图标、`LICENSE.electron.txt`、`LICENSES.chromium.html`、
    `THIRD_PARTY_NOTICES`。
 5. **自动更新真实放量**：需要真实 feed 服务、签名后的 latest.yml 与灰度配置；本期不发布。
-6. **宿主启动参数**：`electron-host-launcher.ts` 已按 `bin.js --host/--port/--state-dir/
-   --permission-mode` 接线，并用 `ELECTRON_RUN_AS_NODE=1` 以 Node 模式跑 Electron 可执行文件
-   （否则会当成第二个 Electron 应用启动）。真实参数仍需按宿主版本核对。
+6. **宿主启动参数（已按真实 CLI 修正）**：`dsh --profile <name> [--patch <yml>]
+   --host 127.0.0.1 --port N --no-open`；`DSH_HOME` 走环境变量；token 由宿主打印、
+   从 stdout 解析（不再自造 token）。子进程用 `ELECTRON_RUN_AS_NODE=1` 以 Node 模式运行。
+   打包态仍需把插件同步进 profile（开发态复用 `spikes/p05-transport/.dsh-home`）。
 7. **宿主运行时打包**：`@deepseek-ai/dsh` 与原生依赖不能进 asar。`build/electron-builder.yml`
    的 `extraResources` 会把 `build/runtime` 拷到 `resources/runtime`，入口按
    `resources/runtime/node_modules/@deepseek-ai/dsh/lib/bin.js` 解析。

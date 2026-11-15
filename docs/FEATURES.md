@@ -37,7 +37,7 @@
 | 记忆与上下文 | C10-05～07、C11-03/07 | `packages/evolution` + `ghostEvolution/*` / `ghostInit/*` / `ghostCompaction/*` Remote | `test:evolution`、`verify:evolution`、`verify:init`、`verify:compaction` |
 | 契约与升级 | C1-04/05、R1 事件面 | `harness-contract/{gen-events.mjs,events.json,matrix.json}`、`scripts/{upgrade-harness,check-port-discipline,verify-events}.mjs` | `verify:events`、`verify:port-discipline`、`upgrade:harness -- <v>`（dry-run） |
 | 模型与测试 | C2-03、C3、C4 | `packages/model-manager`、`packages/model-adapter-kit`、`scripts/{llm-mock-server,replay,verify-l3,verify-l5,verify-models,verify-gates}.mjs`、`.github/workflows/ci.yml` | `test:model`、`verify:mock-server`、`test:replay`、`verify:l3`、`verify:models`、`verify:gates` |
-| 壳与发布 | C5/C6/C7 | `apps/shell/**`、`build/**`、`.github/workflows/release.yml`、`docs/{RELEASE,PRIVACY,THIRD-PARTY,DIAGNOSTICS}.md` | `test:shell`（133 用例）、`verify:shell`、`check:shell` |
+| 壳与发布 | C5/C6/C7 | `apps/shell/**`、`build/**`、`.github/workflows/release.yml`、`docs/{RELEASE,PRIVACY,THIRD-PARTY,DIAGNOSTICS}.md` | `test:shell`（136 用例）、`verify:shell`、`check:shell` |
 | superagent 装配 | B2–B7、C2-01 | `packages/superagent/**`（tools / app/views / app/host / sources / infra / prompts / playbooks / scripts）、`docs/SUPERAGENT.md` | `test:superagent`（78 用例）、`verify:superagent-assets`（8 项静态验收）；**19 个 `orchestrator_*` 工具已真正注册进 `ctx.tools`**，不再只是描述符 |
 
 ## 0. 总量

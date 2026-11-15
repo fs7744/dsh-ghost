@@ -17,12 +17,12 @@
 
 **契约面已收口**：131 项宿主侧探针 + **224 个 Remote 端点**（`remotes.json` → 类型表）+ **31 个转发事件**（`events.json` → 类型表，含 `emit` / `waterfall` 与资源身份）。两者都从运行时编译产物生成，`npm run verify:events` 做漂移校验，升级流水线第 3 步自动重生成——这正是 REVIEW R1 要求的"renderer 侧契约也必须自动生成"。
 
-**验收口径**：`npm test` = **487 个用例 / 20 个套件**；`npm run typecheck` / `check:ui` / `check:shell`；`build` = **12 个包**；`build:ui`（含 `models.html` 多页产物）；`npm run verify:all` 一条命令跑完 **41 项**验收（local 20 + host 16 + model 5），或 `verify:gates` 看 7 项 PR 门禁总表。L3 真模型冒烟只断言结构，L4 离线评分、L5 Playwright 骨架在未装依赖时显式 SKIP；本轮 L3 已用真模型跑通 3/3 结构断言。
+**验收口径**：`npm test` = **491 个用例 / 20 个套件**；`npm run typecheck` / `check:ui` / `check:shell`；`build` = **12 个包**；`build:ui`（含 `models.html` 多页产物）；`npm run verify:all` 一条命令跑完 **41 项**验收（local 20 + host 16 + model 5），或 `verify:gates` 看 7 项 PR 门禁总表。L3 真模型冒烟只断言结构，L4 离线评分、L5 Playwright 骨架在未装依赖时显式 SKIP；本轮 L3 已用真模型跑通 3/3 结构断言。
 
 **仍未在本机闭环的，只有需要外部凭据/真实环境的 P4 动作**（代码与配置已就绪，不假装验过）：
 
 1. Windows 代码签名证书（CI secret `CSC_LINK` / `CSC_KEY_PASSWORD`）与真实 NSIS 安装 → 自更新 → 卸载全链路。
-2. **Electron 44 内置 Node 版本与 `node-pty` / `koffi` / `node:sqlite` 的 ABI 实测**（§8.5 第 1、2 项）：本机 Node 22、未安装 Electron，只做了静态自检与纯逻辑测试。
+2. ✅ **Electron 内置 Node 与原生模块已实测**：Electron **44.7.0** 自带 Node 24.21.0，`node-pty` / `koffi` / `node:sqlite` 均可加载；真实壳启动到 `healthy`，asar 产物同样可启动。注意 harness 有 Electron 指纹白名单（44.x 只认 44.0.0 / 44.7.0），**不能随意升 44.11.x**。
 3. 发版前用**官方 BYOK**跑 L3 / L4；本地网关只用于开发自测。
 4. 自动更新的真实 feed、灰度与 `latest.yml`；插件市场 / 文档站 / 遥测为默认关闭的骨架。
 5. macOS 公证与 Linux AppImage 按 §8.4 明确**不在本期范围**。
@@ -330,8 +330,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 ### 8.5 P3 前置核对（动手前必须先验）
 
-1. ⚠️ Electron 内置 Node 版本是否满足 harness 的 `engines.node >= 24.9`：**仍需真机实测**（本机 Node 22、未装 Electron；`apps/shell` 已把这条写成发布前门禁，见 `docs/RELEASE.md`）。
-2. ⚠️ `node-pty` / `koffi` / `node:sqlite` 在 Electron ABI 下是否可用：**仍需真机实测**，原生模块需与内置 Node ABI 匹配。
+1. ✅ Electron 44.7.0 内置 Node **24.21.0** ≥ 24.9；已用 `ELECTRON_RUN_AS_NODE=1` 实跑 harness CLI。
+2. ✅ `node-pty` / `koffi` / `node:sqlite` 在 Electron 24.21 下均可 `require`；但 harness 运行时指纹白名单只接受 44.0.0 / 44.7.0，升级 Electron 前必须重跑这条。
 3. ✅ ~~无 Web UI 时宿主怎么起~~ → **已验证**（P0.5）：宿主照常起，API Cookie + `POST /api/<ns>/<method>` 可取数；渲染进程既可直接用 HTTP，也可用 `api-gateway/client`。
 4. ✅ 窗口鉴权：`apps/shell` 用一次性 token 换同源 Cookie，`/connect?interactions=answer` 之后子资源与 WebSocket 由同源自动携带；不暴露 `ipcRenderer`，token 不进日志与诊断包。
 5. ✅ 端口策略：`apps/shell/src/ports.ts` 由 OS 分配（端口 0），避开 `3080` / `3082`；静态服务与宿主同源代理。

@@ -46,7 +46,7 @@ const REQUIRED = [
   'src/main.ts', 'src/ports.ts', 'src/config.ts', 'src/runtime.ts', 'src/urls.ts',
   'src/single-instance.ts', 'src/diagnostics.ts', 'src/onboarding.ts', 'src/updater.ts',
   'src/credentials.ts', 'src/i18n.ts', 'src/window-state.ts', 'src/telemetry.ts',
-  'src/static-server.ts', 'src/electron-preload.ts', 'src/electron-app.ts',
+  'src/static-server.ts', 'preload.cjs', 'src/electron-app.ts',
   'src/electron-window.ts', 'src/electron-tray.ts', 'src/electron-menu.ts',
   'src/electron-ipc.ts', 'src/electron-safe-storage.ts', 'src/electron-updater.ts',
   'src/electron-static.ts', 'src/electron-host-launcher.ts', 'src/electron-platform.ts',
@@ -71,7 +71,7 @@ check('electron-boundary', () => {
 
 // --- 3. preload 不暴露 ipcRenderer 本体 --------------------------------------
 check('preload', () => {
-  const text = read(join(SRC, 'electron-preload.ts'))
+  const text = read(join(SHELL, 'preload.cjs'))
   const dangerous = [
     /exposeInMainWorld\(\s*['"]ipcRenderer['"]/,
     /exposeInMainWorld\([^)]*,\s*ipcRenderer\s*\)/,

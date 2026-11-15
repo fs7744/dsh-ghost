@@ -599,6 +599,9 @@ async function main(): Promise<void> {
       // 走 Remote（插件注册的 ghostTickets/list），不再读文件
       const view = await state.transport!.call('ghostTickets/list' as never, {} as never)
       renderTickets(view)
+      // 顺带把票快照报给桌面壳，诊断包读它（浏览器里没有 shellApi，自动跳过）。
+      const shell = (window as unknown as { shellApi?: { reportTickets?: (value: unknown) => Promise<unknown> } }).shellApi
+      void shell?.reportTickets?.((view as { tickets?: unknown }).tickets ?? [])
     } catch { /* 插件没装时静默 */ }
   }
   await pollTickets()

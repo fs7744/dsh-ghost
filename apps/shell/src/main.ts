@@ -58,7 +58,7 @@ function resolvePaths(userData: string, packaged: boolean) {
       : join(repoRoot, 'spikes', 'p05-transport', 'node_modules'))
   return {
     userData,
-    preloadPath: join(here, 'electron-preload.js'),
+    preloadPath: join(here, '..', 'preload.cjs'),
     distDir: join(here, '..', '..', 'desktop', 'dist'),
     onboardingPath: join(here, '..', 'onboarding.html'),
     aboutPath: join(here, '..', 'about.html'),
@@ -68,6 +68,11 @@ function resolvePaths(userData: string, packaged: boolean) {
       : join(repoRoot, 'build', 'resources', 'icon.ico'),
     runtimeModules,
     binPath: join(runtimeModules, '@deepseek-ai', 'dsh', 'lib', 'bin.js'),
+    // 开发态复用 spikes 的 profile（已同步插件）；打包态用独立 DSH_HOME。
+    dshHome: process.env['DSH_GHOST_HOME']
+      ?? (packaged ? join(userData, 'dsh-home') : join(repoRoot, 'spikes', 'p05-transport', '.dsh-home')),
+    profile: process.env['DSH_GHOST_PROFILE'] ?? (packaged ? 'desktop' : 'p05'),
+    patchPath: process.env['DSH_GHOST_PATCH'],
     stateDir: join(userData, 'state'),
   }
 }
@@ -133,6 +138,8 @@ async function main(): Promise<void> {
   let runtime: RuntimeController | null = null
   let quitting = false
   let pendingFiles: string[] = shellApp.initialPayload().files
+  // 渲染层每 3s 报一次票列表；诊断包读这个快照，而不是空占位。
+  let ticketCache: unknown = []
   const logBuffer: string[] = []
   // 真实显示器信息由 screen 模块注入（外部依赖）；空数组时 sanitizeBounds 不判离屏。
   const displays: DisplayBounds[] = []
@@ -184,12 +191,13 @@ async function main(): Promise<void> {
         runtimeState: () => runtime?.getState() ?? 'stopped',
         appInfo,
         logTail: () => logBuffer.slice(-200).join('\n'),
-        tickets: () => [], // 真实票状态需宿主 API，属外部依赖
+        tickets: () => ticketCache,
         environment,
         onOnboardingFinished: () => {
           void ensureWindow(currentToken)
         },
         onLaunchOnStartupChanged: enabled => shellApp.setLoginItemSettings(enabled),
+        setTickets: value => { ticketCache = value },
         workspaceRoot: () => config.workspaceDir !== '' ? config.workspaceDir : join(paths.userData, 'workspace'),
       })
 
@@ -251,8 +259,10 @@ async function main(): Promise<void> {
     ports: createPortAllocator(),
     launcher: createHostLauncher({
       binPath: paths.binPath,
-      stateDir: paths.stateDir,
-      permissionMode: 'workspace-write', // 桌面 UI 保留人工审批
+      dshHome: paths.dshHome,
+      profile: paths.profile,
+      fromDefaultProfile: !fs.exists(join(paths.dshHome, 'profiles', paths.profile)),
+      ...(paths.patchPath === undefined ? {} : { patchPath: paths.patchPath }),
       logger,
       env: {
         WB_BASE_URL: process.env['WB_BASE_URL'] ?? '',

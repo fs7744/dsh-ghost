@@ -80,7 +80,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 487 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 491 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层
@@ -100,6 +100,8 @@ npm run verify:superagent-assets  # B2–B7 资产静态自检（8 项）
 npm run test:superagent           # 装配 / 19 工具 / 7 视图 / 触发源 / 提示词预算 / 看护（78 用例）
 npm run verify:gates              # 7 项门禁总表（PR 口径）
 npm run verify:all                # 一条命令跑完全部验收（-- --with-model 连真模型）
+npm run build:shell               # 主进程 bundle（esbuild，单文件）
+npm run prepare:runtime -- --apply # 打安装包前把 harness 运行时放进 build/runtime
 npm run verify:l3                 # 真模型结构断言（无 key 自动 SKIP）
 npm run verify:l5                 # L5 Playwright 骨架（未装依赖自动 SKIP）
 npm run upgrade:harness -- 0.2.3  # 升级计划（默认 dry-run，--apply 才落盘，绝不 push）

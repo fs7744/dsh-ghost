@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path'
 import { writeConfig, mergeConfig, type ShellConfig } from './config.ts'
 import { collectDiagnostics, type DiagnosticCollector } from './diagnostics.ts'
 import { checkWorkspaceWrite } from './workspace-write.ts'
+import { clipTickets } from './diagnostics.ts'
 import {
   createOnboarding, answerStep, backStep, currentStep, buildInitialConfig,
   type OnboardingState, type OnboardingStepId,
@@ -33,6 +34,8 @@ export interface IpcDeps {
   environment(): Record<string, unknown>
   onOnboardingFinished(): void
   onLaunchOnStartupChanged(enabled: boolean): void
+  /** 渲染层把最近一次票列表报给主进程，诊断包用。 */
+  setTickets(value: unknown): void
   /** 「保存到工作区」的根目录；空配置时由 main 回退到 userData/workspace。 */
   workspaceRoot(): string
 }
@@ -133,6 +136,11 @@ export function registerIpc(deps: IpcDeps): IpcApi {
     deps.setConfig(merged.value)
     deps.onOnboardingFinished()
     return { ok: true, config: merged.value }
+  })
+
+  ipcMain.handle('tickets:report', (_event: unknown, value: unknown) => {
+    deps.setTickets(clipTickets(value))
+    return { ok: true }
   })
 
   ipcMain.handle('workspace:save', (_event: unknown, relativePath: string, content: string) => {

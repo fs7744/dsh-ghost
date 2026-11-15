@@ -76,6 +76,24 @@ export interface DiagnosticBundle {
   zip: Uint8Array
 }
 
+/** 票快照只留排障需要的字段，避免把整棵树（含长正文）塞进诊断包。 */
+const TICKET_FIELDS = ['id', 'title', 'stage', 'source', 'createdAt', 'updatedAt', 'priority', 'assignee'] as const
+const MAX_TICKETS = 100
+
+/** 规整票快照：最多 100 条，只留白名单字段；非对象项转成截断字符串。 */
+export function clipTickets(value: unknown, max: number = MAX_TICKETS): unknown[] {
+  if (!Array.isArray(value)) return []
+  return value.slice(0, Math.max(1, max)).map(item => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return String(item).slice(0, 200)
+    const record = item as Record<string, unknown>
+    const out: Record<string, unknown> = {}
+    for (const key of TICKET_FIELDS) {
+      if (record[key] !== undefined) out[key] = record[key]
+    }
+    return out
+  })
+}
+
 /** 组装诊断包：每个文件与 manifest 均经脱敏，再打包为 zip。 */
 export function collectDiagnostics(collector: DiagnosticCollector, clock: Clock): DiagnosticBundle {
   const secrets = collector.knownSecrets()

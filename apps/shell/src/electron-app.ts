@@ -9,7 +9,7 @@ import { DEEP_LINK_SCHEME } from './urls.ts'
 export interface ShellAppApi {
   whenReady(): Promise<void>
   requestSingleInstanceLock(): boolean
-  getPath(name: string): string
+  getPath(name: 'userData' | 'home' | 'appData' | 'temp' | 'logs' | 'exe'): string
   getVersion(): string
   getLocale(): string
   /** 是否运行在打包后的安装目录（决定 resources 路径与运行时位置）。 */

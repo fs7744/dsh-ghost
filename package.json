@@ -2,6 +2,8 @@
   "name": "dsh-ghost",
   "version": "0.0.0",
   "private": true,
+  "author": "dsh-ghost",
+  "main": "apps/shell/dist/main.js",
   "type": "module",
   "description": "A proactive agent workbench built on DeepSeek Harness. Not affiliated with or endorsed by DeepSeek.",
   "license": "SEE LICENSE IN docs/LICENSING.md",
@@ -76,7 +78,7 @@
     "verify:all": "node scripts/verify-all.mjs",
     "verify:shell": "node --experimental-transform-types scripts/verify-shell.mjs",
     "check:shell": "tsc --noEmit -p apps/shell/tsconfig.json",
-    "build:shell": "tsc -p apps/shell/tsconfig.build.json",
+    "build:shell": "node -e \"require('fs').rmSync('apps/shell/dist',{recursive:true,force:true})\" && tsc --noEmit -p apps/shell/tsconfig.build.json && esbuild apps/shell/src/main.ts --bundle --platform=node --format=esm --target=node24 --external:electron --external:electron-updater --outfile=apps/shell/dist/main.js --log-level=warning",
     "release:check": "node --experimental-transform-types scripts/verify-shell.mjs --only=version",
     "upgrade:harness": "node scripts/upgrade-harness.mjs",
     "prepare:runtime": "node scripts/prepare-runtime.mjs",
@@ -86,6 +88,8 @@
   "devDependencies": {
     "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3",
     "@types/node": "^26.6.6",
+    "electron": "44.7.0",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "ws": "^8.23.0"

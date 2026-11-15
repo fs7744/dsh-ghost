@@ -140,9 +140,9 @@ R1 的后半段（事件名自动生成）曾长期挂账，本轮用 `API_REMOT
 
 **P0 发布阻断（需要外部环境，不是代码能否写完的问题）**
 
-1. 安装包仍要真实打一次：`resources/runtime` 现在有配置与 `prepare:runtime`，但没跑过 electron-builder，也没在干净 Windows 上装过。
-2. Electron 44 内置 Node 与 `node-pty` / `koffi` / `node:sqlite` 的 ABI 未实测；这决定 `ELECTRON_RUN_AS_NODE` 方案是否成立，失败就得改 sidecar Node。
-3. 代码签名、NSIS 升级/卸载、真实 feed 与 `latest.yml` 未验证。
+1. ✅ 已用 `--dir` 与 NSIS 各打了一次：asar 产物能启动到 `healthy`（用 `DSH_GHOST_RUNTIME` 指向开发运行时）；NSIS 110MB 未签名、默认图标。**仍未执行安装/卸载**，`resources/runtime` 也还没 `prepare:runtime --apply`。
+2. ✅ Electron 44.7.0 自带 Node 24.21.0，`node-pty` / `koffi` / `node:sqlite` 均可加载；harness 指纹白名单只认 44.0.0 / 44.7.0，**升级版本会直接拒绝启动**。
+3. 代码签名、干净机器安装/卸载、文件关联、协议唤醒、开机启动、真实 feed 与 `latest.yml` 未验证。
 
 **P1 功能/一致性**（第 4–6 项已在同轮修掉，见下）
 

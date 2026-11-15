@@ -18,6 +18,8 @@ export interface PostResult {
   error?: string
   /** GitHub 返回的评论 id。 */
   commentId?: string
+  /** 429 时服务端要求的等待毫秒数（来自 Retry-After）。 */
+  retryAfterMs?: number
 }
 
 /** 出口配置。 */
@@ -38,6 +40,8 @@ export interface GithubSinkOptions {
   maxAttempts?: number
   /** 单条评论正文上限，默认 60_000 字符（GitHub 上限 65536；留出截断说明的余量）。 */
   maxBodyChars?: number
+  /** 时钟，测试可注入；用于 429 Retry-After。 */
+  now?: () => number
 }
 
 /** 一条消息的去向。 */
@@ -47,6 +51,8 @@ interface Entry {
   error?: string
   commentId?: string
   attempts: number
+  /** 429 后到这个时间点才允许再试。 */
+  retryAt?: number
 }
 
 /**
@@ -62,6 +68,7 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
   const apiBase = options.apiBase ?? 'https://api.github.com'
   const maxAttempts = Math.max(1, options.maxAttempts ?? 5)
   const maxBodyChars = Math.max(1, options.maxBodyChars ?? 60_000)
+  const now = options.now ?? (() => Date.now())
   const table = new Map<string, Entry>()
   const headers = {
     authorization: `Bearer ${options.token}`,
@@ -73,7 +80,16 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
   const post = options.post ?? (async (url, body, requestHeaders) => {
     try {
       const response = await fetch(url, { method: 'POST', headers: requestHeaders, body: JSON.stringify(body) })
-      if (!response.ok) return { ok: false, error: `HTTP ${response.status}` }
+      if (!response.ok) {
+        // 429 优先按 Retry-After 退避，避免把限流打成永久失败。
+        const header = response.headers.get('retry-after')
+        const seconds = header === null ? Number.NaN : Number.parseInt(header, 10)
+        return {
+          ok: false,
+          error: `HTTP ${response.status}`,
+          ...(Number.isFinite(seconds) && seconds > 0 ? { retryAfterMs: seconds * 1000 } : {}),
+        }
+      }
       const json = await response.json() as { id?: number }
       return { ok: true, ...(json.id === undefined ? {} : { commentId: String(json.id) }) }
     } catch (error) {
@@ -113,6 +129,7 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
           entry.error = 'no-target'
           continue
         }
+        if (entry.retryAt !== undefined && now() < entry.retryAt) continue
         if (entry.attempts >= maxAttempts) {
           entry.status = 'dropped'
           entry.error = `max-attempts(${maxAttempts}): ${entry.error ?? 'unknown'}`
@@ -136,6 +153,12 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
         } else {
           entry.error = result.error ?? 'unknown'
           failed += 1
+          if (result.retryAfterMs !== undefined) {
+            entry.retryAt = now() + Math.max(1000, result.retryAfterMs)
+            // 限流不是消息本身的错，不消耗重试预算。
+            entry.attempts = Math.max(0, entry.attempts - 1)
+            continue
+          }
           // 4xx（除 408 / 429）是确定性拒绝：重试只会得到同样的结果，直接丢弃。
           const status = Number(/HTTP (\d{3})/.exec(entry.error)?.[1] ?? 0)
           if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
