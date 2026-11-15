@@ -10,5 +10,6 @@
  */
 export { beginBoot, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, pruneUnusedTools, recordToolCall, restoreTool, } from './tool-prune.js';
 export { buildMemoryBlock, buildSessionBrief, countMemoryEntries, } from './brief.js';
-export { estimateTokens, planCompaction, } from './compaction.js';
+export { EMPTY_PRICING, estimateCost, } from './cost.js';
+export { estimateTokens, planCompaction, readHarnessUsage, shouldSuggestCompaction, } from './compaction.js';
 export { LoopGuard, normalizeFailure, truncateToolResult, } from './loop-guard.js';

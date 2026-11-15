@@ -2,45 +2,29 @@
  * 聊天上下文的两件事：
  *
  *  1. **前置记忆索引**：从 `ghostMemory/brief` 取一小段项目记忆，附在用户消息后面；
- *  2. **历史压缩**：上下文超预算时**自动**触发宿主 `/compact` 就地压缩旧消息，
- *     同一个会话继续（Claude Code / Codex / Cursor 都是这个模式）。
- *     宿主没暴露改写历史的接口（`session/page` 只读、`session/prompt` 只追加），
- *     所以「替换旧消息」这步只能由宿主做；我们负责**何时压、压多少预算、要不要压**。
+ *  2. **上下文提醒**：宿主 `dsh-compaction-basic` 在 80% 压力时**已经自动压缩**，
+ *     `/compact` 也由 `dsh-command-compact` 提供。所以我们**不再重复触发**（那会多花一次
+ *     模型调用），改成读宿主的**真实用量**（`session/projections`），
+ *     在明显更高（默认 90%）时**提醒**用户，并提供一键 `/compact`。
  */
 import type { RemoteTransport } from '@dsh-ghost/harness-port'
 import {
-  estimateTokens, planCompaction as planBudget, type ChatMessage,
+  estimateTokens, readHarnessUsage, shouldSuggestCompaction, type ChatMessage, type HarnessUsage,
 } from '@dsh-ghost/economizer'
 import { toBubbles, type LogRecord } from './session-log.ts'
 
-/** 上下文预算的本地覆盖键；设 0 或负数即关闭自动压缩。 */
-const BUDGET_KEY = 'dsh-ghost.contextTokens'
-const DEFAULT_BUDGET = 12_000
+/** 提醒阈值（本地覆盖键）；默认 0.9，宿主在 0.8 已经自动压。 */
+const THRESHOLD_KEY = 'dsh-ghost.compactHintRatio'
 
-/** 压缩模式：`host` 就地压缩（默认）、`off` 关闭。 */
-const MODE_KEY = 'dsh-ghost.compactMode'
-export type CompactionMode = 'host' | 'off'
-
-/** 读上下文预算（token 估算）。 */
-export function contextBudget(): number {
+/** 读提醒阈值比例。 */
+export function compactHintRatio(): number {
   try {
-    const raw = globalThis.localStorage?.getItem(BUDGET_KEY)
-    if (raw === null || raw === undefined || raw.trim() === '') return DEFAULT_BUDGET
-    const value = Number.parseInt(raw, 10)
-    return Number.isFinite(value) ? value : DEFAULT_BUDGET
+    const raw = globalThis.localStorage?.getItem(THRESHOLD_KEY)
+    if (raw === null || raw === undefined || raw.trim() === '') return 0.9
+    const value = Number.parseFloat(raw)
+    return Number.isFinite(value) && value > 0 ? value : 0.9
   } catch {
-    return DEFAULT_BUDGET
-  }
-}
-
-/** 读压缩模式。 */
-export function compactionMode(): CompactionMode {
-  try {
-    const raw = globalThis.localStorage?.getItem(MODE_KEY)
-    if (raw === 'off' || raw === 'host') return raw
-    return 'host'
-  } catch {
-    return 'host'
+    return 0.9
   }
 }
 
@@ -53,7 +37,7 @@ export function composeChatMessage(text: string, brief: string): string {
   return `${body}\n\n${block}`
 }
 
-/** 会话记录 → 便于摘要的消息列表。 */
+/** 会话记录 → 便于估算的消息列表（没有投影数据时的兜底）。 */
 export function recordsToMessages(records: readonly LogRecord[]): ChatMessage[] {
   const messages: ChatMessage[] = []
   for (const bubble of toBubbles(records)) {
@@ -65,7 +49,7 @@ export function recordsToMessages(records: readonly LogRecord[]): ChatMessage[] 
   return messages.filter(message => message.text.trim() !== '')
 }
 
-/** 估算当前会话占用的 token（仅量级判断）。 */
+/** 兜底估算（拿不到投影时用，量级参考）。 */
 export function contextTokens(records: readonly LogRecord[]): number {
   return recordsToMessages(records).reduce((sum, message) => sum + estimateTokens(message.text), 0)
 }
@@ -81,7 +65,10 @@ export async function loadBrief(transport: RemoteTransport): Promise<string> {
   }
 }
 
-/** 调宿主 `/compact` 做就地压缩；失败返回 false。 */
+/**
+ * 手动触发宿主的 `/compact`（界面上的「立即压缩」按钮用）。
+ * 宿主自己也会在 80% 自动压，所以这里只在用户明确要求时调用。
+ */
 export async function requestHostCompaction(transport: RemoteTransport, sessionId: string): Promise<boolean> {
   try {
     await transport.call('commands/execute' as never, {
@@ -95,50 +82,33 @@ export async function requestHostCompaction(transport: RemoteTransport, sessionI
   }
 }
 
-export interface CompactionDeps {
-  transport: RemoteTransport
-  /** 当前会话 id。 */
-  sessionId: string
-  /** 预算（token 估算）；<=0 表示不压缩。 */
-  maxTokens?: number
-  /** 强制模式（测试用）；缺省读本地设置。 */
-  mode?: CompactionMode
-  /** 新会话工作目录。 */
-  cwd?: string
+export interface ContextEvaluation {
+  /** 宿主给的真实用量；拿不到就是全 0。 */
+  usage: HarnessUsage
+  /** 是否该提醒用户压缩。 */
+  suggest: boolean
 }
 
-export type CompactionDecision =
-  | { action: 'none' }
-  /** 就地压缩：同一个会话继续，宿主历史被替换成摘要。 */
-  | { action: 'host'; previousSessionId: string; estimatedTokens: number; overflowTokens: number }
-
 /**
- * 判断要不要压缩并执行：超预算就调宿主 `/compact` 就地压缩。
- * 宿主命令失败时不做任何替代动作（宁可不动，也不要悄悄换会话）。
+ * 读宿主投影里的真实用量，判断是否该提醒压缩。
+ * 没有投影数据时返回全 0 + 不提醒（宁可少提醒，也不要拿估算值误导人）。
  */
-export async function planCompaction(deps: CompactionDeps): Promise<CompactionDecision> {
-  const mode = deps.mode ?? compactionMode()
-  const budget = deps.maxTokens ?? contextBudget()
-  if (mode === 'off' || budget <= 0) return { action: 'none' }
-
-  let page: { records?: LogRecord[] } | undefined
+export async function evaluateContext(
+  transport: RemoteTransport,
+  sessionId: string,
+  options: { thresholdRatio?: number } = {},
+): Promise<ContextEvaluation> {
+  let projections: unknown
   try {
-    page = await deps.transport.call('session/page' as never, {
-      request: { address: { kind: 'session', sessionId: deps.sessionId }, maxMessages: 200 },
-    } as never) as { records?: LogRecord[] }
+    projections = await transport.call('session/projections' as never, {
+      request: { sessionId },
+    } as never)
   } catch {
-    return { action: 'none' }
+    return { usage: readHarnessUsage(undefined), suggest: false }
   }
-  const messages = recordsToMessages(page?.records ?? [])
-  const plan = planBudget(messages, { maxTokens: budget })
-  if (!plan.compress) return { action: 'none' }
-
-  const compacted = await requestHostCompaction(deps.transport, deps.sessionId)
-  if (!compacted) return { action: 'none' }
-  return {
-    action: 'host',
-    previousSessionId: deps.sessionId,
-    estimatedTokens: plan.estimatedTokens,
-    overflowTokens: plan.overflowTokens,
-  }
+  const usage = readHarnessUsage(projections)
+  const suggest = shouldSuggestCompaction(usage, {
+    thresholdRatio: options.thresholdRatio ?? compactHintRatio(),
+  })
+  return { usage, suggest }
 }

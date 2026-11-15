@@ -5,7 +5,7 @@
  * 对话读 `session/page`，写 `session/prompt`；图读 `.flow` 源文件现场编译。
  */
 import { createTransport } from '@dsh-ghost/harness-port'
-import { composeChatMessage, contextBudget, loadBrief, planCompaction } from './chat-context.ts'
+import { composeChatMessage, evaluateContext, loadBrief } from './chat-context.ts'
 import flowSource from '../../../packages/playbook/examples/ticket-flow.flow?raw'
 import { mountFlowEditor } from './flow-editor.ts'
 import { mountCommandPalette } from './command-palette.ts'
@@ -395,9 +395,9 @@ async function send(): Promise<void> {
   const before = Number.parseInt(el('f-records').textContent ?? '0', 10)
   el('f-state').textContent = '发送中…'
   try {
-    // 历史超预算就先就地压缩（宿主 /compact，和主流产品同一做法）。
-    const budgetHint = contextBudget()
-    const decision = await planCompaction({ transport, sessionId: state.active })
+    // 上下文真实用量（宿主 token-meter 给的）：宿主在 80% 会自动压缩，
+    // 我们只在明显更高时提醒，不再重复触发 /compact（那会多花一次模型调用）。
+    const context = await evaluateContext(transport, state.active)
     // 前置记忆索引（普通聊天也有，不再只走开票那条路）。
     const brief = await loadBrief(transport)
     const body = composeChatMessage(text, brief)
@@ -414,11 +414,9 @@ async function send(): Promise<void> {
         ],
       },
     })
-    if (decision.action === 'host') {
-      el('f-state').textContent = `已就地压缩历史（约 ${decision.estimatedTokens} token → 预算 ${budgetHint}）`
-    } else {
-      el('f-state').textContent = '已投递，等模型…'
-    }
+    el('f-state').textContent = context.suggest
+      ? `上下文已到 ${(context.usage.ratio * 100).toFixed(0)}%，建议 /compact（已投递）`
+      : '已投递，等模型…'
     const baseline = before
     for (let i = 0; i < 60; i += 1) {
       await new Promise(r => setTimeout(r, 1200))

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import {
   beginBoot, buildMemoryBlock, buildSessionBrief, countMemoryEntries, emptyLedger,
   estimateTokens, estimateToolChars, LoopGuard, normalizeFailure, planCompaction,
+  readHarnessUsage, shouldSuggestCompaction, estimateCost, EMPTY_PRICING,
   pruneUnusedTools, recordToolCall, restoreTool, truncateToolResult,
 } from '../src/index.ts'
 
@@ -137,4 +138,48 @@ test('上下文触发计划：超预算且消息够多才压缩', () => {
 
   const few = Array.from({ length: 3 }, () => ({ role: 'user' as const, text: 'x'.repeat(4000) }))
   assert.equal(planCompaction(few, { maxTokens: 1000 }).compress, false, '消息太少不触发')
+})
+
+test('宿主真实用量：缓存读也算输入，比例按上下文窗口算', () => {
+  const usage = readHarnessUsage({
+    values: {
+      tokenUsage: { uncachedInputTokens: 1200, cacheReadTokens: 8000, cacheWriteTokens: 300, outputTokens: 500 },
+      contextPressure: { projectedTokens: 95000, contextWindow: 100000 },
+      contextBreakdown: { systemTokens: 4000, toolsTokens: 2000, messageTokens: 89000 },
+    },
+  })
+  assert.equal(usage.uncachedInputTokens, 1200)
+  assert.equal(usage.cacheReadTokens, 8000)
+  assert.equal(usage.cacheWriteTokens, 300)
+  assert.equal(usage.totalInputTokens, 9200)
+  assert.equal(usage.outputTokens, 500)
+  assert.equal(usage.messageTokens, 89000)
+  assert.equal(usage.ratio, 0.95)
+  assert.equal(shouldSuggestCompaction(usage), true)
+})
+
+test('拿不到投影就是全 0，且不提醒', () => {
+  const usage = readHarnessUsage(undefined)
+  assert.equal(usage.projectedTokens, 0)
+  assert.equal(shouldSuggestCompaction(usage), false)
+  assert.equal(shouldSuggestCompaction(readHarnessUsage({ values: { contextPressure: { projectedTokens: 85000, contextWindow: 100000 } } })), false, '80%~90% 宿主自己会压')
+})
+
+test('成本按缓存计价：缓存读便宜，命中率也算出来', () => {
+  const usage = readHarnessUsage({
+    values: {
+      tokenUsage: { uncachedInputTokens: 1000, cacheReadTokens: 9000, cacheWriteTokens: 0, outputTokens: 500 },
+    },
+  })
+  const cost = estimateCost(usage, {
+    inputPerMillion: 3,
+    outputPerMillion: 15,
+    cacheReadPerMillion: 0.3,
+    cacheWritePerMillion: 3.75,
+  })
+  assert.ok(cost.input > 0)
+  assert.ok(cost.cacheRead / 9000 < cost.input / 1000, '缓存读的每 token 价格应显著更低')
+  assert.equal(cost.total, cost.input + cost.cacheRead + cost.cacheWrite + cost.output)
+  assert.equal(cost.cacheHitRate, 0.9)
+  assert.equal(estimateCost(usage, EMPTY_PRICING).total, 0, '没给价格就不编')
 })

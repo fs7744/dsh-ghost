@@ -62,24 +62,68 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
 - **第 2 次**才追加一行：“换参数、先读相关文件，或报告卡点，不要重复调用。”
 - 工具成功一次即清零，不干扰正常试错。
 
-### 4. 工具结果截断
+### 4. 工具结果截断（默认交给宿主）
 
-`truncateToolResult` 默认 **12000 字符**（约 3k token）。超长结果只留头部，并注明原文长度与“用更精确查询”的提示。
+宿主 `dsh-compaction-tool-result-pruner` 已按 `thresholdChars 8192 / head 4096 / tail 1024`
+裁剪超长工具结果，**比我们原来的 12000 字符更细**。所以我们的 `truncateToolResult`
+默认**关闭**（`maxToolResultChars: 0`），只在宿主不可用时手动开——两层都裁只会更粗，
+还抢在宿主前面。
 
-### 5. 历史压缩：自动就地压缩（和主流产品同一做法）
+### 5. 上下文提醒（压缩由宿主做，我们只提醒）
 
-实现：`packages/economizer/src/compaction.ts`（预算与触发计划）+ `apps/desktop/src/chat-context.ts`（执行）。
+实现：`packages/economizer/src/compaction.ts`（读宿主真实用量）+ `apps/desktop/src/chat-context.ts`。
 
-- **谁负责什么**：宿主没有改写历史的接口（`session/page` 只读、`session/prompt` 只追加），
-  所以「替换旧消息」只能由宿主做——我们调宿主 `/compact`，这正是
-  **Claude Code `/compact`、Codex `/compact`、Cursor 的 summarize & continue** 的做法。
-  我们负责另一半、也是产品体验的部分：
-  - **自动触发**：不用用户记得敲命令；
-  - **预算判断**：按估算 token（CJK 1 字≈1 token，其余 4 字符≈1 token）对比阈值；
-  - **可解释**：界面直接显示「已就地压缩历史（约 N token → 预算 M）」；
-  - **可关闭**：`localStorage.dsh-ghost.compactMode = 'off'`；阈值用
-    `localStorage.dsh-ghost.contextTokens` 覆盖（默认 12000，设为 0 即关闭）。
-- **不做的事**：不新开会话、不自研就地摘要。抽掉「摘要续接」方案是因为
-  换会话会让宿主侧的连续性与工具状态断裂，代价大于省下的 token；
-  真正想要的是同一个会话里少花 token，那就该在同一个会话里压缩。
+- **宿主已经自动压缩**：`dsh-compaction-basic` 在 `thresholdRatio 0.8` 时自动压缩，
+  `/compact` 由 `dsh-command-compact` 提供（Claude Code / Codex / Cursor 同一套做法）。
+  所以我们**不再自动触发**——重复触发一次就是多花一次模型调用。
+- 我们改做两件事：
+  - 读宿主 `session/projections` 的**真实用量**（`tokenUsage` 含缓存读写、
+    `contextPressure` 含压力、`contextBreakdown` 拆系统/工具/消息），不再自己瞎估；
+  - 到 **90%**（`localStorage.dsh-ghost.compactHintRatio` 可调）才在状态栏提醒
+    「上下文已到 X%，建议 /compact」，并保留手动压缩入口。
+- 拿不到投影时**不猜、不提醒**。
 
+### 6. 缓存感知成本换算
+
+`packages/economizer/src/cost.ts` 的 `estimateCost(usage, pricing)`：把宿主的
+`uncachedInputTokens` / `cacheReadTokens` / `cacheWriteTokens` / `outputTokens`
+按给定单价换算成钱，并给出缓存命中率。**价格由调用方给**，没给价格就返回 0，
+宁可显示 token 也不显示拍脑袋的钱。
+
+## 配置
+
+编排插件 `ghost-orchestrator`：
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `briefFile` | `<stateFile 目录>/memory/MEMORY.md` | 前置简报来源；指向空文件即关闭 |
+| `toolPrune` | `true` | `false` 关闭自动剪枝（账本仍记录） |
+| `keepTools` | `[]` | 永不剪的工具名 |
+| `maxToolResultChars` | `0`（关闭） | 宿主 pruner 已做；仅宿主不可用时开 |
+| `loopGuard` | `true` | `false` 关闭重复失败提示 |
+
+桌面端（localStorage）：
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `dsh-ghost.compactHintRatio` | `0.9` | 上下文提醒阈值（宿主 0.8 已自动压） |
+
+## 不做什么（保持诚实）
+
+- **不自己实现压缩算法**：就地压缩由宿主完成；我们只读真实用量并提醒。
+- **不自己实现 token 计量**：宿主 `token-meter` 已经是真实值，估算只做兜底。
+- **不自研就地摘要**：宿主没暴露改写历史的接口（`session/page` 只读、`session/prompt` 只追加）。
+- **不新开会话**：换会话会断掉宿主侧连续性与工具状态，代价大于省下的 token。
+- **不自动改用户 AGENTS.md / settings**：简报只读记忆索引；剪枝只影响本插件注册的可选工具。
+- **不调 judge 模型**：循环判定是确定性的；TokenEconomizer 的 judge 置信度机制没有照搬。
+- **没有真实成本基准**：暂无“省了 X%”的实测数字，只有静态估算；等有稳定样本再补。
+
+## 验证
+
+- `npm run test:economizer`：15 个纯逻辑用例（剪枝门槛/观察期/恢复、简报门槛/预算、
+  token 估算、触发计划、宿主真实用量与提醒阈值、缓存感知成本、循环归一化、截断边界）。
+- `npm run test:chat-context`：5 个用例（记忆拼接、记录转消息、读宿主真实用量、
+  宿主已压过时不重复提醒、拿不到投影不猜）。
+- 编排插件接入后，`npm run verify:all -- --only=local` 仍全绿。
+
+> 与宿主能力的逐项对照见 [HARNESS-AUDIT.md](HARNESS-AUDIT.md)。

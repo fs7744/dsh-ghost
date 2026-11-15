@@ -16,8 +16,12 @@ export {
   buildMemoryBlock, buildSessionBrief, countMemoryEntries, type SessionBriefOptions,
 } from './brief.ts'
 export {
-  estimateTokens, planCompaction,
-  type ChatMessage, type CompactionPlan, type CompactionPlanOptions,
+  EMPTY_PRICING, estimateCost,
+  type CostBreakdown, type Pricing,
+} from './cost.ts'
+export {
+  estimateTokens, planCompaction, readHarnessUsage, shouldSuggestCompaction,
+  type ChatMessage, type CompactionPlan, type CompactionPlanOptions, type HarnessUsage,
 } from './compaction.ts'
 export {
   LoopGuard, normalizeFailure, truncateToolResult, type LoopGuardOptions,

@@ -48,7 +48,7 @@
 | **升级与纪律（C1-04/05）** | `upgrade:harness` 8 步 dry-run 默认、绝不 push；`check-port-discipline` 禁绕过 port 层；`matrix.json` + [UPGRADE.md](docs/UPGRADE.md) |
 | **测试分层（C4）** | [TESTING.md](docs/TESTING.md)：L1 假端点 7 种故障、L2 规范化回放、L3 结构断言、L4 评分、L5 规格、CI 门禁 |
 | **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS+dmg+AppImage / 更新通道 / 隐私与第三方声明 |
-| **Token 节省（借鉴 TokenEconomizer）** | [ECONOMIZER.md](docs/ECONOMIZER.md)：记忆索引前置（聊天+开票）、自动就地压缩（宿主 `/compact`）、可选工具剪枝、失败循环短提示、工具结果截断；全部可逆 |
+| **Token 节省（借鉴 TokenEconomizer）** | [ECONOMIZER.md](docs/ECONOMIZER.md)：记忆索引前置（聊天+开票）、读宿主真实用量的上下文提醒、可选工具剪枝、失败循环短提示、缓存感知成本换算；与宿主的分工见 [HARNESS-AUDIT.md](docs/HARNESS-AUDIT.md) |
 
 ## 文档
 
@@ -68,7 +68,8 @@
 12. [docs/MODELS.md](docs/MODELS.md) — 模型管理面与对外 adapter 契约
 13. [docs/TESTING.md](docs/TESTING.md) — L0–L5 测试分层与门禁
 14. [docs/RELEASE.md](docs/RELEASE.md) — 三平台打包 / 签名与公证 / 更新通道 / 发版前核对
-15. [docs/ECONOMIZER.md](docs/ECONOMIZER.md) — Token 节省：简报、工具剪枝、循环提示、结果截断
+15. [docs/ECONOMIZER.md](docs/ECONOMIZER.md) — Token 节省：简报、剪枝、循环提示、上下文提醒、成本换算
+16. [docs/HARNESS-AUDIT.md](docs/HARNESS-AUDIT.md) — 与 harness 的能力对照：哪些用宿主、哪些是我们独有
 15. [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) · [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — 隐私、许可、诊断包
 
 ## 开发
@@ -82,7 +83,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 511 个用例 / 21 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 514 个用例 / 21 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

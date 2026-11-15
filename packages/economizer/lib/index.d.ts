@@ -10,5 +10,6 @@
  */
 export { beginBoot, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, pruneUnusedTools, recordToolCall, restoreTool, type ToolLedger, type ToolPruneOptions, type ToolUseStat, } from './tool-prune.ts';
 export { buildMemoryBlock, buildSessionBrief, countMemoryEntries, type SessionBriefOptions, } from './brief.ts';
-export { estimateTokens, planCompaction, type ChatMessage, type CompactionPlan, type CompactionPlanOptions, } from './compaction.ts';
+export { EMPTY_PRICING, estimateCost, type CostBreakdown, type Pricing, } from './cost.ts';
+export { estimateTokens, planCompaction, readHarnessUsage, shouldSuggestCompaction, type ChatMessage, type CompactionPlan, type CompactionPlanOptions, type HarnessUsage, } from './compaction.ts';
 export { LoopGuard, normalizeFailure, truncateToolResult, type LoopGuardOptions, } from './loop-guard.ts';

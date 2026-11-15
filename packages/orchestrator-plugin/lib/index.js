@@ -480,7 +480,10 @@ export function apply(ctx, config = {}) {
     }
     const prunedSet = new Set(pruned);
     const loopGuard = config.loopGuard === false ? undefined : new LoopGuard();
-    const maxResultChars = Math.max(500, config.maxToolResultChars ?? 12_000);
+    // 默认 0 = 不裁剪：宿主 dsh-compaction-tool-result-pruner 已经按 8192/4096/1024
+    // 裁过工具结果，我们再裁一遍只会更粗、还抢在宿主前面。只有宿主不可用时才手动配。
+    const maxResultChars = config.maxToolResultChars ?? 0;
+    const clip = (text) => maxResultChars > 0 ? truncateToolResult(text, maxResultChars) : text;
     /** 开局带一小段记忆索引，省掉「先 list 再逐条 read」的重复发现。 */
     const sessionBrief = (title) => {
         try {
@@ -511,7 +514,7 @@ export function apply(ctx, config = {}) {
                     loopGuard?.success(descriptor.name);
                     usageLedger = recordToolCall(usageLedger, descriptor.name, true);
                     persistUsage();
-                    return { text: truncateToolResult(text, maxResultChars) };
+                    return { text: clip(text) };
                 }
                 catch (error) {
                     // 领域拒绝（UserError）原样给人话，让模型据此改参数自愈。
@@ -519,7 +522,7 @@ export function apply(ctx, config = {}) {
                     const hint = loopGuard?.failure(descriptor.name, String(error));
                     usageLedger = recordToolCall(usageLedger, descriptor.name, false);
                     persistUsage();
-                    return { text: truncateToolResult(hint === undefined ? base : `${base}\n${hint}`, maxResultChars) };
+                    return { text: clip(hint === undefined ? base : `${base}\n${hint}`) };
                 }
             },
         }), `ghost-orchestrator: ${descriptor.name}`);

@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { RemoteTransport } from '@dsh-ghost/harness-port'
 import {
-  composeChatMessage, contextTokens, planCompaction, recordsToMessages,
+  composeChatMessage, contextTokens, evaluateContext, recordsToMessages,
 } from '../src/chat-context.ts'
 
 /** 造一个只会回固定答案的假传输。 */
@@ -39,31 +39,40 @@ test('会话记录能转成可估算的消息', () => {
   assert.ok(contextTokens(RECORDS) > 0)
 })
 
-test('上下文没超预算就不压缩', async () => {
-  const { transport, calls } = fakeTransport({ 'session/page': () => ({ records: RECORDS }) })
-  const decision = await planCompaction({ transport, sessionId: 's1', maxTokens: 100_000 })
-  assert.equal(decision.action, 'none')
-  assert.deepEqual(calls, ['session/page'])
+test('上下文用量读宿主的真实投影，不自己瞎估', async () => {
+  const projections = {
+    values: {
+      tokenUsage: { uncachedInputTokens: 1200, cacheReadTokens: 8000, cacheWriteTokens: 300, outputTokens: 500 },
+      contextPressure: { projectedTokens: 95000, contextWindow: 100000 },
+      contextBreakdown: { systemTokens: 4000, toolsTokens: 2000, messageTokens: 89000 },
+    },
+  }
+  const { transport, calls } = fakeTransport({ 'session/projections': () => projections })
+  const evaluation = await evaluateContext(transport, 's1')
+  assert.equal(evaluation.usage.uncachedInputTokens, 1200)
+  assert.equal(evaluation.usage.cacheReadTokens, 8000)
+  assert.equal(evaluation.usage.totalInputTokens, 9200)
+  assert.equal(evaluation.usage.messageTokens, 89000)
+  assert.equal(evaluation.usage.ratio, 0.95)
+  assert.equal(evaluation.suggest, true, '95% 压力应提醒')
+  assert.deepEqual(calls, ['session/projections'])
 })
 
-test('超预算时调宿主 /compact 就地压缩', async () => {
-  const heavy = Array.from({ length: 20 }, (_, index) => ({
-    type: 'event',
-    event: { type: 'user/message', seq: index, data: { content: [{ type: 'text', text: 'x'.repeat(2000) }] } },
-  }))
-  const { transport, calls } = fakeTransport({
-    'session/page': () => ({ records: heavy }),
-    'commands/execute': () => ({ ok: true }),
-  })
-  const decision = await planCompaction({ transport, sessionId: 's1', maxTokens: 1000, mode: 'host' })
-  assert.equal(decision.action, 'host')
-  assert.ok(calls.includes('commands/execute'))
-  assert.equal(calls.includes('session/create'), false, '就地压缩不该新开会话')
+test('宿主已自动压缩过的压力不重复提醒', async () => {
+  const projections = {
+    values: {
+      tokenUsage: {},
+      contextPressure: { projectedTokens: 50000, contextWindow: 100000 },
+    },
+  }
+  const { transport } = fakeTransport({ 'session/projections': () => projections })
+  const evaluation = await evaluateContext(transport, 's1')
+  assert.equal(evaluation.suggest, false)
 })
 
-test('off 模式完全不触发', async () => {
-  const { transport, calls } = fakeTransport({ 'session/page': () => ({ records: RECORDS }) })
-  const decision = await planCompaction({ transport, sessionId: 's1', maxTokens: 1, mode: 'off' })
-  assert.equal(decision.action, 'none')
-  assert.deepEqual(calls, [])
+test('拿不到投影就不提醒，也不猜', async () => {
+  const { transport } = fakeTransport({})
+  const evaluation = await evaluateContext(transport, 's1')
+  assert.equal(evaluation.suggest, false)
+  assert.equal(evaluation.usage.projectedTokens, 0)
 })
