@@ -83,6 +83,63 @@ const readJsonFiles = (dir) => {
 const PROVIDERS_FILE = 'providers.json';
 const PROXY_FILE = 'proxy.json';
 const CUSTOM_CSS_FILE = 'custom.css';
+const HOST_PLUGINS_FILE = 'host-plugins.json';
+/**
+ * 允许用户开启的宿主插件（白名单）。
+ * 只列这些：其余插件要么是内部机制，要么会改变宿主行为而我们不掌握后果。
+ */
+export const HOST_PLUGIN_ALLOWLIST = [
+    { id: 'cua', name: '@deepseek-ai/dsh-cua', label: '电脑操控（Computer Use）', note: '官方 CUA 面向 macOS；Windows 上多半不可用。' },
+    { id: 'cua-bundle', name: '@deepseek-ai/dsh-cua-bundle', label: '电脑操控权限设置', note: 'macOS 的系统权限引导。' },
+    { id: 'schedule', name: '@deepseek-ai/dsh-schedule', label: '定时任务', note: '让模型按计划在后台跑任务。' },
+    { id: 'goal', name: '@deepseek-ai/dsh-goal', label: '持久目标', note: '跨会话的目标与推进。' },
+];
+/** 读已开启的宿主插件（纯函数）。 */
+export function readHostPlugins(root) {
+    const target = join(root, HOST_PLUGINS_FILE);
+    if (!existsSync(target))
+        return [];
+    try {
+        const parsed = JSON.parse(readFileSync(target, 'utf8'));
+        if (!Array.isArray(parsed))
+            return [];
+        return parsed.filter((id) => typeof id === 'string')
+            .filter(id => HOST_PLUGIN_ALLOWLIST.some(item => item.id === id));
+    }
+    catch {
+        return [];
+    }
+}
+/** 写宿主插件开关：只接受白名单里的 id（纯函数）。 */
+export function saveHostPlugins(root, ids) {
+    const errors = [];
+    const clean = [];
+    for (const id of ids) {
+        if (typeof id !== 'string') {
+            errors.push('插件 id 必须是字符串');
+            continue;
+        }
+        if (!HOST_PLUGIN_ALLOWLIST.some(item => item.id === id)) {
+            errors.push(`不允许开启 ${id}`);
+            continue;
+        }
+        if (!clean.includes(id))
+            clean.push(id);
+    }
+    if (errors.length > 0)
+        return { ok: false, errors, ids: [] };
+    try {
+        mkdirSync(root, { recursive: true });
+        const target = join(root, HOST_PLUGINS_FILE);
+        const temporary = `${target}.tmp`;
+        writeFileSync(temporary, `${JSON.stringify(clean, null, 2)}\n`);
+        renameSync(temporary, target);
+        return { ok: true, errors: [], ids: clean };
+    }
+    catch (error) {
+        return { ok: false, errors: [String(error)], ids: [] };
+    }
+}
 /** 校验代理地址；空字符串表示「这一项不设」。非 http(s) 一律拒。 */
 export function validateProxy(config) {
     const errors = [];
@@ -215,6 +272,8 @@ let GhostUiRemote = (() => {
     let _providers_decorators;
     let _proxy_decorators;
     let _proxySave_decorators;
+    let _hostPlugins_decorators;
+    let _hostPluginsSave_decorators;
     let _customCss_decorators;
     let _customCssSave_decorators;
     let _providersSave_decorators;
@@ -226,6 +285,8 @@ let GhostUiRemote = (() => {
             _providers_decorators = [Remote('providers')];
             _proxy_decorators = [Remote('proxy')];
             _proxySave_decorators = [Remote('proxySave')];
+            _hostPlugins_decorators = [Remote('hostPlugins')];
+            _hostPluginsSave_decorators = [Remote('hostPluginsSave')];
             _customCss_decorators = [Remote('customCss')];
             _customCssSave_decorators = [Remote('customCssSave')];
             _providersSave_decorators = [Remote('providersSave')];
@@ -234,6 +295,8 @@ let GhostUiRemote = (() => {
             __esDecorate(this, null, _providers_decorators, { kind: "method", name: "providers", static: false, private: false, access: { has: obj => "providers" in obj, get: obj => obj.providers }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _proxy_decorators, { kind: "method", name: "proxy", static: false, private: false, access: { has: obj => "proxy" in obj, get: obj => obj.proxy }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _proxySave_decorators, { kind: "method", name: "proxySave", static: false, private: false, access: { has: obj => "proxySave" in obj, get: obj => obj.proxySave }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _hostPlugins_decorators, { kind: "method", name: "hostPlugins", static: false, private: false, access: { has: obj => "hostPlugins" in obj, get: obj => obj.hostPlugins }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _hostPluginsSave_decorators, { kind: "method", name: "hostPluginsSave", static: false, private: false, access: { has: obj => "hostPluginsSave" in obj, get: obj => obj.hostPluginsSave }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _customCss_decorators, { kind: "method", name: "customCss", static: false, private: false, access: { has: obj => "customCss" in obj, get: obj => obj.customCss }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _customCssSave_decorators, { kind: "method", name: "customCssSave", static: false, private: false, access: { has: obj => "customCssSave" in obj, get: obj => obj.customCssSave }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _providersSave_decorators, { kind: "method", name: "providersSave", static: false, private: false, access: { has: obj => "providersSave" in obj, get: obj => obj.providersSave }, metadata: _metadata }, null, _instanceExtraInitializers);
@@ -264,6 +327,17 @@ let GhostUiRemote = (() => {
         proxySave(input) {
             const config = input?.proxy ?? {};
             return saveProxy(input?.root ?? currentRoot, config);
+        }
+        /** 宿主插件开关：读取（已开启的 id）。 */
+        hostPlugins(input) {
+            return {
+                ids: readHostPlugins(input?.root ?? currentRoot),
+                allowlist: HOST_PLUGIN_ALLOWLIST.map(item => ({ ...item })),
+            };
+        }
+        /** 宿主插件开关：保存（只接受白名单）。 */
+        hostPluginsSave(input) {
+            return saveHostPlugins(input?.root ?? currentRoot, Array.isArray(input?.ids) ? input.ids : []);
         }
         /** 用户自定义皮肤 CSS（覆盖 CSS 变量即可换肤）。 */
         customCss(input) {

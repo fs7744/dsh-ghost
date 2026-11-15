@@ -28,6 +28,39 @@ export interface UiExtensionSnapshot {
 export declare function registerPanel(manifest: PanelManifest): void;
 /** 编程注册一条插槽贡献（其它插件用）。 */
 export declare function registerSlot(slot: SlotContribution): void;
+/**
+ * 允许用户开启的宿主插件（白名单）。
+ * 只列这些：其余插件要么是内部机制，要么会改变宿主行为而我们不掌握后果。
+ */
+export declare const HOST_PLUGIN_ALLOWLIST: readonly [{
+    readonly id: 'cua';
+    readonly name: '@deepseek-ai/dsh-cua';
+    readonly label: '电脑操控（Computer Use）';
+    readonly note: '官方 CUA 面向 macOS；Windows 上多半不可用。';
+}, {
+    readonly id: 'cua-bundle';
+    readonly name: '@deepseek-ai/dsh-cua-bundle';
+    readonly label: '电脑操控权限设置';
+    readonly note: 'macOS 的系统权限引导。';
+}, {
+    readonly id: 'schedule';
+    readonly name: '@deepseek-ai/dsh-schedule';
+    readonly label: '定时任务';
+    readonly note: '让模型按计划在后台跑任务。';
+}, {
+    readonly id: 'goal';
+    readonly name: '@deepseek-ai/dsh-goal';
+    readonly label: '持久目标';
+    readonly note: '跨会话的目标与推进。';
+}];
+/** 读已开启的宿主插件（纯函数）。 */
+export declare function readHostPlugins(root: string): string[];
+/** 写宿主插件开关：只接受白名单里的 id（纯函数）。 */
+export declare function saveHostPlugins(root: string, ids: readonly string[]): {
+    ok: boolean;
+    errors: string[];
+    ids: string[];
+};
 /** 代理配置（空值表示不用代理）。 */
 export interface ProxyConfig {
     http?: string;
@@ -125,6 +158,27 @@ export declare class GhostUiRemote extends TypertRemoteService {
     }): {
         ok: boolean;
         errors: string[];
+    };
+    /** 宿主插件开关：读取（已开启的 id）。 */
+    hostPlugins(input: {
+        root?: string;
+    }): {
+        ids: string[];
+        allowlist: Array<{
+            id: string;
+            name: string;
+            label: string;
+            note: string;
+        }>;
+    };
+    /** 宿主插件开关：保存（只接受白名单）。 */
+    hostPluginsSave(input: {
+        ids: string[];
+        root?: string;
+    }): {
+        ok: boolean;
+        errors: string[];
+        ids: string[];
     };
     /** 用户自定义皮肤 CSS（覆盖 CSS 变量即可换肤）。 */
     customCss(input: {

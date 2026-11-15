@@ -48,6 +48,7 @@
 | **升级与纪律（C1-04/05）** | `upgrade:harness` 8 步 dry-run 默认、绝不 push；`check-port-discipline` 禁绕过 port 层；`matrix.json` + [UPGRADE.md](docs/UPGRADE.md) |
 | **测试分层（C4）** | [TESTING.md](docs/TESTING.md)：L1 假端点 7 种故障、L2 规范化回放、L3 结构断言、L4 评分、L5 规格、CI 门禁 |
 | **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS+dmg+AppImage / 更新通道 / 隐私与第三方声明 |
+| **宿主能力台账** | [HOST-CAPABILITIES.md](docs/HOST-CAPABILITIES.md)：Agent 预设切换、电脑操控状态与开关（白名单插件）、未接能力逐条说明 |
 | **代码 / 差异 / 合并** | [CODE-GIT.md](docs/CODE-GIT.md)：工作区代码视图（多标签·高亮·行号）、新增「变更」页看 diff、冲突一键用我方/用对方（壳侧 execFile 调 git，无 shell） |
 | **皮肤与代理** | [THEME-PROXY.md](docs/THEME-PROXY.md)：暗/亮/跟随系统三态、内置**赛博朋克**预设 + 自定义 CSS 换肤、界面里登记网络代理（宿主 dsh-http-proxy）；预览见 [cyberpunk.html](docs/preview/cyberpunk.html) |
 | **用户扩展（加页面 / 改 UI / 加 LLM 服务）** | [UI-EXTENSIONS.md](docs/UI-EXTENSIONS.md)：`.ghost/ui/` 放 JSON 即可，宿主插件 + 桌面端动态页签与插槽；LLM 服务登记后重启宿主生效 |
@@ -78,6 +79,7 @@
 18. [docs/UI-EXTENSIONS.md](docs/UI-EXTENSIONS.md) — 用户扩展：放 JSON 就能加页面 / 注入界面 / 登记 LLM 服务
 19. [docs/THEME-PROXY.md](docs/THEME-PROXY.md) — 皮肤（暗/亮/跟随系统 + 自定义 CSS）与网络代理
 20. [docs/CODE-GIT.md](docs/CODE-GIT.md) — 看代码（多标签/高亮/行号）、看 git 差异、处理合并冲突
+21. [docs/HOST-CAPABILITIES.md](docs/HOST-CAPABILITIES.md) — 宿主能力台账：浏览器/电脑操控的结论、接了什么、没接什么、为什么
 15. [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) · [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — 隐私、许可、诊断包
 
 ## 开发
@@ -91,7 +93,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 557 个用例 / 29 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 563 个用例 / 30 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

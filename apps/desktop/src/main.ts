@@ -32,6 +32,7 @@ import { mountAttachmentTools, type AttachmentTools } from './attachments.ts'
 import { renderContextBar } from './context-bar.ts'
 import { applyCustomSkin, invokeSlot, loadExtensions, mountExtensionPanel, slotButtons } from './extensions.ts'
 import { mountChangesPanel } from './changes-panel.ts'
+import { mountCapabilitiesPanel } from './capabilities-panel.ts'
 import { applyPreset, currentPresetId } from './themes.ts'
 
 type Transport = ReturnType<typeof createTransport>
@@ -572,6 +573,7 @@ async function main(): Promise<void> {
       ...extensionDefs,
       { id: 'workspace', labelKey: 'tab.workspace', order: 4, mount: mountWorkspacePanel },
       { id: 'changes', labelKey: 'tab.changes', order: 5, mount: mountChangesPanel },
+      { id: 'capabilities', labelKey: 'tab.capabilities', order: 13, mount: mountCapabilitiesPanel },
       { id: 'terminal', labelKey: 'tab.terminal', order: 5, mount: mountTerminalPanel },
       { id: 'jobs', labelKey: 'tab.jobs', order: 6, mount: mountJobsPanel },
       { id: 'plan', labelKey: 'tab.plan', order: 7, mount: mountPlanPanel },

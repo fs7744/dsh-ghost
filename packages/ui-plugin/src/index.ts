@@ -71,6 +71,54 @@ const readJsonFiles = (dir: string): unknown[] => {
 const PROVIDERS_FILE = 'providers.json'
 const PROXY_FILE = 'proxy.json'
 const CUSTOM_CSS_FILE = 'custom.css'
+const HOST_PLUGINS_FILE = 'host-plugins.json'
+
+/**
+ * 允许用户开启的宿主插件（白名单）。
+ * 只列这些：其余插件要么是内部机制，要么会改变宿主行为而我们不掌握后果。
+ */
+export const HOST_PLUGIN_ALLOWLIST = [
+  { id: 'cua', name: '@deepseek-ai/dsh-cua', label: '电脑操控（Computer Use）', note: '官方 CUA 面向 macOS；Windows 上多半不可用。' },
+  { id: 'cua-bundle', name: '@deepseek-ai/dsh-cua-bundle', label: '电脑操控权限设置', note: 'macOS 的系统权限引导。' },
+  { id: 'schedule', name: '@deepseek-ai/dsh-schedule', label: '定时任务', note: '让模型按计划在后台跑任务。' },
+  { id: 'goal', name: '@deepseek-ai/dsh-goal', label: '持久目标', note: '跨会话的目标与推进。' },
+] as const
+
+/** 读已开启的宿主插件（纯函数）。 */
+export function readHostPlugins(root: string): string[] {
+  const target = join(root, HOST_PLUGINS_FILE)
+  if (!existsSync(target)) return []
+  try {
+    const parsed = JSON.parse(readFileSync(target, 'utf8'))
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((id): id is string => typeof id === 'string')
+      .filter(id => HOST_PLUGIN_ALLOWLIST.some(item => item.id === id))
+  } catch {
+    return []
+  }
+}
+
+/** 写宿主插件开关：只接受白名单里的 id（纯函数）。 */
+export function saveHostPlugins(root: string, ids: readonly string[]): { ok: boolean; errors: string[]; ids: string[] } {
+  const errors: string[] = []
+  const clean: string[] = []
+  for (const id of ids) {
+    if (typeof id !== 'string') { errors.push('插件 id 必须是字符串'); continue }
+    if (!HOST_PLUGIN_ALLOWLIST.some(item => item.id === id)) { errors.push(`不允许开启 ${id}`); continue }
+    if (!clean.includes(id)) clean.push(id)
+  }
+  if (errors.length > 0) return { ok: false, errors, ids: [] }
+  try {
+    mkdirSync(root, { recursive: true })
+    const target = join(root, HOST_PLUGINS_FILE)
+    const temporary = `${target}.tmp`
+    writeFileSync(temporary, `${JSON.stringify(clean, null, 2)}\n`)
+    renameSync(temporary, target)
+    return { ok: true, errors: [], ids: clean }
+  } catch (error) {
+    return { ok: false, errors: [String(error)], ids: [] }
+  }
+}
 
 /** 代理配置（空值表示不用代理）。 */
 export interface ProxyConfig {
@@ -235,6 +283,21 @@ export class GhostUiRemote extends TypertRemoteService {
   proxySave(input: { proxy: ProxyConfig; root?: string }): { ok: boolean; errors: string[] } {
     const config = input?.proxy ?? {}
     return saveProxy(input?.root ?? currentRoot, config)
+  }
+
+  /** 宿主插件开关：读取（已开启的 id）。 */
+  @Remote('hostPlugins')
+  hostPlugins(input: { root?: string }): { ids: string[]; allowlist: Array<{ id: string; name: string; label: string; note: string }> } {
+    return {
+      ids: readHostPlugins(input?.root ?? currentRoot),
+      allowlist: HOST_PLUGIN_ALLOWLIST.map(item => ({ ...item })),
+    }
+  }
+
+  /** 宿主插件开关：保存（只接受白名单）。 */
+  @Remote('hostPluginsSave')
+  hostPluginsSave(input: { ids: string[]; root?: string }): { ok: boolean; errors: string[]; ids: string[] } {
+    return saveHostPlugins(input?.root ?? currentRoot, Array.isArray(input?.ids) ? input.ids : [])
   }
 
   /** 用户自定义皮肤 CSS（覆盖 CSS 变量即可换肤）。 */

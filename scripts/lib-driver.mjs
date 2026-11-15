@@ -21,6 +21,7 @@ export function renderPatch() {
     .replaceAll('{{BASE_URL}}', process.env.WB_BASE_URL ?? 'http://127.0.0.1:7864/v1')
     .replaceAll('{{MODEL}}', process.env.WB_MODEL ?? 'hy3')
     .replaceAll('{{PROVIDERS}}', renderProvidersYaml())
+    .replaceAll('{{HOST_PLUGINS}}', renderHostPluginsYaml())
 }
 
 /**
@@ -49,6 +50,43 @@ export function readProxyEnv(root = join(REPO, '.ghost', 'ui')) {
   } catch {
     return {}
   }
+}
+
+/**
+ * 允许用户开启的宿主插件（白名单；不在名单里的一律忽略）。
+ * 与 ghost-ui 插件的 HOST_PLUGIN_ALLOWLIST 保持一致——那份是界面口径，这份是装配口径。
+ */
+const HOST_PLUGIN_ALLOWLIST = new Map([
+  ['cua', '@deepseek-ai/dsh-cua'],
+  ['cua-bundle', '@deepseek-ai/dsh-cua-bundle'],
+  ['schedule', '@deepseek-ai/dsh-schedule'],
+  ['goal', '@deepseek-ai/dsh-goal'],
+])
+
+/**
+ * 把用户在界面里开启的宿主插件渲染成 profile 的插件行。
+ * 包必须真的装在运行时里，否则跳过（不能插入一个不存在的包）。
+ */
+export function renderHostPluginsYaml(root = join(REPO, '.ghost', 'ui')) {
+  const file = join(root, 'host-plugins.json')
+  if (!existsSync(file)) return ''
+  let ids = []
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    if (Array.isArray(parsed)) ids = parsed.filter(id => typeof id === 'string')
+  } catch {
+    return ''
+  }
+  const runtimeModules = join(DSH_HOME, '..', 'node_modules', '@deepseek-ai')
+  const lines = []
+  for (const id of ids) {
+    const name = HOST_PLUGIN_ALLOWLIST.get(id)
+    if (name === undefined) continue
+    if (!existsSync(join(runtimeModules, name.split('/')[1] ?? ''))) continue
+    lines.push(`- id: host-${id}`)
+    lines.push(`  name: '${name}'`)
+  }
+  return lines.length === 0 ? '' : lines.join('\n')
 }
 
 /**

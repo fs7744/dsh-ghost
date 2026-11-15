@@ -82,6 +82,10 @@
             maxTokens: 8192
 {{PROVIDERS}}
 
+# 用户在界面里开启的宿主插件（电脑操控 / 定时任务 / 持久目标…）。
+# 只允许白名单里的包，且包必须在运行时里存在；渲染时决定插不插。
+{{HOST_PLUGINS}}
+
 # 出站代理：宿主按 HTTP_PROXY / HTTPS_PROXY / NO_PROXY 解析，装到 undici 全局 dispatcher。
 # 本地回环（localhost/127.0.0.1/::1）始终直连，避免代理把宿主自己的流量绕回去。
 - id: http-proxy
