@@ -530,7 +530,7 @@ WorkBuddy 本身是 MCP 客户端。把 superagent 的操作面（开 Ticket、�
 3. superagent 搬进本仓库单独一份，**第一版即对齐架构**（不做零改动过渡）。
 4. 桌面端 = **Electron 大窗口应用**，功能面对标 Claude / WorkBuddy，superagent 理念为差异化核心。
 5. 不复用 `apps/desktop`，自建壳。
-6. 鉴权（`/orchestrator` 路由绕过 `remoteAccess`）与 P1 同批做。
+6. 鉴权（`/orchestrator` 路由绕过 `remoteAccess`）与 P1 同批做。**已固化四条边界测试**：无 Cookie 401、伪造 Cookie 401、非本机 Host 403、`interactions=none` 不能订阅事件（`npm run verify:auth`）。
 7. P3 MVP 档位 = 多会话 / 工具+审批 / 文件 / 终端+后台 / MCP / 多语言 / 更新。
 8. 模型层：任意模型可换 + 用户可自写适配插件（第 12 节）。
 9. **界面全部自建**，不加载 harness 的 Web UI，也不用 superagent 原面板（第 3、8 节）。
