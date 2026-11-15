@@ -336,7 +336,7 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **已验通（端到端）**：`.flow` → 编译 → 投放 `.dsh/skills/ticket-flow/SKILL.md` → harness `skills/list` 能看到它（`scripts/verify-skill.mjs`）。常驻 37 + 正文 48 token；带节点详情时正文 56（多 8 token 换"按需可查"）。
 
-**引擎已常驻**：`packages/orchestrator-plugin` 把 Engine 挂进宿主，注册 `ghost_ticket` 工具。真实模型自己调用它开了票（`npm run verify:ticket-tool`）。界面右栏能看到票与阶段。已知：票只在内存（重启清空）；票状态走文件桥而非 Remote（两处都记在 FEATURES 的「已知限制」）。
+**引擎已常驻**：`packages/orchestrator-plugin` 把 Engine 挂进宿主，注册 `ghost_ticket` 工具。真实模型自己调用它开了票（`npm run verify:ticket-tool`）。界面右栏能看到票与阶段。票已持久化（`persisting()` 事务后快照 + 启动读回，重启验收通过）；票状态仍走文件桥而非 Remote（记在 FEATURES 的「已知限制」）。
 
 **引擎已跑通真实闭环**（`npm run ticket`）：触发 → 准入 → 评估 → 建票 → 派活（真实模型回合）→ 报告 ready → 票 ended。这是 Engine 第一次被非测试代码驱动，执行器真的往 harness 发 prompt 并等回合结束。
 

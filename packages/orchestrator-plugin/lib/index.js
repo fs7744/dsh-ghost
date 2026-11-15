@@ -9,7 +9,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { Engine, MemoryRepositories, ticketStage } from '@dsh-ghost/superagent';
+import { Engine, MemoryRepositories, persisting, ticketStage } from '@dsh-ghost/superagent';
 /** 插件名。 */
 export const name = 'ghost-orchestrator';
 /** 依赖工具注册表。 */
@@ -28,7 +28,8 @@ const OUTPUT_SCHEMA = {
 export function apply(ctx, config = {}) {
     const stateFile = config.stateFile ?? join(process.cwd(), '.ghost', 'tickets.json');
     const source = config.source ?? 'local';
-    const repo = new MemoryRepositories();
+    // 引擎状态持久化到 `<stateFile>.snapshot.json`：宿主重启后票还在
+    const repo = persisting(new MemoryRepositories(), `${stateFile}.snapshot.json`);
     const engine = new Engine({
         repo,
         policy: () => ({
@@ -74,6 +75,8 @@ export function apply(ctx, config = {}) {
     function listTickets() {
         return repo.tickets.list();
     }
+    ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length);
+    ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length);
     ctx.effect(() => ctx.tools.register({
         name: 'ghost_ticket',
         description: '为一件需要持续推进的事开一张票（ticket），返回票号。用于"这件事要做但不在当前回合完成"的场景。',

@@ -7,3 +7,4 @@ export { REASONS, reasonText, said } from './reasons.js';
 export { MemoryRepositories } from './memory.js';
 export { canRetry, ticketStage } from './stage.js';
 export { key } from './ids.js';
+export { loadSnapshot, persisting, saveSnapshot } from './persist.js';

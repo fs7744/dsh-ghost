@@ -20,7 +20,8 @@ if (existsSync(envFile)) {
 const stateFile = join(REPO, '.ghost', 'tickets.json')
 rmSync(stateFile, { force: true })
 
-const server = await boot({ profile: 'p05', fromDefault: false })
+let server = await boot({ profile: 'p05', fromDefault: false })
+let second
 let failures = 0
 try {
   const transport = createTransport(await login(server.url, 'answer'))
@@ -56,7 +57,17 @@ try {
     process.stdout.write(`PASS  常驻引擎开出票：${ticket.id.slice(0, 8)} · ${ticket.title} · ${JSON.stringify(ticket.stage)}\n`)
   }
 
-  const page = await transport.call('session/page', { request: { address: { kind: 'session', sessionId: created.sessionId }, maxMessages: 80 } })
+  // 持久化验收：重启一次宿主，票应当还在
+  await stop(server.child)
+  second = await boot({ profile: 'p05', fromDefault: false })
+  const transport2 = createTransport(await login(second.url, 'none'))
+  await new Promise(r => setTimeout(r, 2000))
+  const after = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) : { tickets: [] }
+  process.stdout.write(`${after.tickets.length > 0 ? 'PASS' : 'FAIL'}  重启后票仍在：${after.tickets.length} 张\n`)
+  if (after.tickets.length === 0) failures += 1
+
+  // 用重启后的客户端读会话日志（harness 的会话是持久化的）
+  const page = await transport2.call('session/page', { request: { address: { kind: 'session', sessionId: created.sessionId }, maxMessages: 80 } })
   const calls = (page.records ?? []).filter(record => record.event?.type === 'tool/call').map(record => record.event.data.name)
   process.stdout.write(`${calls.includes('ghost_ticket') ? 'PASS' : 'FAIL'}  会话里出现 tool/call：${calls.join(', ') || '(无)'}\n`)
   if (!calls.includes('ghost_ticket')) failures += 1
@@ -64,7 +75,8 @@ try {
   failures += 1
   process.stdout.write(`FAIL  ${String(error)}\n`)
 } finally {
-  await stop(server.child)
+  if (server.child.exitCode === null) await stop(server.child)
+  if (typeof second !== 'undefined' && second.child.exitCode === null) await stop(second.child)
 }
 process.stdout.write(`\n${failures === 0 ? '常驻编排验收通过' : `${failures} 项失败`}\n`)
 process.exit(failures === 0 ? 0 : 1)

@@ -11,7 +11,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
-import { Engine, MemoryRepositories, ticketStage, type Ticket, type Trigger } from '@dsh-ghost/superagent'
+import { Engine, MemoryRepositories, persisting, ticketStage, type Ticket, type Trigger } from '@dsh-ghost/superagent'
 
 /** 插件名。 */
 export const name = 'ghost-orchestrator'
@@ -42,7 +42,8 @@ const OUTPUT_SCHEMA = {
 export function apply(ctx: Context, config: Config = {}): void {
   const stateFile = config.stateFile ?? join(process.cwd(), '.ghost', 'tickets.json')
   const source = config.source ?? 'local'
-  const repo = new MemoryRepositories()
+  // 引擎状态持久化到 `<stateFile>.snapshot.json`：宿主重启后票还在
+  const repo = persisting(new MemoryRepositories(), `${stateFile}.snapshot.json`)
 
   const engine = new Engine({
     repo,
@@ -89,6 +90,10 @@ export function apply(ctx: Context, config: Config = {}): void {
   function listTickets(): Ticket[] {
     return repo.tickets.list()
   }
+
+  ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length)
+
+  ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length)
 
   ctx.effect(() => ctx.tools.register({
     name: 'ghost_ticket',
