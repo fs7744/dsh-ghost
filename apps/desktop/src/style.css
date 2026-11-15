@@ -320,3 +320,44 @@ details.tool pre { white-space:pre-wrap; background:var(--surface-mid); padding:
 .cmitem pre { background:var(--surface-lowest); color:var(--on-surface);
   border:1px solid var(--outline); border-radius:var(--radius-md);
   padding:8px; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto; }
+
+/* —— 代码视图 / 差异 / 变更（C11 扩展） —— */
+.wstabs { display:flex; gap:4px; padding:6px 10px; border-bottom:1px solid var(--outline); overflow-x:auto; }
+.wstabs:empty { display:none; }
+.wstab { flex:none; padding:2px 8px; border-radius:var(--radius-md); background:var(--surface-high);
+  color:var(--on-surface-variant); font-size:12px; cursor:pointer; }
+.wstab:hover { color:var(--accent); }
+.wsview { flex:1; min-height:0; overflow:auto; }
+.wsconflict { margin:8px 10px; padding:6px 10px; border-radius:var(--radius-md);
+  background:var(--danger); color:#fff; font-size:12px; }
+pre.code { font-family:ui-monospace, monospace; font-size:12.5px; line-height:1.55; }
+pre.code .ln { display:inline-block; width:4.5em; padding-right:10px; text-align:right;
+  color:var(--on-surface-variant); opacity:.55; user-select:none; }
+.tok-comment { color:#6f6b8f; font-style:italic; }
+.tok-string { color:#8ef0c8; }
+.tok-number { color:#f0c674; }
+.tok-keyword { color:#c792ea; }
+.tok-tag { color:#ff7ab6; }
+.tok-attr { color:#7aa2f7; }
+.tok-heading { color:#7aa2f7; font-weight:600; }
+
+.changes { display:flex; gap:10px; flex:1; min-height:0; }
+.chlist { flex:0 0 320px; overflow:auto; border-right:1px solid var(--outline); }
+.chdiff { flex:1; overflow:auto; }
+.chrow { display:flex; align-items:center; gap:8px; padding:5px 10px; cursor:pointer; font-size:12px; }
+.chrow:hover { background:var(--surface-high); }
+.chrow.active { background:var(--accent-container); }
+.chbadge { flex:none; padding:1px 6px; border-radius:999px; font-size:11px; background:var(--surface-high); color:var(--on-surface-variant); }
+.chbadge.added, .chbadge.untracked { color:var(--ok); }
+.chbadge.modified { color:var(--accent); }
+.chbadge.deleted { color:var(--danger); }
+.chbadge.conflicted { color:#fff; background:var(--danger); }
+.chpath { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:ui-monospace, monospace; }
+.chcount { flex:none; color:var(--on-surface-variant); font-size:11px; }
+pre.diff { font-family:ui-monospace, monospace; font-size:12.5px; line-height:1.5; padding:8px 10px; }
+pre.diff .dl { display:block; white-space:pre; }
+pre.diff .dl-no { display:inline-block; width:4.5em; padding-right:10px; text-align:right;
+  color:var(--on-surface-variant); opacity:.55; user-select:none; }
+pre.diff .dl.add { background:rgba(61,255,158,.12); color:var(--ok); }
+pre.diff .dl.del { background:rgba(255,46,136,.12); color:var(--danger); }
+pre.diff .dl.hunk { color:var(--accent); }

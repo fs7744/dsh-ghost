@@ -8,6 +8,10 @@ import { dirname, join } from 'node:path'
 import { writeConfig, mergeConfig, type ShellConfig } from './config.ts'
 import { collectDiagnostics, type DiagnosticCollector } from './diagnostics.ts'
 import { checkWorkspaceWrite } from './workspace-write.ts'
+import {
+  execGit, fileDiff, listChanges, listConflicts, resolveConflictFile,
+} from './git-view.ts'
+import type { GitRunner } from '@dsh-ghost/git-view'
 import { clipTickets } from './diagnostics.ts'
 import {
   createOnboarding, answerStep, backStep, currentStep, buildInitialConfig,
@@ -38,6 +42,8 @@ export interface IpcDeps {
   setTickets(value: unknown): void
   /** 「保存到工作区」的根目录；空配置时由 main 回退到 userData/workspace。 */
   workspaceRoot(): string
+  /** 执行 git 的入口（测试可注入；默认走 execFile，不经 shell）。 */
+  git?: GitRunner
 }
 
 export interface IpcApi {
@@ -141,6 +147,32 @@ export function registerIpc(deps: IpcDeps): IpcApi {
   ipcMain.handle('tickets:report', (_event: unknown, value: unknown) => {
     deps.setTickets(clipTickets(value))
     return { ok: true }
+  })
+
+  // Git 视图：变更 / 差异 / 冲突 / 解决冲突。只暴露固定操作，不接受任意命令。
+  ipcMain.handle('workspace:git', async (_event: unknown, op: unknown, payload: unknown) => {
+    const runner = deps.git ?? execGit
+    const cwd = deps.workspaceRoot()
+    const args = isPlain(payload) ? payload : {}
+    try {
+      if (op === 'changes') return { ok: true, files: await listChanges(runner, cwd) }
+      if (op === 'diff') {
+        const path = typeof args.path === 'string' ? args.path : ''
+        if (path === '') return { ok: false, error: '缺少 path' }
+        return { ok: true, diff: await fileDiff(runner, cwd, path) }
+      }
+      if (op === 'conflicts') return { ok: true, files: await listConflicts(runner, cwd) }
+      if (op === 'resolve') {
+        const path = typeof args.path === 'string' ? args.path : ''
+        const side = args.side === 'theirs' ? 'theirs' : 'ours'
+        if (path === '') return { ok: false, error: '缺少 path' }
+        const result = await resolveConflictFile(runner, cwd, path, side)
+        return result.ok ? { ok: true } : { ok: false, error: result.error ?? '解决失败' }
+      }
+      return { ok: false, error: `未知操作：${String(op)}` }
+    } catch (error) {
+      return { ok: false, error: String(error) }
+    }
   })
 
   ipcMain.handle('workspace:save', (_event: unknown, relativePath: string, content: string) => {

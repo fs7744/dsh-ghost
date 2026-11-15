@@ -8,6 +8,7 @@ import {
   asList, bool, escapeHtml, num, paintText, pickStr, record, safeCall, str, unavailableHtml,
   type PanelInstance, type PanelServices,
 } from './panels.ts'
+import { detectLang, hasConflictMarkers, highlight, truncateForView, withLineNumbers } from './code-view.ts'
 
 export interface FileEntry {
   path: string
@@ -166,16 +167,23 @@ export function mountWorkspacePanel(host: HTMLElement, services: PanelServices):
     </div>
     <div class="wsbody">
       <div class="wstree"></div>
-      <div class="wspreview"><div class="empty" data-t="common.empty"></div></div>
+      <div class="wspreview">
+        <div class="wstabs"></div>
+        <div class="wsview"><div class="empty" data-t="common.empty"></div></div>
+      </div>
     </div>
     <div class="ctxmenu hidden"></div>
   `
   const treeEl = host.querySelector<HTMLElement>('.wstree')!
   const previewEl = host.querySelector<HTMLElement>('.wspreview')!
+  const tabsEl = host.querySelector<HTMLElement>('.wstabs')!
+  const viewEl = host.querySelector<HTMLElement>('.wsview')!
   const statusEl = host.querySelector<HTMLElement>('.panelstatus')!
   const menuEl = host.querySelector<HTMLElement>('.ctxmenu')!
   let rows: FlatNode[] = []
   let menuPath = ''
+  /** 打开过的文件（像编辑器的标签页）。 */
+  const opened: string[] = []
 
   const drawTree = (): void => {
     if (rows.length === 0) {
@@ -205,10 +213,17 @@ export function mountWorkspacePanel(host: HTMLElement, services: PanelServices):
     drawTree()
   }
 
+  const drawTabs = (): void => {
+    tabsEl.innerHTML = opened.length === 0 ? '' : opened.map(path =>
+      `<span class="wstab" data-path="${escapeHtml(path)}">${escapeHtml(path.split('/').pop() ?? path)}</span>`).join('')
+  }
+
   const openFile = async (path: string): Promise<void> => {
+    if (!opened.includes(path)) opened.push(path)
+    drawTabs()
     const kind = classifyFile(path)
     if (kind === 'image' || kind === 'other') {
-      previewEl.innerHTML = `<div class="wsfile"><div class="empty">${escapeHtml(path)}</div>
+      viewEl.innerHTML = `<div class="wsfile"><div class="empty">${escapeHtml(path)}</div>
         <div class="panelhint">${escapeHtml(services.t('workspace.deliverable'))}</div></div>`
       return
     }
@@ -219,11 +234,25 @@ export function mountWorkspacePanel(host: HTMLElement, services: PanelServices):
       : { workspaceFileScopeId: scope, path, range: undefined }
     const result = await safeCall(() => services.transport.call(endpoint as never, args as never))
     if (!result.ok) {
-      previewEl.innerHTML = unavailableHtml(services.t('common.unavailable'), result.reason)
+      viewEl.innerHTML = unavailableHtml(services.t('common.unavailable'), result.reason)
       return
     }
     const content = normalizeFileContent(result.value)
-    previewEl.innerHTML = `<div class="wsfile"><div class="fpath">${escapeHtml(path)}</div>
+    // 冲突横幅：文件里有 git 冲突标记就说清楚，别让人对着乱码发呆。
+    const conflict = hasConflictMarkers(content)
+      ? `<div class="wsconflict">${escapeHtml(services.t('workspace.conflict'))}</div>`
+      : ''
+    if (kind === 'code') {
+      const clipped = truncateForView(content)
+      const html = withLineNumbers(highlight(clipped.text, detectLang(path)))
+      const more = clipped.truncated
+        ? `<div class="panelhint">${escapeHtml(services.t('workspace.truncated').replace('{lines}', String(clipped.totalLines)))}</div>`
+        : ''
+      viewEl.innerHTML = `<div class="wsfile"><div class="fpath">${escapeHtml(path)}</div>${conflict}${more}
+        <pre class="code">${html}</pre></div>`
+      return
+    }
+    viewEl.innerHTML = `<div class="wsfile"><div class="fpath">${escapeHtml(path)}</div>${conflict}
       <pre>${escapeHtml(content === '' ? services.t('common.empty') : content)}</pre></div>`
   }
 
@@ -236,6 +265,11 @@ export function mountWorkspacePanel(host: HTMLElement, services: PanelServices):
     menuEl.style.top = `${y}px`
     menuEl.classList.remove('hidden')
   }
+
+  tabsEl.addEventListener('click', event => {
+    const tab = (event.target as HTMLElement).closest<HTMLElement>('.wstab')
+    if (tab !== null) void openFile(tab.dataset.path ?? '')
+  })
 
   treeEl.addEventListener('click', event => {
     const row = (event.target as HTMLElement).closest<HTMLElement>('.wsrow[data-path]')

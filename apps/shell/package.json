@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "dsh-ghost Electron 桌面壳（Windows / macOS / Linux）。主进程核心逻辑均为可注入依赖的纯模块。",
+  "description": "dsh-ghost Electron \u684c\u9762\u58f3\uff08Windows / macOS / Linux\uff09\u3002\u4e3b\u8fdb\u7a0b\u6838\u5fc3\u903b\u8f91\u5747\u4e3a\u53ef\u6ce8\u5165\u4f9d\u8d56\u7684\u7eaf\u6a21\u5757\u3002",
   "main": "dist/main.js",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -13,7 +13,8 @@
     "release:check": "node --experimental-transform-types ../../scripts/verify-shell.mjs --only=version"
   },
   "dependencies": {
-    "electron-updater": "^6.3.0"
+    "electron-updater": "^6.3.0",
+    "@dsh-ghost/git-view": "0.0.0"
   },
   "devDependencies": {
     "electron": "44.7.0",

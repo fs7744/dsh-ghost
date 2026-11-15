@@ -1,0 +1,17 @@
+{
+  "name": "@dsh-ghost/git-view",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure parsing of git output: status, numstat, unified diff, conflict blocks and resolution.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test --experimental-transform-types tests/*.test.ts"
+  },
+  "files": ["lib", "src"]
+}
