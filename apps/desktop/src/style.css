@@ -84,3 +84,10 @@ details.tool pre { white-space:pre-wrap; background:var(--surface-mid); padding:
 #questions button { background:var(--surface-high); color:var(--on-surface); border:1px solid var(--outline);
   border-radius:var(--radius-md); padding:5px 12px; font:inherit; font-size:12px; cursor:pointer; }
 #questions button:hover { border-color:var(--accent); color:var(--accent); }
+/* 票列表 */
+#tickets { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+.trow { display:flex; gap:8px; align-items:baseline; font-size:12px; }
+.tstage { flex:none; padding:1px 6px; border-radius:999px; background:var(--surface-high); color:var(--on-surface-variant); }
+.tstage.person { background:#3d2f0b; color:#f0d9a8; }
+.tstage.ended { opacity:.6; }
+.ttitle { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -34,7 +34,10 @@ app.innerHTML = `
     </div>
     <div id="flow" class="pane hidden"><div id="canvas"></div></div>
   </main>
-  <div id="detail"><h2>详情</h2><div id="node">未选中</div></div>
+  <div id="detail">
+    <h2>票</h2><div id="tickets"><div class="id">加载中…</div></div>
+    <h2>详情</h2><div id="node">未选中</div>
+  </div>
   <footer>
     <span id="f-sessions">— 个会话</span>
     <span id="f-records">— 条记录</span>
@@ -176,6 +179,24 @@ async function answerQuestion(callId: string, value: string): Promise<void> {
   } catch (error) {
     el('f-state').textContent = `应答失败：${String(error).slice(0, 90)}`
   }
+}
+
+/** 右栏票列表：来自插件写的状态文件（过渡方案，正式版走 Remote）。 */
+function renderTickets(payload: unknown): void {
+  const tickets = (payload as { tickets?: Array<{ id: string; title: string; stage: { stage: string; action?: string } }> })?.tickets ?? []
+  const box = el('tickets')
+  if (tickets.length === 0) {
+    box.innerHTML = '<div class="id">还没有票。让 agent 调用 ghost_ticket 开一张。</div>'
+    return
+  }
+  box.innerHTML = tickets.map(ticket => {
+    const stage = `${ticket.stage.stage}${ticket.stage.action === undefined ? '' : `/${ticket.stage.action}`}`
+    const tone = ticket.stage.stage === 'person' ? 'person' : ticket.stage.stage === 'ended' ? 'ended' : 'working'
+    return `<div class="trow">
+      <span class="tstage ${tone}">${stage}</span>
+      <span class="ttitle" title="${escapeHtml(ticket.title)}">${escapeHtml(ticket.title)}</span>
+    </div>`
+  }).join('')
 }
 
 /** 上下文占用条：projectedTokens / contextWindow。 */
@@ -403,6 +424,15 @@ async function main(): Promise<void> {
     }
   }
   await refresh()
+
+  const pollTickets = async (): Promise<void> => {
+    try {
+      const response = await fetch('/local/tickets')
+      if (response.ok) renderTickets(await response.json())
+    } catch { /* 端点不存在就算了 */ }
+  }
+  await pollTickets()
+  setInterval(() => { void pollTickets() }, 3000)
 
   try {
     await state.transport.events(frame => {

@@ -5,9 +5,16 @@
   "type": "module",
   "description": "Proactive agent core: tickets, policy, engine, in-memory repositories.",
   "exports": {
-    ".": "./src/core/index.ts"
+    ".": {
+      "types": "./src/core/index.ts",
+      "default": "./lib/core/index.js"
+    }
   },
   "scripts": {
     "test": "node --test --experimental-transform-types packages/superagent/tests/stage.test.ts packages/superagent/tests/engine.test.ts"
-  }
+  },
+  "files": [
+    "lib",
+    "src"
+  ]
 }
