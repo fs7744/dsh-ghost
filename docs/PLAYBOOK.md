@@ -110,6 +110,25 @@ escalate
 
 > 高级用户可展开「查看文本」，此时是专家模式，改文本反向解析回图。默认收起——语法是逃生门，不是主入口。
 
+### 5.4 已落地的 MVP（C9-04）
+
+当前 `apps/desktop` 的「剧本」页是**表单 + 源码视图**，还不是 §5 描述的拖拽画布：
+
+- 已实现：增删节点、改名、改类型（步骤 / 人闸 / 子剧本）、挂脚本、上下移动改变语义顺序；
+  增删条件边、改目标 / 条件名、设回退上限 `max`；源码可直接编辑（Ctrl+S 应用）；实时校验；导出 `.flow`。
+- **单向数据流**：`state.text` 是唯一真相源。每次编辑走
+  `editText(text, edit)` → `stringifyFlow` → `parseFlow` → `toGraph` → 重绘，图对象从不直接改语义。
+  实现在 `packages/playbook/src/edit.ts` 与 `apps/desktop/src/flow-editor.ts`。
+- **不存布局缓存文件**：坐标由 `toGraph()` 确定性现算，所以 §4 提到的
+  `.ghost/cache/layout/*.json` 目前不需要；将来做自由拖拽再引入。
+- 浏览器里没有后端写文件，编辑结果用「导出 .flow」落盘；Electron 壳（P3）接管后改为自动保存。
+- 解析器同时扩展到 **`?人闸` 与 `call 子剧本` 也能带条件边**，编辑后往返不丢语义。
+
+验收：`npm run verify:playbook-editor`（9 步编辑 → 文本回写 → 编译成 skill 包）、
+`npm run test:edit`（12 个用例）、`npm run check:ui`。
+
+拖拽布局、撤销栈、AI 局部重写、图 diff 仍属于 P3c。
+
 ---
 
 ## 6. AI 生成与编辑

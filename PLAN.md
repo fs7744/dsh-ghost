@@ -356,6 +356,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **图模型（`toGraph`/`fromGraph`）已完成**：`order` 是语义顺序、`x/y` 只是缓存——往返后 `renderBody` 完全一致（有测试守着）。这条是编辑器"拖不坏语义"的保证。
 
+**编辑器 MVP 已落地（C9-04）**：`packages/playbook/src/edit.ts` 补上了 `.flow` 的反向渲染 `stringifyFlow` 与 9 类纯函数编辑；`apps/desktop/src/flow-editor.ts` 用「图 + 表单 + 源码」实现**编辑即回写文本**，单向数据流（文本是唯一真相源，坐标由 `toGraph()` 现算、不落盘）。解析器同时扩展到人闸 / 子剧本也能带条件边。`npm run verify:playbook-editor`：9 步编辑后 11→13 节点、正文 48→76 token、编译零错误，且同一串编辑重放得到完全相同的文本。浏览器阶段用「导出 .flow」落盘，自动保存等 Electron 壳（详见 [docs/PLAYBOOK.md](docs/PLAYBOOK.md) §5.4）。
+
 **连带影响（很重要）**：superagent 现有 14 个提示词文件要重新归属——角色/语气留下当 persona，**流程步骤改写成 `.flow` 剧本**。常驻系统提示从数千 token 降到数百，这本身就是省 token 的主要来源。
 
 ---

@@ -4,10 +4,9 @@
  * 数据全部来自 harness 的 Remote（经 vite 同源代理），不加载任何 harness 前端。
  * 对话读 `session/page`，写 `session/prompt`；图读 `.flow` 源文件现场编译。
  */
-import { createTransport, login } from '@dsh-ghost/harness-port'
-import { parseFlow, toGraph } from '@dsh-ghost/playbook'
-import type { Graph } from '@dsh-ghost/playbook'
+import { createTransport } from '@dsh-ghost/harness-port'
 import flowSource from '../../../packages/playbook/examples/ticket-flow.flow?raw'
+import { mountFlowEditor } from './flow-editor.ts'
 
 type Transport = ReturnType<typeof createTransport>
 type LogRecord = { type: string; event?: { type: string; seq: number; data: Record<string, unknown> } }
@@ -52,8 +51,6 @@ const state = {
   transport: undefined as Transport | undefined,
   sessions: [] as Array<{ sessionId: string; title?: string }>,
   active: undefined as string | undefined,
-  graph: undefined as Graph | undefined,
-  selected: undefined as string | undefined,
   events: 0,
   busy: false,
 }
@@ -85,7 +82,6 @@ function toBubbles(records: readonly LogRecord[]): Bubble[] {
       name?: string
       arguments?: unknown
       toolCallId?: string
-      message?: { content?: Array<{ type: string; text?: string }> }
     }
     if (event.type === 'user/message') {
       const text = (data.content ?? []).filter(part => part.type === 'text').map(part => part.text ?? '').join('\n')
@@ -281,54 +277,7 @@ function renderSessions(): void {
   })
 }
 
-/** 画流程图（正交连线 + 条件标签 + 回边虚线）。 */
-function renderGraph(graph: Graph): void {
-  const pad = 24
-  const nodes = new Map(graph.nodes.map(node => [node.id, node]))
-  const edges = graph.edges.map(edge => {
-    const from = nodes.get(edge.from)
-    const to = nodes.get(edge.to)
-    if (from === undefined || to === undefined) return ''
-    const x1 = from.x + pad + from.width / 2
-    const y1 = from.y + pad + from.height
-    const x2 = to.x + pad + to.width / 2
-    const y2 = to.y + pad
-    const mid = (y1 + y2) / 2
-    const path = edge.kind === 'back' || y2 < y1
-      ? `M ${x1} ${y1} C ${x1 + 90} ${y1 + 10}, ${x2 + 90} ${y2 - 10}, ${x2} ${y2}`
-      : `M ${x1} ${y1} L ${x1} ${mid} L ${x2} ${mid} L ${x2} ${y2}`
-    const label = edge.on === undefined ? '' : `<text class="on" x="${(x1 + x2) / 2 + 6}" y="${mid - 4}">${edge.on}${edge.max === undefined ? '' : ` ×${edge.max}`}</text>`
-    return `<path class="edge ${edge.kind}" d="${path}" marker-end="url(#arrow)"/>${label}`
-  }).join('')
-  const boxes = graph.nodes.map(node => {
-    const selected = node.id === state.selected ? ' sel' : ''
-    const kind = node.kind === 'gate' ? ' gate' : ''
-    const meta = node.script ?? (node.kind === 'gate' ? '需人确认' : '')
-    return `<g data-node="${node.id}" style="cursor:pointer">
-      <rect class="node${kind}${selected}" x="${node.x + pad}" y="${node.y + pad}" width="${node.width}" height="${node.height}" rx="8"/>
-      <text class="label" x="${node.x + pad + 12}" y="${node.y + pad + 22}">${escapeHtml(node.name)}</text>
-      <text class="meta" x="${node.x + pad + 12}" y="${node.y + pad + 40}">${escapeHtml(meta)}</text>
-    </g>`
-  }).join('')
-  const width = graph.bounds.width + pad * 2
-  const height = graph.bounds.height + pad * 2
-  el('canvas').innerHTML = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-    <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8a8880"/></marker></defs>${edges}${boxes}</svg>`
-  el('canvas').querySelectorAll<SVGGElement>('g[data-node]').forEach(group => {
-    group.addEventListener('click', () => {
-      state.selected = group.dataset.node
-      renderGraph(graph)
-      const node = graph.nodes.find(item => item.id === state.selected)
-      el('node').innerHTML = node === undefined ? '未选中' : `<dl>
-        <dt>名称</dt><dd>${escapeHtml(node.name)}</dd>
-        <dt>类型</dt><dd>${node.kind === 'gate' ? '人闸' : node.kind === 'call' ? '子剧本' : '步骤'}</dd>
-        <dt>层级</dt><dd>${node.depth}</dd>
-        <dt>脚本</dt><dd>${node.script === undefined ? '—' : escapeHtml(node.script)}</dd>
-      </dl>`
-    })
-  })
-}
+// 流程图与编辑器已移到 flow-editor.ts（C9-04）：图与文本共用一条单向数据流。
 
 /** 读一个会话的日志并渲染。 */
 async function openSession(sessionId: string): Promise<number> {
@@ -399,13 +348,8 @@ async function send(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { flow, errors } = parseFlow(flowSource)
-  if (errors.length > 0) {
-    el('canvas').innerHTML = `<div class="err">剧本有问题：\n${escapeHtml(errors.join('\n'))}</div>`
-  } else {
-    state.graph = toGraph(flow)
-    renderGraph(state.graph)
-  }
+  // 剧本页自己管文本、图与表单：编辑即回写 .flow，全部走单向数据流。
+  mountFlowEditor(el('flow'), flowSource)
 
   el('tabs').querySelectorAll<HTMLButtonElement>('button').forEach(button => {
     button.addEventListener('click', () => {
@@ -453,7 +397,8 @@ async function main(): Promise<void> {
       const items = (listed as { items?: Array<{ sessionId: string; title?: string }> })?.items ?? []
       state.sessions = items.map(item => ({ sessionId: item.sessionId, ...(item.title === undefined ? {} : { title: item.title }) }))
       renderSessions()
-      if (state.active === undefined && state.sessions.length > 0) await openSession(state.sessions[0].sessionId)
+      const first = state.sessions[0]
+      if (state.active === undefined && first !== undefined) await openSession(first.sessionId)
     } catch (error) {
       el('conn').textContent = `取会话失败：${String(error).slice(0, 80)}`
     }

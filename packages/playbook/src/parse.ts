@@ -107,38 +107,32 @@ export function parseFlow(text: string): ParseResult {
       rest = rest.slice(0, scriptMatch.index).trimEnd()
     }
 
+    // 先剥类型前缀，再统一解析「名称 : 条件边」——人闸与子剧本同样可以带出边。
     let kind: FlowNode['kind'] = 'step'
-    let nodeName: string
     let call: string | undefined
-
-    if (rest.startsWith('?')) {
+    let body = rest
+    if (body.startsWith('?')) {
       kind = 'gate'
-      nodeName = rest.slice(1).trim()
-    } else if (rest.startsWith('call ')) {
+      body = body.slice(1).trim()
+    } else if (body.startsWith('call ')) {
       kind = 'call'
-      call = rest.slice(5).trim()
-      nodeName = call
-    } else {
-      const colon = EDGE_LIST.exec(rest)
-      nodeName = (colon === null ? rest : rest.slice(0, colon.index)).trim()
-      if (colon !== null) {
-        const edges: FlowEdge[] = []
-        for (const part of colon[1]!.split('|')) {
-          const edge = EDGE.exec(part.trim())
-          if (edge === null) {
-            errors.push(`第 ${lineNo} 行：无法解析跳转 "${part.trim()}"（应为 条件 -> 目标 (max n)）`)
-            continue
-          }
-          const parsed: FlowEdge = { on: edge[1]!.trim(), to: edge[2]! }
-          if (edge[3] !== undefined) parsed.max = Number(edge[3])
-          edges.push(parsed)
+      call = body.slice(5).trim()
+      body = call
+    }
+
+    const colon = EDGE_LIST.exec(body)
+    const nodeName = (colon === null ? body : body.slice(0, colon.index)).trim()
+    const edges: FlowEdge[] = []
+    if (colon !== null) {
+      for (const part of colon[1]!.split('|')) {
+        const edge = EDGE.exec(part.trim())
+        if (edge === null) {
+          errors.push(`第 ${lineNo} 行：无法解析跳转 "${part.trim()}"（应为 条件 -> 目标 (max n)）`)
+          continue
         }
-        if (edges.length > 0) {
-          flow.nodes.push({ name: nodeName, kind, edges, line: lineNo, ...(script === undefined ? {} : { script }) })
-          if (seen.has(nodeName)) errors.push(`第 ${lineNo} 行：节点重名 "${nodeName}"`)
-          seen.add(nodeName)
-          return
-        }
+        const parsed: FlowEdge = { on: edge[1]!.trim(), to: edge[2]! }
+        if (edge[3] !== undefined) parsed.max = Number(edge[3])
+        edges.push(parsed)
       }
     }
 
@@ -148,10 +142,11 @@ export function parseFlow(text: string): ParseResult {
     }
     if (seen.has(nodeName)) errors.push(`第 ${lineNo} 行：节点重名 "${nodeName}"`)
     seen.add(nodeName)
+    if (kind === 'call') call = nodeName
     flow.nodes.push({
       name: nodeName,
       kind,
-      edges: [],
+      edges,
       line: lineNo,
       ...(call === undefined ? {} : { call }),
       ...(script === undefined ? {} : { script }),

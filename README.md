@@ -7,7 +7,7 @@
 ## 现在是什么状态
 
 地基与主链路已打通：**外部事件 → 可插拔信息源 → 票 → 自动执行（真模型）→ 报告 → 回写来源会话**。
-桌面端第一屏可用，P3 其余界面项按 [PLAN.md](PLAN.md) 推进中。
+剧本页已可编辑（图 + 表单 + 源码，编辑即回写 `.flow`），P3 其余界面项按 [PLAN.md](PLAN.md) 推进中。
 
 | 已完成 | 说明 |
 |---|---|
@@ -25,7 +25,8 @@
 | **自动执行闭环** | 开票后执行器自己 `followup` → 等回合 → 报告 → 票结束，无需人工推进 |
 | **GitHub 全闭环** | webhook → 票 → 真模型 → 评论回到原 issue（本地假服务器端到端验收） |
 | **配置治理** | `scripts/cordis.patch.template.yml` 单一真相源；启动前自动同步编译产物到 profile |
-| `apps/desktop` | 会话树 + 对话 + 工具卡片 + 上下文条 + 票列表/详情 + 剧本流程图（全走 Remote） |
+| **剧本编辑器（C9-04）** | 图 + 表单 + 源码三视图；增删节点/条件边/人闸/回退上限、改名、调顺序，编辑即回写 `.flow`，实时校验 + 导出 |
+| `apps/desktop` | 会话树 + 对话 + 工具卡片 + 上下文条 + 票列表/详情 + 剧本流程图与编辑器（全走 Remote） |
 
 ## 文档
 
@@ -50,7 +51,10 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 npm run build                     # 编译各包到 lib/（纯 Node 可加载）
-npm test                          # 82 个用例（剧本/记忆/插件/领域/持久化/GitHub 出入/信息源）
+npm test                          # 94 个用例（剧本/编辑器/记忆/插件/领域/持久化/GitHub 出入/信息源）
+npm run check:ui                  # 前端 tsc --noEmit（含 vite/client 类型）
+npm run build:ui                  # Vite 构建桌面渲染层
+npm run verify:playbook-editor    # 9 步编辑 → 文本回写 → 编译成 skill 包
 
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill              # 确认 harness 的 skills/list 里能看到它
