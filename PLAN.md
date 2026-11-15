@@ -336,6 +336,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **已验通（端到端）**：`.flow` → 编译 → 投放 `.dsh/skills/ticket-flow/SKILL.md` → harness `skills/list` 能看到它（`scripts/verify-skill.mjs`）。常驻 37 + 正文 48 token；带节点详情时正文 56（多 8 token 换"按需可查"）。
 
+**GitHub 出口也通了**：`packages/sink-github` 实现 Outbox 端口（幂等、状态可查、失败留 pending 待重试），用真实 HTTP 假服务器验过请求形状与幂等。现在"评论进来 → 票 → 评论回去"两端都在了，中间缺的执行器是下一块。
+
 **触发源已接 GitHub**：`packages/source-github` 做签名校验与事件映射，`ghostTickets/accept` Remote 收下外部事件；本地回环投递验通（正确签名 202 / 错误签名 401，票在 Remote 上可见，被 @ 的标为 addressed）。
 
 **引擎已常驻**：`packages/orchestrator-plugin` 把 Engine 挂进宿主，注册 `ghost_ticket` 工具。真实模型自己调用它开了票（`npm run verify:ticket-tool`）。界面右栏能看到票与阶段。票已持久化（`persisting()` 快照 + 启动读回），票状态已改成 Remote（`ghostTickets/list`，网关 source-mode 发现）。两条已知限制都已清掉。
