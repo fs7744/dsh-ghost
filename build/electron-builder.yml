@@ -53,6 +53,7 @@ protocols:
       - dsh-ghost
 
 win:
+  icon: resources/icon.ico
   target:
     - target: nsis
       arch:
@@ -73,6 +74,7 @@ nsis:
   include: build/installer.nsh
 
 mac:
+  icon: resources/icon.icns
   # dmg 给人装，zip 给 electron-updater（Squirrel.Mac 只认 zip）。
   target:
     - target: dmg
@@ -95,6 +97,7 @@ mac:
   # entitlements 资产补齐前不启用自定义 plist，使用 electron-builder 默认值。
 
 linux:
+  icon: resources/icon.png
   target:
     - target: AppImage
       arch:

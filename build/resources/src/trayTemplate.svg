@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <mask id="eyes">
+      <rect width="64" height="64" fill="#fff"/>
+      <circle cx="26" cy="30" r="4.2" fill="#000"/>
+      <circle cx="38" cy="30" r="4.2" fill="#000"/>
+    </mask>
+  </defs>
+  <!-- macOS 模板图：纯黑剪影 + 透明眼睛孔，系统自动适配深浅色 -->
+  <path d="M12 57V29C12 18.5 20.5 11 32 11C43.5 11 52 18.5 52 29V57L45.5 52L39 58L32 52L25 58L18.5 52Z"
+        fill="#000" mask="url(#eyes)"/>
+</svg>

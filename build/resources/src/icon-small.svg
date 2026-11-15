@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- 16/24/32px 专用：放大主体、去掉细线与网格，优先保证轮廓可辨 -->
+  <rect x="32" y="32" width="960" height="960" rx="216" fill="#141412"/>
+  <rect x="33" y="33" width="958" height="958" rx="215" fill="none" stroke="#45443f" stroke-width="6"/>
+
+  <path d="M240 840V420C240 300 340 200 512 200C684 200 784 300 784 420V840L704 780L608 840L512 780L416 840L320 780Z"
+        fill="#eceae4"/>
+  <circle cx="420" cy="470" r="58" fill="#141412" stroke="#5dcaa5" stroke-width="14"/>
+  <circle cx="604" cy="470" r="58" fill="#141412"/>
+</svg>

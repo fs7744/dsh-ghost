@@ -133,6 +133,20 @@ check('builder-platforms', () => {
   }
 })
 
+// --- 6.5 三平台图标产物齐全且容器头正确 --------------------------------
+check('icons', () => {
+  const dir = join(REPO, 'build', 'resources')
+  for (const name of ['icon.ico', 'icon.icns', 'icon.png', 'trayTemplate.png', 'trayTemplate@2x.png']) {
+    if (!existsSync(join(dir, name))) throw new Error(`缺图标: ${name}`)
+  }
+  const ico = readFileSync(join(dir, 'icon.ico'))
+  if (ico.readUInt16LE(2) !== 1 || ico.readUInt16LE(4) < 5) throw new Error('icon.ico 不是多尺寸 ICO')
+  const icns = readFileSync(join(dir, 'icon.icns'))
+  if (icns.toString('ascii', 0, 4) !== 'icns' || icns.readUInt32BE(4) !== icns.length) {
+    throw new Error('icon.icns 容器头不对')
+  }
+})
+
 // --- 7. 发布流水线只产出不发布 -----------------------------------------------
 check('release-workflow', () => {
   const path = join(REPO, '.github', 'workflows', 'release.yml')
