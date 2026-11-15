@@ -18,7 +18,7 @@
     "verify:skill": "node --experimental-transform-types scripts/verify-skill.mjs",
     "test:playbook": "node --test --experimental-transform-types packages/playbook/tests/playbook.test.ts",
     "test:memory": "node --test --experimental-transform-types packages/memory/tests/memory.test.ts",
-    "test": "npm run test:playbook && npm run test:memory && npm run test:plugin && npm run test:core",
+    "test": "npm run test:playbook && npm run test:memory && npm run test:plugin && npm run test:core && npm run test:github",
     "test:plugin": "node --test --experimental-transform-types packages/memory-plugin/tests/plugin.test.ts",
     "build": "tsc -p packages/memory/tsconfig.build.json && tsc -p packages/superagent/tsconfig.build.json && tsc -p packages/memory-plugin/tsconfig.build.json && tsc -p packages/orchestrator-plugin/tsconfig.build.json",
     "smoke:plugin": "node scripts/smoke-built-plugin.mjs",
@@ -32,7 +32,9 @@
     "dev:ui": "node --experimental-transform-types scripts/dev-ui.mjs",
     "ticket": "node --experimental-transform-types scripts/run-ticket.mjs",
     "verify:orchestrator": "node scripts/verify-orchestrator.mjs",
-    "verify:ticket-tool": "node --experimental-transform-types scripts/verify-ticket-tool.mjs"
+    "verify:ticket-tool": "node --experimental-transform-types scripts/verify-ticket-tool.mjs",
+    "test:github": "node --test --experimental-transform-types packages/source-github/tests/source.test.ts",
+    "verify:github": "node --experimental-transform-types scripts/verify-github-source.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3",

@@ -12,6 +12,7 @@ import { apply } from '../packages/orchestrator-plugin/lib/index.js'
 const stateFile = join(import.meta.dirname, '..', 'out', 'tickets-verify.json')
 mkdirSync(dirname(stateFile), { recursive: true })
 rmSync(stateFile, { force: true })
+rmSync(`${stateFile}.snapshot.json`, { force: true })
 
 const registered = []
 const ctx = {

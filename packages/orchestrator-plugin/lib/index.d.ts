@@ -31,6 +31,31 @@ export declare class GhostTickets extends TypertRemoteService {
     listTickets(): {
         items: TicketView[];
     };
+    /**
+     * 收下一条外部事件并开票（来源适配器用：GitHub / IM / 脚本）。
+     * @param input - 已校验并归一化的事件
+     * @returns 新票的 id
+     */
+    acceptTicket(input: AcceptInput): {
+        ticketId: string;
+    };
+}
+/** 外部事件归一化后的输入。 */
+export interface AcceptInput {
+    /** 来源名，如 `github`。 */
+    source: string;
+    /** 线程标识，如 `fs7744/dsh-ghost#12`；同线程事件会聚到一起。 */
+    threadId: string;
+    /** 事件正文。 */
+    text: string;
+    /** 是否人写的。 */
+    human?: boolean;
+    /** 是否点名了 agent。 */
+    addressed?: boolean;
+    /** 原始链接。 */
+    url?: string;
+    /** 发起者。 */
+    actor?: string;
 }
 /**
  * 挂载插件。

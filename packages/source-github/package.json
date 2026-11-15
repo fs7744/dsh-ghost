@@ -1,0 +1,13 @@
+{
+  "name": "@dsh-ghost/source-github",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GitHub event source: verify webhook signatures and map payloads to domain Triggers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-transform-types tests/source.test.ts"
+  }
+}

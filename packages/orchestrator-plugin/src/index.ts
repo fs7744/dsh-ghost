@@ -48,6 +48,7 @@ export interface TicketView {
 // 私有字段 #view 在那种调用下会抛 "Cannot read private member"。所以取视图走模块级槽位：
 // 每个宿主进程只挂一个 orchestrator，这足够安全，也不依赖 this。
 let viewSlot: (() => TicketView[]) | undefined
+let acceptSlot: ((input: AcceptInput) => { ticketId: string }) | undefined
 
 export class GhostTickets extends TypertRemoteService {
   constructor(ctx: Context, view: () => TicketView[]) {
@@ -63,6 +64,36 @@ export class GhostTickets extends TypertRemoteService {
   listTickets(): { items: TicketView[] } {
     return { items: viewSlot?.() ?? [] }
   }
+
+  /**
+   * 收下一条外部事件并开票（来源适配器用：GitHub / IM / 脚本）。
+   * @param input - 已校验并归一化的事件
+   * @returns 新票的 id
+   */
+  @Remote('accept')
+  acceptTicket(input: AcceptInput): { ticketId: string } {
+    const accept = acceptSlot
+    if (accept === undefined) throw new Error('orchestrator 未就绪')
+    return accept(input)
+  }
+}
+
+/** 外部事件归一化后的输入。 */
+export interface AcceptInput {
+  /** 来源名，如 `github`。 */
+  source: string
+  /** 线程标识，如 `fs7744/dsh-ghost#12`；同线程事件会聚到一起。 */
+  threadId: string
+  /** 事件正文。 */
+  text: string
+  /** 是否人写的。 */
+  human?: boolean
+  /** 是否点名了 agent。 */
+  addressed?: boolean
+  /** 原始链接。 */
+  url?: string
+  /** 发起者。 */
+  actor?: string
 }
 
 const OUTPUT_SCHEMA = {
@@ -130,6 +161,34 @@ export function apply(ctx: Context, config: Config = {}): void {
   // Service 的构造依赖 cordis 的 ctx.reflect，纯 Node 自检用的假 ctx 没有它。
   const cordis = ctx as unknown as { reflect?: unknown }
   if (cordis.reflect !== undefined) new GhostTickets(ctx, view)
+
+  /** 开票的共用实现：工具与 accept Remote 都走这里。 */
+  const accept = (input: AcceptInput): { ticketId: string } => {
+    const trigger: Trigger = {
+      id: `tr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      source: input.source,
+      threads: [{ source: input.source, id: input.threadId }],
+      actor: { id: input.actor ?? input.source, name: input.actor ?? input.source } as never,
+      human: input.human ?? false,
+      ...(input.addressed === true ? { addressed: 'mention' as const } : {}),
+      at: new Date().toISOString(),
+      text: input.text,
+      ...(input.url === undefined ? {} : { url: input.url }),
+      meta: { via: 'remote-accept' },
+    }
+    engine.receive(trigger)
+    // 同线程已有票时，新消息是那张票的输入（followup），不该再建票；
+    // 此时 decide 会被领域拒绝（"its worker decides whether it belongs there"）。
+    const fanout = repo.triggers.disposition(trigger.id)?.fanout ?? []
+    if (fanout.length > 0) {
+      flush()
+      return { ticketId: fanout[0] as string }
+    }
+    const decision = engine.decide(trigger.id, { kind: 'accept', title: input.text.slice(0, 60), scope: input.source, reason: '外部事件' })
+    flush()
+    return { ticketId: decision.ticketId ?? '' }
+  }
+  acceptSlot = accept
   ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length)
 
   ctx.effect(() => ctx.tools.register({
@@ -150,21 +209,8 @@ export function apply(ctx: Context, config: Config = {}): void {
     async execute(args) {
       const task = String((args as { task?: unknown })?.task ?? '').trim()
       if (task === '') return { text: '没有任务内容，票没有开。' }
-      const trigger: Trigger = {
-        id: `tr-${Date.now()}`,
-        source,
-        threads: [{ source, id: `thread-${Date.now()}` }],
-        actor: { id: 'agent', name: 'agent' } as never,
-        human: false,
-        at: new Date().toISOString(),
-        text: task,
-        meta: {},
-      }
-      engine.receive(trigger)
-      // 直接接单：本版没有独立评估器，开票即建票
-      const decision = engine.decide(trigger.id, { kind: 'accept', title: task.slice(0, 60), scope: source, reason: 'agent 直接开票' })
-      flush()
-      return { text: decision.ticketId === undefined ? '没开出票（可能重复）。' : `已开票：${decision.ticketId}` }
+      const { ticketId } = accept({ source, threadId: `thread-${Date.now()}`, text: task })
+      return { text: ticketId === '' ? '没开出票（可能重复）。' : `已开票：${ticketId}` }
     },
   }), 'ghost-orchestrator: ghost_ticket')
 

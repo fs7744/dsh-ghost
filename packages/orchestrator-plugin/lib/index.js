@@ -60,15 +60,19 @@ export const inject = ['tools'];
 // 私有字段 #view 在那种调用下会抛 "Cannot read private member"。所以取视图走模块级槽位：
 // 每个宿主进程只挂一个 orchestrator，这足够安全，也不依赖 this。
 let viewSlot;
+let acceptSlot;
 let GhostTickets = (() => {
     let _classSuper = TypertRemoteService;
     let _instanceExtraInitializers = [];
     let _listTickets_decorators;
+    let _acceptTicket_decorators;
     return class GhostTickets extends _classSuper {
         static {
             const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
             _listTickets_decorators = [Remote('list')];
+            _acceptTicket_decorators = [Remote('accept')];
             __esDecorate(this, null, _listTickets_decorators, { kind: "method", name: "listTickets", static: false, private: false, access: { has: obj => "listTickets" in obj, get: obj => obj.listTickets }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _acceptTicket_decorators, { kind: "method", name: "acceptTicket", static: false, private: false, access: { has: obj => "acceptTicket" in obj, get: obj => obj.acceptTicket }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
         constructor(ctx, view) {
@@ -82,6 +86,17 @@ let GhostTickets = (() => {
          */
         listTickets() {
             return { items: viewSlot?.() ?? [] };
+        }
+        /**
+         * 收下一条外部事件并开票（来源适配器用：GitHub / IM / 脚本）。
+         * @param input - 已校验并归一化的事件
+         * @returns 新票的 id
+         */
+        acceptTicket(input) {
+            const accept = acceptSlot;
+            if (accept === undefined)
+                throw new Error('orchestrator 未就绪');
+            return accept(input);
         }
     };
 })();
@@ -148,6 +163,33 @@ export function apply(ctx, config = {}) {
     const cordis = ctx;
     if (cordis.reflect !== undefined)
         new GhostTickets(ctx, view);
+    /** 开票的共用实现：工具与 accept Remote 都走这里。 */
+    const accept = (input) => {
+        const trigger = {
+            id: `tr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            source: input.source,
+            threads: [{ source: input.source, id: input.threadId }],
+            actor: { id: input.actor ?? input.source, name: input.actor ?? input.source },
+            human: input.human ?? false,
+            ...(input.addressed === true ? { addressed: 'mention' } : {}),
+            at: new Date().toISOString(),
+            text: input.text,
+            ...(input.url === undefined ? {} : { url: input.url }),
+            meta: { via: 'remote-accept' },
+        };
+        engine.receive(trigger);
+        // 同线程已有票时，新消息是那张票的输入（followup），不该再建票；
+        // 此时 decide 会被领域拒绝（"its worker decides whether it belongs there"）。
+        const fanout = repo.triggers.disposition(trigger.id)?.fanout ?? [];
+        if (fanout.length > 0) {
+            flush();
+            return { ticketId: fanout[0] };
+        }
+        const decision = engine.decide(trigger.id, { kind: 'accept', title: input.text.slice(0, 60), scope: input.source, reason: '外部事件' });
+        flush();
+        return { ticketId: decision.ticketId ?? '' };
+    };
+    acceptSlot = accept;
     ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length);
     ctx.effect(() => ctx.tools.register({
         name: 'ghost_ticket',
@@ -168,21 +210,8 @@ export function apply(ctx, config = {}) {
             const task = String(args?.task ?? '').trim();
             if (task === '')
                 return { text: '没有任务内容，票没有开。' };
-            const trigger = {
-                id: `tr-${Date.now()}`,
-                source,
-                threads: [{ source, id: `thread-${Date.now()}` }],
-                actor: { id: 'agent', name: 'agent' },
-                human: false,
-                at: new Date().toISOString(),
-                text: task,
-                meta: {},
-            };
-            engine.receive(trigger);
-            // 直接接单：本版没有独立评估器，开票即建票
-            const decision = engine.decide(trigger.id, { kind: 'accept', title: task.slice(0, 60), scope: source, reason: 'agent 直接开票' });
-            flush();
-            return { text: decision.ticketId === undefined ? '没开出票（可能重复）。' : `已开票：${decision.ticketId}` };
+            const { ticketId } = accept({ source, threadId: `thread-${Date.now()}`, text: task });
+            return { text: ticketId === '' ? '没开出票（可能重复）。' : `已开票：${ticketId}` };
         },
     }), 'ghost-orchestrator: ghost_ticket');
     flush();

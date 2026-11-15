@@ -18,6 +18,7 @@
 | `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返（15 个测试全绿） |
 | `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门 + 三个模型工具（10 个测试全绿） |
 | `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已验通模型侧可见并被调用** |
+| `source-github` | webhook 签名校验 + 事件→Trigger 映射（issue/PR/评论，9 个用例） |
 | `orchestrator-plugin` | 引擎常驻宿主：`ghost_ticket` 工具 + `ghostTickets/list` Remote + 持久化 |
 | `superagent` | 领域核心（16 文件，零 harness 依赖）；**30 个用例**；`npm run ticket` 跑真实工单闭环 |
 | **真模型验证** | 真实模型（hy3）自己调用 `memory_write` 写入记忆，11.3s 完成 |
@@ -45,7 +46,7 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 
-npm test                            # 58 个用例（剧本/记忆/插件/核心/持久化）
+npm test                            # 67 个用例（剧本/记忆/插件/核心/持久化/GitHub 来源）
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill                # 确认 harness 的 skills/list 里能看到它
 npm run build                       # 编译成 lib/（纯 Node 可加载）
@@ -59,6 +60,7 @@ npm run check:secrets               # 扫描受版本控制的文件里有没有
 
 npm run dev:ui                      # 起 harness + 前端（会自动读 .env），打印带 token 的地址
 npm run ticket                      # 跑一条工单：触发 → 准入 → 建票 → 派活（真模型）→ 报告
+npm run verify:github               # GitHub webhook：签名 → Trigger → 开票（本地回环投递）
 ```
 
 `spikes/p05-transport/` 里有一份已安装的 `@deepseek-ai/dsh`（1.3GB，已被 gitignore），
