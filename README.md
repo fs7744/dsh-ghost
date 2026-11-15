@@ -17,7 +17,7 @@
 | `harness-port` | 传输层（调用 + 事件），零 `@deepseek-ai` 依赖 |
 | `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返（15 个测试全绿） |
 | `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门 + 三个模型工具（10 个测试全绿） |
-| `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已在真实 harness 中装载验证** |
+| `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已在真实 harness 中装载并从服务查回** |
 
 ## 文档
 

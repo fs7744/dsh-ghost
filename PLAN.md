@@ -366,7 +366,7 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **已实现（`packages/memory`，10 个测试）**：`indexed`（项目：索引常驻 + `entries/` 按需）与 `block`（用户：单文件常驻块，硬预算）两种形态；写入闸门拒"缺来源/一次性措辞/非法名"；覆盖前留 `.bak`，写入原子。超预算**明确拒绝并提示归档**，不静默截断。
 
-**插件已装进真实 harness**：`npm pack` → 装进 profile → `cordis.patch.yml` 插一行 → 启动，自检文件确认 `ghost-memory → memory_list, memory_read, memory_write` 就位（`npm run verify:plugin-boot`）。这是本仓库代码第一次真正跑在 harness 进程里。
+**插件已装进真实 harness**：`npm pack` → 装进 profile → `cordis.patch.yml` 插一行 → 启动，自检文件确认三个工具就位，且**用 `ctx.tools.get()` 从运行中的服务查回**（`present: true` 三条）。**仍未验证的是"模型能看到并调用它们"**——那需要一个真实模型回合。这是本仓库代码第一次真正跑在 harness 进程里。
 
 工具层（`memory_list` / `memory_read` / `memory_write`）已定义并可执行：描述即说明书（每条 ≤120 字符）、只回人话、写入被拒时把原因原样返回让模型自愈。**尚未挂进 `agent.ctx.tools.register`**——那一步需要把 harness 依赖装到仓库根。
 

@@ -47,8 +47,11 @@ await new Promise(r => setTimeout(r, 600))
 if (child.exitCode === null) child.kill('SIGKILL')
 
 process.stdout.write(`boot    ${ready ? 'ready' : '未就绪'}（${PROFILE}）\n`)
+const verified = state?.verified ?? []
+const allPresent = verified.length > 0 && verified.every(entry => entry.present === true)
 process.stdout.write(`state   ${state === undefined ? '(没有 plugin-state.json)' : `${state.plugin} → ${state.tools.join(', ')} @ ${state.at}`}\n`)
-if (!ready || state === undefined || failed) {
+process.stdout.write(`verify  ${verified.map(entry => `${entry.name}:${entry.present ? 'ok' : 'MISSING'}`).join(' ') || '(无自检)'}\n`)
+if (!ready || state === undefined || !allPresent || failed) {
   process.stdout.write('\nFAIL  插件未成功装载\n')
   if (!ready) process.stdout.write(logs.slice(-800) + '\n')
   process.exit(1)

@@ -73,9 +73,12 @@ export function apply(ctx: Context, config: Config): void {
   // 同时它是排障入口：谁在什么时候、以什么配置加载了哪些工具。
   try {
     mkdirSync(config.root, { recursive: true })
+    const tools = memoryTools(store).map(tool => tool.name)
     writeFileSync(join(config.root, 'plugin-state.json'), JSON.stringify({
       plugin: name,
-      tools: memoryTools(store).map(tool => tool.name),
+      tools,
+      // 运行时自检：注册完再从服务里查回来，确认真的在册（而不是"调用没抛错"）。
+      verified: tools.map(tool => ({ name: tool, present: ctx.tools.get(tool) !== undefined })),
       mode: config.mode ?? 'indexed',
       at: new Date().toISOString(),
       pid: process.pid,
