@@ -28,6 +28,8 @@ export interface PanelInstance {
 export interface PanelDef {
   id: string
   labelKey: string
+  /** 字面标题（用户扩展用；有值时优先于 labelKey）。 */
+  label?: string
   order: number
   mount: (host: HTMLElement, services: PanelServices) => PanelInstance
 }
@@ -128,6 +130,7 @@ export function pickStr(value: Record<string, unknown>, keys: readonly string[])
 interface Entry {
   id: string
   labelKey: string
+  label?: string
   order: number
   paneId: string
   mount: ((host: HTMLElement, services: PanelServices) => PanelInstance) | undefined
@@ -161,7 +164,8 @@ export function mountPanels(options: MountPanelsOptions): MountedPanels {
       id: pane.id, labelKey: pane.labelKey, order: pane.order, paneId: pane.id, mount: undefined,
     })),
     ...defs.map((def): Entry => ({
-      id: def.id, labelKey: def.labelKey, order: def.order, paneId: `panel-${def.id}`, mount: def.mount,
+      id: def.id, labelKey: def.labelKey, ...(def.label === undefined ? {} : { label: def.label }),
+      order: def.order, paneId: `panel-${def.id}`, mount: def.mount,
     })),
   ])
 
@@ -177,7 +181,7 @@ export function mountPanels(options: MountPanelsOptions): MountedPanels {
 
   const drawTabs = (): void => {
     tabs.innerHTML = entries.map(entry =>
-      `<button type="button" data-panel="${escapeHtml(entry.id)}">${escapeHtml(services.t(entry.labelKey))}</button>`).join('')
+      `<button type="button" data-panel="${escapeHtml(entry.id)}">${escapeHtml(entry.label ?? services.t(entry.labelKey))}</button>`).join('')
   }
   drawTabs()
 

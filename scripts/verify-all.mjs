@@ -32,7 +32,7 @@ const GROUPS = {
     'verify:auth', 'verify:commands', 'verify:orchestrator', 'verify:github',
     'verify:outbox', 'verify:source-hub', 'verify:command-palette',
     'verify:session-export', 'verify:rewind', 'verify:memory-ui', 'verify:panels',
-    'verify:evolution', 'verify:ai-config',
+    'verify:evolution', 'verify:ai-config', 'verify:ui-extensions',
   ],
   model: ['verify:l3', 'verify:real-model', 'verify:ticket-tool', 'verify:auto-run', 'verify:github-loop'],
 }

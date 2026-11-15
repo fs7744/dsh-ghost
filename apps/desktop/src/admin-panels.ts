@@ -8,6 +8,7 @@ import {
   asList, bool, escapeHtml, num, paintText, pickStr, record, safeCall, unavailableHtml,
   type PanelInstance, type PanelServices,
 } from './panels.ts'
+import { invokeSlot, slotSection } from './extensions.ts'
 
 export function sortByName<T extends { name: string }>(rows: readonly T[]): T[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name))
@@ -175,6 +176,8 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     <div class="adminbody">
       <section><h3 data-t="admin.providers"></h3><div data-sec="providers"></div></section>
       <section><h3 data-t="admin.mcp"></h3><div data-sec="mcp"></div></section>
+      <section><h3 data-t="settings.llmServices"></h3><div data-sec="llm"></div></section>
+      <section><h3 data-t="ui.extensions"></h3><div data-sec="slots"></div></section>
       <section><h3 data-t="admin.settings"></h3><div data-sec="settings"></div></section>
     </div>`
   const statusEl = host.querySelector<HTMLElement>('.panelstatus')!
@@ -224,6 +227,8 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       okCount += 1
       box.innerHTML = job.render(result.value, services)
     }
+    await renderLlmServices(host, services)
+    await renderExtensionSlots(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length}`
   }
   host.addEventListener('click', event => {
@@ -232,6 +237,20 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     if (button === null) return
     const action = button.dataset.act ?? ''
     if (action === 'refresh') { void load(); return }
+    if (action === 'add-provider') {
+      void submitProvider(host, services)
+      return
+    }
+    const slotButton = target.closest<HTMLButtonElement>('button[data-slot-endpoint]')
+    if (slotButton !== null) {
+      const endpoint = slotButton.dataset.slotEndpoint ?? ''
+      let args: Record<string, unknown> = {}
+      try {
+        args = JSON.parse(decodeURIComponent(slotButton.dataset.slotArgs ?? '{}')) as Record<string, unknown>
+      } catch { /* 参数坏了就按空参调 */ }
+      void invokeSlot(services, endpoint, args).then(result => services.notice(result.text))
+      return
+    }
     // MCP 服务：探测连通性 / 重启连接。
     if (action === 'mcp-probe' || action === 'mcp-restart') {
       const name = button.dataset.value ?? ''
@@ -243,6 +262,91 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     }
   })
   return { refresh: load }
+}
+
+/** LLM 服务区：列出已登记的 provider，并提供登记表单（校验由宿主插件做）。 */
+async function renderLlmServices(host: HTMLElement, services: PanelServices): Promise<void> {
+  const box = host.querySelector<HTMLElement>('[data-sec="llm"]')
+  if (box === null) return
+  const result = await safeCall(() => services.transport.call('ghostUI/providers' as never, {} as never))
+  if (!result.ok) {
+    box.innerHTML = unavailableHtml(services.t('common.unavailable'), result.reason)
+    return
+  }
+  const raw = record(result.value)
+  const providers = asList(raw.providers)
+  const errors = asList(raw.errors).map(item => String(item))
+  const rows = providers.map(item => {
+    const provider = record(item)
+    const models = asList(provider.models).map(model => pickStr(record(model), ['id'])).filter(text => text !== '')
+    return `<div class="lrow"><span class="lname">${escapeHtml(pickStr(provider, ['displayName', 'id']))}</span>
+      <span class="ldetail">${escapeHtml(`${pickStr(provider, ['id'])} · ${models.join('、')}`)}</span></div>`
+  }).join('')
+  box.innerHTML = (rows === '' ? `<div class="empty">${escapeHtml(services.t('common.empty'))}</div>` : rows)
+    + (errors.length === 0 ? '' : `<div class="empty">${escapeHtml(errors.join('；'))}</div>`)
+    + `<div class="lrow"><input data-llm="id" placeholder="id（kebab-case）" />
+      <input data-llm="displayName" placeholder="显示名" />
+      <select data-llm="api">
+        <option value="openai-completions">openai-completions</option>
+        <option value="openai-responses">openai-responses</option>
+        <option value="anthropic-messages">anthropic-messages</option>
+        <option value="google-generative-ai">google-generative-ai</option>
+      </select>
+      <input data-llm="baseURL" placeholder="baseURL（可选）" />
+      <input data-llm="apiKeyEnv" placeholder="凭据 env 名（如 OLLAMA_KEY）" />
+      <input data-llm="model" placeholder="模型 id" />
+      <input data-llm="contextWindow" type="number" placeholder="上下文窗口" value="32768" />
+      <input data-llm="maxTokens" type="number" placeholder="输出上限" value="8192" />
+      <button data-act="add-provider" data-t="settings.llmServices.add"></button></div>`
+    + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.llmServices.hint'))}</span></div>`
+}
+
+/** 提交 LLM 服务登记：读表单 → 追加到现有列表 → 交给宿主插件校验并落盘。 */
+async function submitProvider(host: HTMLElement, services: PanelServices): Promise<void> {
+  const read = (key: string): string => host.querySelector<HTMLInputElement>(`[data-llm="${key}"]`)?.value.trim() ?? ''
+  const id = read('id')
+  const model = read('model')
+  if (id === '' || model === '') {
+    services.notice(services.t('settings.llmServices.incomplete'))
+    return
+  }
+  const current = await safeCall(() => services.transport.call('ghostUI/providers' as never, {} as never))
+  const providers = current.ok ? asList(record(current.value).providers).map(item => record(item)) : []
+  providers.push({
+    id,
+    displayName: read('displayName') === '' ? id : read('displayName'),
+    api: read('api') === '' ? 'openai-completions' : read('api'),
+    ...(read('baseURL') === '' ? {} : { baseURL: read('baseURL') }),
+    apiKeyEnv: read('apiKeyEnv') === '' ? 'MODEL_KEY' : read('apiKeyEnv'),
+    models: [{
+      id: model,
+      capabilities: {
+        contextWindow: Number.parseInt(read('contextWindow') || '32768', 10),
+        maxTokens: Number.parseInt(read('maxTokens') || '8192', 10),
+        reasoningEfforts: [],
+      },
+    }],
+  })
+  const saved = await safeCall(() => services.transport.call('ghostUI/providersSave' as never, { providers } as never))
+  if (!saved.ok) {
+    services.notice(saved.reason)
+    return
+  }
+  services.notice(services.t('settings.llmServices.saved'))
+}
+
+/** 扩展插槽区：把 settings.sections 插槽渲染到设置页。 */
+async function renderExtensionSlots(host: HTMLElement, services: PanelServices): Promise<void> {
+  const box = host.querySelector<HTMLElement>('[data-sec="slots"]')
+  if (box === null) return
+  const result = await safeCall(() => services.transport.call('ghostUI/slots' as never, {} as never))
+  if (!result.ok) {
+    box.innerHTML = `<div class="empty">${escapeHtml(services.t('common.empty'))}</div>`
+    return
+  }
+  const slots = asList(record(result.value).slots).map(item => record(item))
+  const html = slotSection(slots as never, 'settings.sections')
+  box.innerHTML = html === '' ? `<div class="empty">${escapeHtml(services.t('common.empty'))}</div>` : html
 }
 
 /** C8-17 插件管理与市场：bundles / plugins / 市场三分区，带启用开关与安装动作。 */

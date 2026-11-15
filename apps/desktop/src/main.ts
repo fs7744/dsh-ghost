@@ -30,6 +30,7 @@ import { mountSuperagentPanel } from './superagent-panel.ts'
 import { mountApprovalLayer, type ApprovalLayer } from './approval.ts'
 import { mountAttachmentTools, type AttachmentTools } from './attachments.ts'
 import { renderContextBar } from './context-bar.ts'
+import { invokeSlot, loadExtensions, mountExtensionPanel, slotButtons } from './extensions.ts'
 
 type Transport = ReturnType<typeof createTransport>
 
@@ -52,6 +53,8 @@ app.innerHTML = `
   <aside><h2>会话</h2><div id="sessions"></div></aside>
   <main id="main">
     <div id="chat" class="pane">
+      <div id="chat-slots" class="panelslot"></div>
+      <div id="chat-slots" class="panelslot"></div>
       <div id="stream"></div>
       <div id="questions" class="hidden"></div>
       <div id="composer">
@@ -528,7 +531,30 @@ async function main(): Promise<void> {
   // C8-22 / C8-24：附件上传、目录选择、全局文件拖拽；上传后的 receipt 由 send() 带走。
   attachmentTools = mountAttachmentTools(el('composer'), services)
 
-  // C8 剩余项统一注册：静态 3 页 + 动态 11 页，标签切换与降级都由 panels.ts 管。
+  // 用户扩展：放 JSON 就能多出页签 / 往聊天工具栏注入按钮（不改我们的代码）。
+  const panelServices = services
+  const extensions = await loadExtensions(panelServices)
+  const extensionDefs = extensions.panels.map(manifest => ({
+    id: `ext-${manifest.id}`,
+    labelKey: 'tab.extensions',
+    label: manifest.title,
+    order: 50 + manifest.order,
+    mount: (host: HTMLElement) => mountExtensionPanel(host, panelServices, manifest),
+  }))
+  const chatSlots = el('chat-slots')
+  chatSlots.innerHTML = slotButtons(extensions.slots, 'chat.toolbar')
+  chatSlots.addEventListener('click', event => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-slot-endpoint]')
+    if (button === null) return
+    const endpoint = button.dataset.slotEndpoint ?? ''
+    let args: Record<string, unknown> = {}
+    try {
+      args = JSON.parse(decodeURIComponent(button.dataset.slotArgs ?? '{}')) as Record<string, unknown>
+    } catch { /* 参数坏了就按空参调 */ }
+    void invokeSlot(panelServices, endpoint, args).then(result => panelServices.notice(result.text))
+  })
+
+  // C8 剩余项统一注册：静态 3 页 + 动态 11 页 + 用户扩展页，标签切换与降级都由 panels.ts 管。
   const mounted = mountPanels({
     tabs: el('tabs'),
     main: el('main'),
@@ -538,6 +564,7 @@ async function main(): Promise<void> {
       { id: 'memory', labelKey: 'tab.memory', order: 3 },
     ],
     defs: [
+      ...extensionDefs,
       { id: 'workspace', labelKey: 'tab.workspace', order: 4, mount: mountWorkspacePanel },
       { id: 'terminal', labelKey: 'tab.terminal', order: 5, mount: mountTerminalPanel },
       { id: 'jobs', labelKey: 'tab.jobs', order: 6, mount: mountJobsPanel },

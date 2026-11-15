@@ -9,6 +9,12 @@
         # /init 草案只允许扫描仓库内；桌面端以后改成用户工作目录。
         repoRoot: '{{REPO}}'
 
+    # 用户扩展：放 JSON 就能加页面/注入界面/登记 LLM 服务（见 docs/UI-EXTENSIONS.md）。
+    - id: ghost-ui
+      name: '@dsh-ghost/ui-plugin'
+      config:
+        root: '{{REPO}}/.ghost/ui'
+
     - id: ghost-orchestrator
       name: '@dsh-ghost/orchestrator-plugin'
       config:
@@ -74,6 +80,7 @@
             name: '{{MODEL}}'
             contextWindow: 192000
             maxTokens: 8192
+{{PROVIDERS}}
 
 # 新会话自动选中可用模型，避免默认模型不可用导致 session/model-unavailable。
 - id: agent-default-model

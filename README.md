@@ -48,6 +48,7 @@
 | **升级与纪律（C1-04/05）** | `upgrade:harness` 8 步 dry-run 默认、绝不 push；`check-port-discipline` 禁绕过 port 层；`matrix.json` + [UPGRADE.md](docs/UPGRADE.md) |
 | **测试分层（C4）** | [TESTING.md](docs/TESTING.md)：L1 假端点 7 种故障、L2 规范化回放、L3 结构断言、L4 评分、L5 规格、CI 门禁 |
 | **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS+dmg+AppImage / 更新通道 / 隐私与第三方声明 |
+| **用户扩展（加页面 / 改 UI / 加 LLM 服务）** | [UI-EXTENSIONS.md](docs/UI-EXTENSIONS.md)：`.ghost/ui/` 放 JSON 即可，宿主插件 + 桌面端动态页签与插槽；LLM 服务登记后重启宿主生效 |
 | **Skill / MCP / 插件市场 / 信息源** | [SKILLS-MCP.md](docs/SKILLS-MCP.md)：技能页、插件市场（可加索引）、MCP 探测重启；信息源新增 **API 拉取模式**（webhook 之外） |
 | **Token 节省（借鉴 TokenEconomizer）** | [ECONOMIZER.md](docs/ECONOMIZER.md)：记忆索引前置（聊天+开票）、读宿主真实用量的上下文提醒、可选工具剪枝、缓存感知成本换算、凭据脱敏；与宿主的分工见 [HARNESS-AUDIT.md](docs/HARNESS-AUDIT.md) |
 
@@ -72,6 +73,7 @@
 15. [docs/ECONOMIZER.md](docs/ECONOMIZER.md) — Token 节省：简报、剪枝、上下文提醒、成本看板、凭据护栏（`npm run measure:tokens` 实测每次请求省 ≈902 token）
 16. [docs/HARNESS-AUDIT.md](docs/HARNESS-AUDIT.md) — 与 harness 的能力对照：哪些用宿主、哪些是我们独有
 17. [docs/SKILLS-MCP.md](docs/SKILLS-MCP.md) — 技能 / MCP / 插件市场 / 信息源：宿主给了什么、我们接了什么
+18. [docs/UI-EXTENSIONS.md](docs/UI-EXTENSIONS.md) — 用户扩展：放 JSON 就能加页面 / 注入界面 / 登记 LLM 服务
 15. [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) · [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — 隐私、许可、诊断包
 
 ## 开发
@@ -85,7 +87,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 523 个用例 / 24 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 536 个用例 / 26 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

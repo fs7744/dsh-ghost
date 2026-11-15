@@ -8,7 +8,7 @@ export { login, createTransport } from '../packages/harness-port/src/index.ts'
 const REPO = join(import.meta.dirname, '..')
 const PATCH_TEMPLATE = join(import.meta.dirname, 'cordis.patch.template.yml')
 /** 会被宿主 profile 加载的 workspace 包。 */
-const HOST_PACKAGES = ['orchestrator-plugin', 'memory-plugin', 'memory', 'economizer', 'superagent', 'sink-github', 'source-github', 'source-hub', 'playbook', 'playbook-runtime', 'evolution']
+const HOST_PACKAGES = ['orchestrator-plugin', 'memory-plugin', 'memory', 'economizer', 'ui-plugin', 'ui-extensions', 'superagent', 'sink-github', 'source-github', 'source-hub', 'playbook', 'playbook-runtime', 'evolution']
 
 /**
  * 渲染标准 patch：模板是唯一真相源，只有凭据地址与模型名允许被环境变量覆盖。
@@ -20,6 +20,44 @@ export function renderPatch() {
     .replaceAll('{{REPO}}', REPO.replace(/\\/g, '/'))
     .replaceAll('{{BASE_URL}}', process.env.WB_BASE_URL ?? 'http://127.0.0.1:7864/v1')
     .replaceAll('{{MODEL}}', process.env.WB_MODEL ?? 'hy3')
+    .replaceAll('{{PROVIDERS}}', renderProvidersYaml())
+}
+
+/**
+ * 把用户在界面里登记的 LLM 服务渲染成 profile 的 providers 片段。
+ * 读 `.ghost/ui/providers.json`（由 ghost-ui 插件写入，校验过才落盘）。
+ */
+export function renderProvidersYaml() {
+  const file = join(REPO, '.ghost', 'ui', 'providers.json')
+  if (!existsSync(file)) return ''
+  let providers = []
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    if (Array.isArray(parsed)) providers = parsed
+  } catch {
+    return ''
+  }
+  const lines = []
+  for (const provider of providers) {
+    if (typeof provider?.id !== 'string' || provider.id === '') continue
+    lines.push(`      ${provider.id}:`)
+    lines.push(`        displayName: ${JSON.stringify(String(provider.displayName ?? provider.id))}`)
+    lines.push(`        api: ${JSON.stringify(String(provider.api ?? 'openai-completions'))}`)
+    if (typeof provider.baseURL === 'string' && provider.baseURL !== '') {
+      lines.push(`        baseURL: ${JSON.stringify(provider.baseURL)}`)
+    }
+    lines.push(`        apiKeyEnv: ${JSON.stringify(String(provider.apiKeyEnv ?? 'MODEL_KEY'))}`)
+    lines.push('        models:')
+    for (const model of Array.isArray(provider.models) ? provider.models : []) {
+      if (typeof model?.id !== 'string' || model.id === '') continue
+      lines.push(`          - id: ${JSON.stringify(model.id)}`)
+      lines.push(`            name: ${JSON.stringify(String(model.name ?? model.id))}`)
+      const caps = model.capabilities ?? {}
+      lines.push(`            contextWindow: ${Number(caps.contextWindow ?? 32768)}`)
+      lines.push(`            maxTokens: ${Number(caps.maxTokens ?? 8192)}`)
+    }
+  }
+  return lines.length === 0 ? '' : lines.join('\n')
 }
 
 /** 把 patch 写进指定 profile。 */
