@@ -25,7 +25,7 @@
     #step-label { color:var(--accent); margin:0 0 20px; font-size:13px; }
     #panel { min-height:160px; }
     label { display:block; margin:0 0 16px; color:var(--on-surface-variant); }
-    select, input[type=text] {
+    select, input[type=text], input[type=password] {
       display:block; width:100%; margin-top:6px; padding:8px 10px; height:32px;
       background:var(--surface-mid); color:var(--on-surface);
       border:1px solid var(--outline-variant); border-radius:var(--radius-md); font-family:inherit;
@@ -59,12 +59,13 @@
     // 步骤逻辑在主进程纯模块 onboarding.ts，本页只渲染与收集输入，经 preload 的最小 API 交互。
     const api = window.shellApi
     const labels = {
-      welcome: '步骤 1/6 欢迎',
-      modelSource: '步骤 2/6 模型来源',
-      workspace: '步骤 3/6 工作目录',
-      approval: '步骤 4/6 审批档位',
-      infoSources: '步骤 5/6 信息源开关',
-      done: '步骤 6/6 完成',
+      welcome: '步骤 1/7 欢迎',
+      modelSource: '步骤 2/7 模型来源',
+      credential: '步骤 3/7 模型凭据（可跳过）',
+      workspace: '步骤 4/7 工作目录',
+      approval: '步骤 5/7 审批档位',
+      infoSources: '步骤 6/7 信息源开关',
+      done: '步骤 7/7 完成',
     }
     const panel = document.querySelector('#panel')
     const stepLabel = document.querySelector('#step-label')
@@ -85,6 +86,10 @@
             '<option value="local">本地模型 (Ollama / vLLM)</option>' +
             '<option value="deepseek-account">DeepSeek 账号</option>' +
             '</select></label>'
+        case 'credential':
+          return '<label>API Key（BYOK 必填，本地模型可留空）' +
+            '<input type="password" id="f" placeholder="只写入系统安全存储，不写 settings.json" autocomplete="off" /></label>' +
+            '<p class="muted">凭据经 safeStorage / DPAPI 加密后落盘；不可用时只保留在本次进程内存，重启失效。</p>'
         case 'workspace':
           return '<label>工作目录<input type="text" id="f" placeholder="例如 D:/work" /></label>' +
             '<p class="muted">剧本、票与会话状态会落在该目录的本地 state 下。</p>'
@@ -109,6 +114,10 @@
 
     function collect(current) {
       if (current === 'welcome' || current === 'done') return null
+      if (current === 'credential') {
+        const field = document.querySelector('#f')
+        return { apiKey: field ? field.value : '' }
+      }
       if (current === 'infoSources') {
         return {
           github: document.querySelector('#github').checked,
@@ -123,7 +132,7 @@
     function render(state) {
       step = state.step
       stepLabel.textContent = labels[step] || step
-      errorBox.textContent = (state.errors || []).join('；')
+      errorBox.textContent = (state.errors || []).concat(state.warning ? [state.warning] : []).join('；')
       backBtn.disabled = step === 'welcome' || step === 'done'
       nextBtn.textContent = step === 'done' ? '完成' : '下一步'
       panel.innerHTML = formHtml(step)

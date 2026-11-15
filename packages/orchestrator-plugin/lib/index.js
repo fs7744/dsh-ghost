@@ -46,7 +46,7 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
  * 把最后一条 assistant 文本作为报告交回 Engine，再用 `result` 把结果排队到 Outbox。
  */
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { createGithubSink } from '@dsh-ghost/sink-github';
@@ -195,6 +195,7 @@ const OUTPUT_SCHEMA = {
  */
 export function apply(ctx, config = {}) {
     const stateFile = config.stateFile ?? join(process.cwd(), '.ghost', 'tickets.json');
+    const settingsFile = config.settingsFile ?? join(dirname(stateFile), 'orchestrator-settings.json');
     const source = config.source ?? 'local';
     // 引擎状态持久化到 `<stateFile>.snapshot.json`：宿主重启后票还在
     const repo = persisting(new MemoryRepositories(), `${stateFile}.snapshot.json`);
@@ -405,6 +406,22 @@ export function apply(ctx, config = {}) {
     // B3：把 19 个 orchestrator_* 会话工具真正注册给模型。
     // 描述符早就写好了，但如果不注册，它们在运行时等于不存在（模型永远调不到）。
     const toolConfig = new SettingsStore({ policyVersion: 'v1' });
+    // 工具写过的 settings / policy / prompts 必须活过重启；之前只在内存里。
+    if (existsSync(settingsFile)) {
+        try {
+            toolConfig.restore(JSON.parse(readFileSync(settingsFile, 'utf8')));
+        }
+        catch { /* 坏文件按默认配置起 */ }
+    }
+    const persistToolConfig = () => {
+        try {
+            mkdirSync(dirname(settingsFile), { recursive: true });
+            const temporary = `${settingsFile}.tmp`;
+            writeFileSync(temporary, `${JSON.stringify(toolConfig.snapshot(), null, 2)}\n`);
+            renameSync(temporary, settingsFile);
+        }
+        catch { /* 配置落盘失败不该让工具调用失败 */ }
+    };
     const toolContext = {
         repo,
         engine,
@@ -437,7 +454,12 @@ export function apply(ctx, config = {}) {
             },
             async execute(args) {
                 try {
-                    return { text: descriptor.handler((args ?? {}), toolContext) };
+                    const text = descriptor.handler((args ?? {}), toolContext);
+                    if (descriptor.name === 'orchestrator_settings_save'
+                        || descriptor.name === 'orchestrator_policy_sync'
+                        || descriptor.name === 'orchestrator_prompts_save')
+                        persistToolConfig();
+                    return { text };
                 }
                 catch (error) {
                     // 领域拒绝（UserError）原样给人话，让模型据此改参数自愈。

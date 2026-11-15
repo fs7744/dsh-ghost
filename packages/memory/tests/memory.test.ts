@@ -136,3 +136,15 @@ test('工具描述足够短（常驻成本受控）', () => {
     assert.ok(tool.description.length <= 120, `${tool.name} 描述过长：${tool.description.length}`)
   }
 })
+
+test('frontmatter 单行化：标题/来源里的换行不会撑坏索引', async () => {
+  const root = await tempRoot()
+  const store = new MemoryStore({ root, mode: 'indexed', now: fixedNow })
+  await store.init()
+  await store.write({ name: 'multi-line', title: '第一行\n第二行', text: '正文', source: 'task\n42' })
+  const index = await readFile(join(root, 'MEMORY.md'), 'utf8')
+  assert.match(index, /第一行 第二行/)
+  const raw = await readFile(join(root, 'entries', 'multi-line.md'), 'utf8')
+  assert.match(raw, /title: 第一行 第二行/)
+  assert.match(raw, /source: task 42/)
+})

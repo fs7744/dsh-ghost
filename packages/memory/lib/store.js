@@ -109,7 +109,7 @@ export class MemoryStore {
         const stamp = this.#now().toISOString();
         if (this.#mode === 'block') {
             const current = await this.resident();
-            const section = `## ${write.title ?? write.name}\n\n${write.text.trim()}\n\n<!-- 来源：${write.source} · ${stamp} -->\n`;
+            const section = `## ${oneLine(write.title ?? write.name)}\n\n${write.text.trim()}\n\n<!-- 来源：${oneLine(write.source)} · ${stamp} -->\n`;
             const next = `${current.trimEnd()}\n\n${section}`;
             if (Buffer.byteLength(next, 'utf8') > this.#budget) {
                 return { ok: false, reasons: [`常驻块已满（上限 ${this.#budget} 字节）：先归档到项目记忆，别把偏好写成日记`] };
@@ -120,8 +120,8 @@ export class MemoryStore {
         const entryPath = join(this.#root, ENTRIES_DIR, `${write.name}.md`);
         const body = [
             '---',
-            `title: ${write.title ?? write.name}`,
-            `source: ${write.source}`,
+            `title: ${oneLine(write.title ?? write.name)}`,
+            `source: ${oneLine(write.source)}`,
             `updated: ${stamp}`,
             '---',
             '',
@@ -206,6 +206,10 @@ export class MemoryStore {
         await writeFile(temporary, content, 'utf8');
         await rename(temporary, path);
     }
+}
+/** frontmatter / 小节标题只能是单行：换行会把索引和 block 结构撑坏。 */
+function oneLine(value) {
+    return value.replace(/[\r\n]+/g, ' ').trim();
 }
 /** 标题 → kebab-case 名字。 */
 function slug(title) {

@@ -190,6 +190,7 @@ async function main(): Promise<void> {
           void ensureWindow(currentToken)
         },
         onLaunchOnStartupChanged: enabled => shellApp.setLoginItemSettings(enabled),
+        workspaceRoot: () => config.workspaceDir !== '' ? config.workspaceDir : join(paths.userData, 'workspace'),
       })
 
       buildApplicationMenu({
@@ -232,7 +233,12 @@ async function main(): Promise<void> {
   const onHostReady = async (info: HostLaunchInfo): Promise<void> => {
     currentToken = info.token
     if (staticSrv === null) {
-      staticSrv = await startStaticServer({ distDir: paths.distDir, harnessPort: info.port, logger })
+      staticSrv = await startStaticServer({
+        distDir: paths.distDir,
+        harnessPort: info.port,
+        logger,
+        modelsFile: join(paths.userData, 'models.json'),
+      })
       staticPort = staticSrv.port
     } else {
       // 崩溃重启后宿主端口可能变化，只更新代理目标，不重建静态服务。

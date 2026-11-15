@@ -4,6 +4,9 @@ export function getPath(value, path) {
         return value;
     let current = value;
     for (const part of path.split('.')) {
+        // 原型链键不是业务字段：`{{__proto__}}` / `{{constructor}}` 一律取不到。
+        if (part === '__proto__' || part === 'constructor' || part === 'prototype')
+            return undefined;
         if (current === null || typeof current !== 'object')
             return undefined;
         current = current[part];

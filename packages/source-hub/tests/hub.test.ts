@@ -42,6 +42,10 @@ test('模板：点路径、headers、event 与缺失字段', async () => {
   assert.equal(getPath(req.body, 'payload.nested.a'), 'x')
   assert.equal(render('{{payload.id}} {{headers.x-who}} {{event}} {{payload.missing}}', req), '7 alice created ')
   assert.equal(render('{{payload.nested}}', req), '{"a":"x"}')
+  // 原型链键不是业务字段，必须取不到。
+  assert.equal(getPath(req.body, '__proto__'), undefined)
+  assert.equal(getPath(req.body, 'payload.constructor'), undefined)
+  assert.equal(render('{{__proto__}}', req), '')
 })
 
 test('声明式映射：条件、别名、human、channel 都从配置来', async () => {

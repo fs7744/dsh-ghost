@@ -8,6 +8,7 @@ import net from 'node:net'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolveStaticPath, shouldProxy, isLocalModelsApi } from './static-server.ts'
 import { createModelsApi } from './models-api.ts'
+import { createFileCatalogStore } from './models-store.ts'
 import { LOCAL_HOST } from './urls.ts'
 import type { Logger } from './ports.ts'
 import type { ProviderSpec } from '@dsh-ghost/model-manager'
@@ -16,6 +17,8 @@ export interface StaticServerDeps {
   distDir: string
   harnessPort: number
   logger: Logger
+  /** 模型配置落地文件；缺省用内存（重启即丢，只适合测试）。 */
+  modelsFile?: string
 }
 
 export interface StaticServer {
@@ -29,7 +32,9 @@ export async function startStaticServer(deps: StaticServerDeps): Promise<StaticS
   let harnessPort = deps.harnessPort
 
   /** 模型管理页的连通性自测：真发一次 /models，凭据从进程环境读，绝不写日志。 */
+  const store = deps.modelsFile === undefined ? undefined : createFileCatalogStore(deps.modelsFile)
   const modelsApi = createModelsApi({
+    ...(store === undefined ? {} : { store }),
     probe: async (provider: ProviderSpec) => {
       const base = (provider.baseURL ?? '').replace(/\/+$/, '')
       const key = process.env[provider.apiKeyEnv]

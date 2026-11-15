@@ -34,6 +34,8 @@ export interface GithubSinkOptions {
      * 会变成每 10 秒一次的无限重试，既刷日志也打 API。
      */
     maxAttempts?: number;
+    /** 单条评论正文上限，默认 60_000 字符（GitHub 上限 65536；留出截断说明的余量）。 */
+    maxBodyChars?: number;
 }
 /** 一条消息的去向。 */
 interface Entry {

@@ -6,10 +6,10 @@
 import type { ApprovalPreset, ModelSource, ShellConfig } from './config.ts'
 
 export type OnboardingStepId =
-  | 'welcome' | 'modelSource' | 'workspace' | 'approval' | 'infoSources' | 'done'
+  | 'welcome' | 'modelSource' | 'credential' | 'workspace' | 'approval' | 'infoSources' | 'done'
 
 export const ONBOARDING_STEPS: readonly OnboardingStepId[] = [
-  'welcome', 'modelSource', 'workspace', 'approval', 'infoSources', 'done',
+  'welcome', 'modelSource', 'credential', 'workspace', 'approval', 'infoSources', 'done',
 ]
 
 export const INFO_SOURCE_KEYS = ['github', 'webhook', 'local'] as const
@@ -19,6 +19,11 @@ const MODEL_SOURCES: readonly string[] = ['byok', 'local', 'deepseek-account']
 
 export interface OnboardingAnswers {
   modelSource?: ModelSource
+  /**
+   * BYOK 的 API key。**不写进 settings.json**：main 的 IPC 收到后直接交给
+   * CredentialVault（safeStorage / DPAPI），配置里只留 modelSource。
+   */
+  apiKey?: string
   workspaceDir?: string
   approvalPreset?: ApprovalPreset
   infoSources?: Record<string, boolean>
@@ -39,8 +44,10 @@ export function currentStep(state: OnboardingState): OnboardingStepId {
 }
 
 function requiredAnswersPresent(a: OnboardingAnswers): boolean {
+  const needsKey = a.modelSource === 'byok'
   return a.modelSource !== undefined && a.workspaceDir !== undefined &&
-    a.approvalPreset !== undefined && a.infoSources !== undefined
+    a.approvalPreset !== undefined && a.infoSources !== undefined &&
+    (!needsKey || (a.apiKey !== undefined && a.apiKey !== ''))
 }
 
 export function isComplete(state: OnboardingState): boolean {
@@ -57,6 +64,17 @@ export function validateAnswer(step: OnboardingStepId, value: unknown): string[]
     case 'modelSource':
       if (typeof value !== 'string' || !MODEL_SOURCES.includes(value)) errors.push('invalid:modelSource')
       break
+    case 'credential': {
+      // 传 null / 空对象 = 跳过（本地模型或稍后在设置里填）。
+      if (value === null || value === undefined) break
+      if (typeof value !== 'object' || Array.isArray(value)) { errors.push('invalid:credential'); break }
+      const key = (value as { apiKey?: unknown }).apiKey
+      if (key === undefined || key === '') break
+      if (typeof key !== 'string' || key.includes('\0') || key.length > 4096) {
+        errors.push('invalid:credential')
+      }
+      break
+    }
     case 'workspace':
       if (typeof value !== 'string' || value.trim() === '' || value.includes('\0')) {
         errors.push('invalid:workspaceDir')
@@ -91,11 +109,21 @@ export function answerStep(
   if (currentStep(state) !== step) return { ...state, errors: [`out-of-order:${step}`] }
   const errors = validateAnswer(step, value)
   if (errors.length > 0) return { ...state, errors }
+  // BYOK 没有 key 进到 done 也没用：在凭据步骤就挡住，而不是 finish 时抛错。
+  if (step === 'credential' && state.answers.modelSource === 'byok') {
+    const key = (value as { apiKey?: unknown } | null)?.apiKey
+    if (typeof key !== 'string' || key.trim() === '') return { ...state, errors: ['credential-required'] }
+  }
   const answers: OnboardingAnswers = { ...state.answers }
   switch (step) {
     case 'modelSource':
       answers.modelSource = value as ModelSource
       break
+    case 'credential': {
+      const key = (value as { apiKey?: unknown } | null)?.apiKey
+      if (typeof key === 'string' && key.trim() !== '') answers.apiKey = key.trim()
+      break
+    }
     case 'workspace':
       answers.workspaceDir = value as string
       break

@@ -16,8 +16,9 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  * @param header - `x-hub-signature-256` 头的值，形如 `sha256=…`
  */
 export function verifySignature(options, rawBody, header) {
-    if (options.secret === undefined || options.secret === '')
-        return { ok: true };
+    if (options.secret === undefined || options.secret === '') {
+        return options.allowUnsigned === true ? { ok: true } : { ok: false, reason: 'secret-not-configured' };
+    }
     if (header === undefined || !header.startsWith('sha256='))
         return { ok: false, reason: 'missing-signature' };
     const expected = createHmac('sha256', options.secret).update(rawBody, 'utf8').digest('hex');

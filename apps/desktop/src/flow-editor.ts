@@ -35,6 +35,8 @@ export function mountFlowEditor(pane: HTMLElement, source: string): void {
       <button data-act="add-node">+ 节点</button>
       <button data-act="reset">还原</button>
       <button data-act="download">导出 .flow</button>
+      <input id="fe-path" class="fepath" placeholder="保存到工作区，如 playbooks/my.flow" aria-label="工作区相对路径" />
+      <button data-act="save">保存到工作区</button>
       <span id="fe-status"></span>
       <span class="fespacer"></span>
       <button data-act="apply" class="primary">应用文本 ⌃S</button>
@@ -212,6 +214,42 @@ export function mountFlowEditor(pane: HTMLElement, source: string): void {
       : all.map(item => `<div class="feerr">${escapeHtml(item)}</div>`).join('')
   }
 
+  /** 浏览器兜底：没有 Electron 工作区写入时，导出让用户自己落盘。 */
+  function downloadFlow(): void {
+    const blob = new Blob([state.text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${state.flow.id || 'playbook'}.flow`
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
+    state = { ...state, notes: ['已导出 .flow 文件'] }
+    render()
+  }
+
+  /** Electron 里走 workspace:save（限定工作区、2MB、白名单扩展名）。 */
+  async function saveToWorkspace(): Promise<void> {
+    const status = document.querySelector<HTMLElement>('#fe-status')
+    const input = document.querySelector<HTMLInputElement>('#fe-path')
+    const relativePath = input?.value.trim() || `playbooks/${state.flow.id || 'playbook'}.flow`
+    const api = (window as unknown as {
+      shellApi?: { saveWorkspaceFile?: (path: string, content: string) => Promise<{ ok: boolean; path?: string; error?: string }> }
+    }).shellApi
+    if (api?.saveWorkspaceFile === undefined) {
+      if (status !== null) status.textContent = '当前环境没有工作区写入，已改为导出'
+      downloadFlow()
+      return
+    }
+    const result = await api.saveWorkspaceFile(relativePath, state.text)
+    if (status !== null) {
+      status.textContent = result.ok ? `已保存：${result.path ?? relativePath}` : `保存失败：${result.error ?? '未知错误'}`
+    }
+    if (result.ok) {
+      state = { ...state, notes: [`已保存到工作区：${result.path ?? relativePath}`] }
+      render()
+    }
+  }
+
   // 工具栏
   bar.addEventListener('click', event => {
     const action = (event.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act
@@ -224,16 +262,9 @@ export function mountFlowEditor(pane: HTMLElement, source: string): void {
     } else if (action === 'apply') {
       commit(textarea.value, ['已应用源码'])
     } else if (action === 'download') {
-      // 浏览器里没有后端写文件；导出让用户把编辑结果落盘，覆盖仓库里的 .flow。
-      const blob = new Blob([state.text], { type: 'text/plain;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${state.flow.id || 'playbook'}.flow`
-      link.click()
-      setTimeout(() => URL.revokeObjectURL(url), 0)
-      state = { ...state, notes: ['已导出 .flow 文件'] }
-      render()
+      downloadFlow()
+    } else if (action === 'save') {
+      void saveToWorkspace()
     }
   })
 

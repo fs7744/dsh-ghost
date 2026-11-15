@@ -144,21 +144,21 @@ R1 的后半段（事件名自动生成）曾长期挂账，本轮用 `API_REMOT
 2. Electron 44 内置 Node 与 `node-pty` / `koffi` / `node:sqlite` 的 ABI 未实测；这决定 `ELECTRON_RUN_AS_NODE` 方案是否成立，失败就得改 sidecar Node。
 3. 代码签名、NSIS 升级/卸载、真实 feed 与 `latest.yml` 未验证。
 
-**P1 功能/一致性**
+**P1 功能/一致性**（第 4–6 项已在同轮修掉，见下）
 
-4. **剧本编辑不能写回文件**：只有「导出 .flow」；Electron 侧没有工作区写文件 IPC。README 已改成「回写文本」，但产品上还差最后一步。
-5. **首启向导不收 API key**：向导只选模型来源，凭据要通过 `shellApi.setCredential`，GUI 里没有入口；首次启动可能无模型可用。
-6. `settings_save` / `policy_sync` / `prompts_save` 的 `SettingsStore` 是内存实现，宿主重启即丢；模型库页的本机 `/api/models/*` 同样是内存 store。接口都留了 `CatalogStore` / 文件实现位。
+4. ✅ 剧本编辑不能写回文件 → 新增 `workspace:save` IPC：限定工作区、白名单扩展名、2MB 上限、原子写；编辑器加「保存到工作区」，浏览器仍回退导出。
+5. ✅ 首启向导不收 API key → 新增「模型凭据」步骤：BYOK 必填，值只进 `CredentialVault`（safeStorage/DPAPI），不写 settings.json；加密不可用时只留内存并明确提示。
+6. ✅ 工具配置与模型配置重启即丢 → `SettingsStore.snapshot/restore` + orchestrator 落盘 `orchestrator-settings.json`；模型页用 `createFileCatalogStore` 落盘 `models.json`。
 7. **两套装配并存**：`packages/superagent/src/app/host` 的 `dsh-superagent` 入口没有被 cordis patch 加载，实际生效的是 orchestrator-plugin（现已注册 19 工具）。要么挂上它并去掉重复，要么明确它是备选方案。
 8. 诊断包 `tickets()` 仍是空占位，未接 `ghostTickets/list`。
 9. C2-02 的 Peer 角色级隔离、C4-07 的 L5 截图基线、C6 的 macOS/Linux 安装包：分别依赖 harness 访问控制、Playwright 依赖、平台环境，账本已改成「未完成/骨架」。
 
 **P2 风险与债务**
 
-10. `source-github` 无密钥时默认**跳过**签名校验（有测试固化该行为）。只允许本地调试；生产必须显式配置 `secret`，建议后续把默认改成拒绝。
-11. 声明式映射的 `getPath` 允许 `__proto__` / `constructor` 路径，只读不写，风险低但建议加键黑名单。
-12. GitHub 出口没有 429/Retry-After 处理；报告正文可能超过 GitHub 64KB 限制，现在会当 4xx 直接丢弃（不重试），但用户看不到失败提示。
-13. 记忆 frontmatter 的 `title/source` 未转义换行，模型可以写坏索引格式（不会执行代码）。
+10. ✅ `source-github` 无密钥默认改为**拒绝**（fail-closed），本地调试需显式 `allowUnsigned: true`。
+11. ✅ 映射 `getPath` 屏蔽 `__proto__` / `constructor` / `prototype`。
+12. GitHub 出口：正文超过 60k 字符先截断再发（避免 422），但 429 / `Retry-After` 仍未特殊处理。
+13. ✅ 记忆 frontmatter 的 `title/source` 已单行化，换行不会再撑坏索引。
 14. `npm audit` 报 16 个漏洞（1 critical，多来自 electron-builder 依赖链）；未 `audit fix`，发版前必须处理或换构建链。
 15. `check-port-discipline` 仍有 6 处白名单 WARN（插件必须用 `TypertRemoteService`），`--strict` 会失败；这是可接受的过渡态，但要写进升级检查单。
 16. UI 大量 `innerHTML`，本次抽查的渲染点都做了 `escapeHtml`；但没有静态门禁防止以后漏写，建议加一条 lint 规则或 `escape` 封装。

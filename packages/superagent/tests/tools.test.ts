@@ -115,3 +115,21 @@ test('19 个 handler 用空参数调用都返回非空人话文本', () => {
     assert.ok(text.length > 0, `${name} 返回空文本`)
   }
 })
+
+test('SettingsStore 快照/恢复：settings、policy、prompts 能活过重启', () => {
+  const store = new SettingsStore({ now: () => '2026-02-01T00:00:00.000Z' })
+  store.save('policy', { paused: true })
+  const bump = store.syncPolicy()
+  store.savePrompt('work', '{{ticket}} 按流程做，别跳步')
+  const snapshot = JSON.parse(JSON.stringify(store.snapshot())) as unknown
+
+  const restored = new SettingsStore()
+  restored.restore(snapshot)
+  assert.deepEqual(restored.read('policy'), { paused: true })
+  assert.equal(restored.snapshot().policyVersion, bump.to)
+  assert.deepEqual(restored.prompts(), ['work'])
+
+  // 坏快照整体忽略，不把内存配置清成半截。
+  restored.restore({ blocks: 'not-an-object', prompts: ['nope'] })
+  assert.deepEqual(restored.read('policy'), { paused: true })
+})

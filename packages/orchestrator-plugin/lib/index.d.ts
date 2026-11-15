@@ -22,6 +22,8 @@ export interface GithubOutboxConfig {
 export interface Config {
     /** 票状态落地文件；相对路径按进程 cwd 解析。 */
     stateFile?: string;
+    /** 工具配置（settings/policy/prompts）落地文件；缺省与 stateFile 同目录。 */
+    settingsFile?: string;
     /** 本地触发源名，出现在票的来源里。 */
     source?: string;
     /**

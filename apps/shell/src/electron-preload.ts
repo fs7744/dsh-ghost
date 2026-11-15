@@ -15,6 +15,8 @@ const shellApi = {
   onboardingAnswer: (step: string, value: unknown) => ipcRenderer.invoke('onboarding:answer', step, value),
   onboardingBack: () => ipcRenderer.invoke('onboarding:back'),
   onboardingFinish: () => ipcRenderer.invoke('onboarding:finish'),
+  saveWorkspaceFile: (relativePath: string, content: string) =>
+    ipcRenderer.invoke('workspace:save', relativePath, content),
   appInfo: () => ipcRenderer.invoke('app:info'),
   telemetryExport: () => ipcRenderer.invoke('telemetry:export'),
   telemetryClear: () => ipcRenderer.invoke('telemetry:clear'),

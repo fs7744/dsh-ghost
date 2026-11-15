@@ -119,6 +119,8 @@ details.tool pre { white-space:pre-wrap; background:var(--surface-mid); padding:
 .flowbar button, .febtns button, #fe-form button { background:var(--surface-high); color:var(--on-surface);
   border:1px solid var(--outline); border-radius:var(--radius-md); padding:5px 10px; font:inherit; font-size:12px; cursor:pointer; }
 .flowbar button:hover, .febtns button:hover, #fe-form button:hover { border-color:var(--accent); color:var(--accent); }
+.flowbar .fepath { flex:0 1 260px; min-width:120px; height:26px; padding:3px 8px; font:inherit; font-size:12px;
+  background:var(--surface-high); color:var(--on-surface); border:1px solid var(--outline); border-radius:var(--radius-md); }
 .flowbar button.primary { background:var(--accent); color:#04342c; border-color:var(--accent); font-weight:500; }
 .flowbar button.danger, #fe-form button.danger { color:var(--danger); }
 .fespacer { flex:1; }

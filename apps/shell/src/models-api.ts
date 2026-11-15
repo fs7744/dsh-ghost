@@ -52,7 +52,7 @@ export function toView(state: CatalogState): ModelsStateShape {
       api: provider.api,
       baseURL: provider.baseURL ?? '',
       apiKeyEnv: provider.apiKeyEnv,
-      models: provider.models.map(model => ({
+      models: (Array.isArray(provider.models) ? provider.models : []).map(model => ({
         id: model.id,
         name: model.name ?? model.id,
         capabilities: model.capabilities,

@@ -42,6 +42,17 @@ export declare class SettingsStore implements ConfigStore {
     savePrompt(id: string, text: string): void;
     prompts(): string[];
     promptParts(): string[];
+    /**
+     * 可序列化快照：宿主把配置存到磁盘后再 restore，重启不会丢 settings/policy/prompts。
+     * 只有纯数据，不含函数与路径，便于直接 JSON.stringify。
+     */
+    snapshot(): {
+        policyVersion: string;
+        blocks: Record<string, Record<string, unknown>>;
+        prompts: Record<string, string>;
+    };
+    /** 从快照恢复；非法形状整体忽略，保持内存版可用。 */
+    restore(snapshot: unknown): void;
 }
 /**
  * 把一组面板视图绑成 ViewReader。装配层把 buildXxxView 的结果转成文本后传进来，

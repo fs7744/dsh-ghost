@@ -3,9 +3,11 @@
  * 所有入参在纯模块里做严格校验 / 脱敏，不在适配层写业务逻辑。
  */
 import { ipcMain, dialog } from 'electron'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { writeConfig, mergeConfig, type ShellConfig } from './config.ts'
 import { collectDiagnostics, type DiagnosticCollector } from './diagnostics.ts'
+import { checkWorkspaceWrite } from './workspace-write.ts'
 import {
   createOnboarding, answerStep, backStep, currentStep, buildInitialConfig,
   type OnboardingState, type OnboardingStepId,
@@ -31,6 +33,8 @@ export interface IpcDeps {
   environment(): Record<string, unknown>
   onOnboardingFinished(): void
   onLaunchOnStartupChanged(enabled: boolean): void
+  /** 「保存到工作区」的根目录；空配置时由 main 回退到 userData/workspace。 */
+  workspaceRoot(): string
 }
 
 export interface IpcApi {
@@ -95,7 +99,19 @@ export function registerIpc(deps: IpcDeps): IpcApi {
 
   ipcMain.handle('onboarding:state', () => ({ step: currentStep(onboarding), errors: onboarding.errors }))
   ipcMain.handle('onboarding:answer', (_event: unknown, step: string, value: unknown) => {
+    const isCredential = step === 'credential'
     onboarding = answerStep(onboarding, step as OnboardingStepId, value)
+    // 凭据只进 vault（safeStorage / DPAPI），绝不写 settings.json。
+    if (isCredential && onboarding.errors.length === 0) {
+      const key = isPlain(value) ? value['apiKey'] : undefined
+      if (typeof key === 'string' && key.trim() !== '') {
+        const result = deps.vault.set('WB_KEY', key.trim())
+        if (!result.stored) {
+          // 不阻断向导：凭据可稍后在设置里再填，但要让用户知道没落盘。
+          return { step: currentStep(onboarding), errors: [], warning: result.reason }
+        }
+      }
+    }
     return { step: currentStep(onboarding), errors: onboarding.errors }
   })
   ipcMain.handle('onboarding:back', () => {
@@ -104,13 +120,33 @@ export function registerIpc(deps: IpcDeps): IpcApi {
   })
   ipcMain.handle('onboarding:finish', () => {
     if (currentStep(onboarding) !== 'done') return { ok: false, reason: 'incomplete' }
-    const initial = buildInitialConfig(onboarding)
+    let initial: Partial<ShellConfig>
+    try {
+      initial = buildInitialConfig(onboarding)
+    } catch (error) {
+      // 例如 BYOK 缺 key、跳步导致答案不全：返回可读原因，不让 IPC 直接 reject。
+      return { ok: false, reason: String(error) }
+    }
     const merged = mergeConfig(deps.getConfig(), initial)
     if (!merged.ok) return { ok: false, errors: merged.errors }
     writeConfig(deps.fs, deps.configPath, merged.value)
     deps.setConfig(merged.value)
     deps.onOnboardingFinished()
     return { ok: true, config: merged.value }
+  })
+
+  ipcMain.handle('workspace:save', (_event: unknown, relativePath: string, content: string) => {
+    const verdict = checkWorkspaceWrite(deps.workspaceRoot(), relativePath, content)
+    if (!verdict.ok) return { ok: false, error: verdict.error }
+    try {
+      mkdirSync(dirname(verdict.path), { recursive: true })
+      const temporary = `${verdict.path}.tmp`
+      writeFileSync(temporary, content)
+      renameSync(temporary, verdict.path)
+      return { ok: true, path: verdict.path }
+    } catch (error) {
+      return { ok: false, error: String(error) }
+    }
   })
 
   ipcMain.handle('app:info', () => deps.appInfo())

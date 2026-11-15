@@ -113,3 +113,14 @@ test('withdraw 只对未发出的生效', async () => {
   await sink.flush()
   assert.equal(sink.status('a'), 'dropped')
 })
+
+test('超长正文先截断再发，避免 422 永久失败', async () => {
+  const { calls, post } = fakePost()
+  const sink = createGithubSink({ token: 't', repo: 'r', post, maxBodyChars: 100 })
+  sink.send(message({ text: 'x'.repeat(500) }))
+  const result = await sink.flush()
+  assert.deepEqual(result, { sent: 1, failed: 0 })
+  const body = (calls[0]?.body as { body: string }).body
+  assert.ok(body.length < 200)
+  assert.match(body, /已截断，原文 500 字/)
+})

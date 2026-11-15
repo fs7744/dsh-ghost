@@ -36,6 +36,8 @@ export interface GithubSinkOptions {
    * 会变成每 10 秒一次的无限重试，既刷日志也打 API。
    */
   maxAttempts?: number
+  /** 单条评论正文上限，默认 60_000 字符（GitHub 上限 65536；留出截断说明的余量）。 */
+  maxBodyChars?: number
 }
 
 /** 一条消息的去向。 */
@@ -59,6 +61,7 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
 } {
   const apiBase = options.apiBase ?? 'https://api.github.com'
   const maxAttempts = Math.max(1, options.maxAttempts ?? 5)
+  const maxBodyChars = Math.max(1, options.maxBodyChars ?? 60_000)
   const table = new Map<string, Entry>()
   const headers = {
     authorization: `Bearer ${options.token}`,
@@ -116,9 +119,14 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
           continue
         }
         entry.attempts += 1
+        // GitHub 对评论正文有 65536 字符上限；超了会 422 永久失败，先截断并说明。
+        const original = entry.message.text
+        const body = original.length <= maxBodyChars
+          ? original
+          : `${original.slice(0, maxBodyChars)}\n\n…（已截断，原文 ${original.length} 字）`
         const result = await post(
           `${apiBase}/repos/${options.repo}/issues/${number}/comments`,
-          { body: entry.message.text },
+          { body },
           headers,
         )
         if (result.ok) {

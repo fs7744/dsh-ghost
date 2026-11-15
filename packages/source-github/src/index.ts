@@ -13,8 +13,10 @@ import type { Trigger } from '@dsh-ghost/superagent'
 
 /** 一个来源的配置。 */
 export interface GithubSourceOptions {
-  /** webhook 密钥；为空则跳过签名校验（仅本地调试允许）。 */
+  /** webhook 密钥；为空时默认拒绝（fail-closed）。 */
   secret?: string
+  /** 显式允许无签名（仅本地调试）；不设就绝不接受无密钥投递。 */
+  allowUnsigned?: boolean
   /** agent 在 GitHub 上的登录名，用于判断是否被 @。 */
   botLogin?: string
   /** 额外要监听的 @ 名字（含 @ 前缀与否都行）。 */
@@ -31,7 +33,9 @@ export type SignatureResult = { ok: true } | { ok: false; reason: string }
  * @param header - `x-hub-signature-256` 头的值，形如 `sha256=…`
  */
 export function verifySignature(options: GithubSourceOptions, rawBody: string, header: string | undefined): SignatureResult {
-  if (options.secret === undefined || options.secret === '') return { ok: true }
+  if (options.secret === undefined || options.secret === '') {
+    return options.allowUnsigned === true ? { ok: true } : { ok: false, reason: 'secret-not-configured' }
+  }
   if (header === undefined || !header.startsWith('sha256=')) return { ok: false, reason: 'missing-signature' }
   const expected = createHmac('sha256', options.secret).update(rawBody, 'utf8').digest('hex')
   const given = header.slice('sha256='.length)

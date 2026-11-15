@@ -12,6 +12,7 @@ function answerAll() {
   let s = createOnboarding()
   s = answerStep(s, 'welcome', null)
   s = answerStep(s, 'modelSource', 'byok')
+  s = answerStep(s, 'credential', { apiKey: 'test-fake-key' })
   s = answerStep(s, 'workspace', 'D:/work')
   s = answerStep(s, 'approval', 'workspace-write')
   s = answerStep(s, 'infoSources', { github: true, webhook: false, local: true })
@@ -44,6 +45,7 @@ test('空工作目录被拒绝', () => {
   let s = createOnboarding()
   s = answerStep(s, 'welcome', null)
   s = answerStep(s, 'modelSource', 'byok')
+  s = answerStep(s, 'credential', { apiKey: 'test-fake-key' })
   const bad = answerStep(s, 'workspace', '   ')
   assert.equal(currentStep(bad), 'workspace')
   assert.ok(bad.errors.includes('invalid:workspaceDir'))
@@ -71,8 +73,9 @@ test('backStep 回退到上一步并清空错误', () => {
   let s = createOnboarding()
   s = answerStep(s, 'welcome', null)
   s = answerStep(s, 'modelSource', 'byok')
+  s = answerStep(s, 'credential', { apiKey: 'test-fake-key' })
   const back = backStep(s)
-  assert.equal(currentStep(back), 'modelSource')
+  assert.equal(currentStep(back), 'credential')
   assert.deepEqual(back.errors, [])
 })
 
@@ -89,8 +92,10 @@ test('向导未完成时不产出配置，直接拒绝', () => {
   assert.throws(() => buildInitialConfig(createOnboarding()))
 })
 
-test('步骤顺序固定为六步', () => {
-  assert.deepEqual([...ONBOARDING_STEPS], ['welcome', 'modelSource', 'workspace', 'approval', 'infoSources', 'done'])
+test('步骤顺序固定为七步（含凭据）', () => {
+  assert.deepEqual([...ONBOARDING_STEPS], [
+    'welcome', 'modelSource', 'credential', 'workspace', 'approval', 'infoSources', 'done',
+  ])
 })
 
 test('回退后重新作答会覆盖旧答案', () => {
@@ -101,4 +106,25 @@ test('回退后重新作答会覆盖旧答案', () => {
   assert.equal(currentStep(s), 'modelSource')
   s = answerStep(s, 'modelSource', 'local')
   assert.equal(s.answers.modelSource, 'local')
+})
+
+test('BYOK 在凭据步骤必须有 key，空 key 不推进', () => {
+  let s = createOnboarding()
+  s = answerStep(s, 'welcome', null)
+  s = answerStep(s, 'modelSource', 'byok')
+  const empty = answerStep(s, 'credential', { apiKey: '   ' })
+  assert.equal(currentStep(empty), 'credential')
+  assert.ok(empty.errors.includes('credential-required'))
+  const ok = answerStep(s, 'credential', { apiKey: 'test-fake-key' })
+  assert.equal(currentStep(ok), 'workspace')
+  assert.equal(ok.answers.apiKey, 'test-fake-key')
+})
+
+test('本地模型可以跳过凭据步骤', () => {
+  let s = createOnboarding()
+  s = answerStep(s, 'welcome', null)
+  s = answerStep(s, 'modelSource', 'local')
+  const skipped = answerStep(s, 'credential', null)
+  assert.equal(currentStep(skipped), 'workspace')
+  assert.equal(skipped.answers.apiKey, undefined)
 })

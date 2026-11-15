@@ -17,8 +17,9 @@ test('签名：正确通过，篡改拒绝，缺失拒绝', () => {
   assert.equal(verifySignature({ secret }, body, 'sha1=abc').ok, false)
 })
 
-test('没有密钥时跳过校验（只允许本地调试）', () => {
-  assert.deepEqual(verifySignature({}, 'x', undefined), { ok: true })
+test('没有密钥时默认拒绝；显式 allowUnsigned 才放行（本地调试）', () => {
+  assert.equal(verifySignature({}, 'x', undefined).ok, false)
+  assert.deepEqual(verifySignature({ allowUnsigned: true }, 'x', undefined), { ok: true })
 })
 
 test('@ 提及按边界匹配：不误伤 ghostbusters / ghost-bot / 邮箱', () => {

@@ -75,6 +75,44 @@ export class SettingsStore {
     }
     prompts() { return [...this.promptTexts.keys()]; }
     promptParts() { return [...this.parts]; }
+    /**
+     * 可序列化快照：宿主把配置存到磁盘后再 restore，重启不会丢 settings/policy/prompts。
+     * 只有纯数据，不含函数与路径，便于直接 JSON.stringify。
+     */
+    snapshot() {
+        const blocks = {};
+        for (const [key, value] of this.data)
+            blocks[key] = { ...value };
+        const prompts = {};
+        for (const [key, value] of this.promptTexts)
+            prompts[key] = value;
+        return { policyVersion: this.policyVersion, blocks, prompts };
+    }
+    /** 从快照恢复；非法形状整体忽略，保持内存版可用。 */
+    restore(snapshot) {
+        if (typeof snapshot !== 'object' || snapshot === null || Array.isArray(snapshot))
+            return;
+        const value = snapshot;
+        if (typeof value.policyVersion === 'string' && /^v\d+$/.test(value.policyVersion)) {
+            this.policyVersion = value.policyVersion;
+        }
+        // 分块校验：形状不对就整块忽略，不能先 clear 再发现是坏数据。
+        if (typeof value.blocks === 'object' && value.blocks !== null && !Array.isArray(value.blocks)) {
+            this.data.clear();
+            for (const [key, block] of Object.entries(value.blocks)) {
+                if (typeof block === 'object' && block !== null && !Array.isArray(block)) {
+                    this.data.set(key, { ...block });
+                }
+            }
+        }
+        if (typeof value.prompts === 'object' && value.prompts !== null && !Array.isArray(value.prompts)) {
+            this.promptTexts.clear();
+            for (const [key, text] of Object.entries(value.prompts)) {
+                if (typeof text === 'string' && this.parts.includes(key))
+                    this.promptTexts.set(key, text);
+            }
+        }
+    }
 }
 /** 把 'v1' 推成 'v2'；非 vN 形状一律从 v1 重来。 */
 function bump(version) {
