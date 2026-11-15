@@ -1,5 +1,5 @@
 /** 验证脚本共用的启停与登录（薄封装，避免每个脚本重复实现）。 */
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { boot as rawBoot, stop as rawStop, DSH_HOME } from '../spikes/p05-transport/lib/harness-client.mjs'
 export { WORKSPACE } from '../spikes/p05-transport/lib/harness-client.mjs'
@@ -8,7 +8,7 @@ export { login, createTransport } from '../packages/harness-port/src/index.ts'
 const REPO = join(import.meta.dirname, '..')
 const PATCH_TEMPLATE = join(import.meta.dirname, 'cordis.patch.template.yml')
 /** 会被宿主 profile 加载的 workspace 包。 */
-const HOST_PACKAGES = ['orchestrator-plugin', 'memory-plugin', 'memory', 'economizer', 'ui-plugin', 'ui-extensions', 'superagent', 'sink-github', 'source-github', 'source-hub', 'playbook', 'playbook-runtime', 'evolution']
+const HOST_PACKAGES = ['orchestrator-plugin', 'memory-plugin', 'memory', 'economizer', 'ui-plugin', 'ui-extensions', 'automation-plugin', 'automation', 'superagent', 'sink-github', 'source-github', 'source-hub', 'playbook', 'playbook-runtime', 'evolution']
 
 /**
  * 渲染标准 patch：模板是唯一真相源，只有凭据地址与模型名允许被环境变量覆盖。
@@ -153,6 +153,13 @@ export function syncPlugins(profile = 'p05') {
       const source = join(from, dir)
       if (existsSync(source)) cpSync(source, join(to, dir), { recursive: true })
     }
+  }
+  // 自动化插件要用的 playwright-core 也得进 profile（它不在 profile 的依赖树里）。
+  const playwrightFrom = join(REPO, 'node_modules', 'playwright-core')
+  if (existsSync(playwrightFrom)) {
+    const playwrightTo = join(DSH_HOME, 'profiles', profile, 'node_modules', 'playwright-core')
+    rmSync(playwrightTo, { recursive: true, force: true })
+    cpSync(playwrightFrom, playwrightTo, { recursive: true })
   }
 }
 

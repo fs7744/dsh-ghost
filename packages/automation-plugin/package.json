@@ -1,0 +1,26 @@
+{
+  "name": "@dsh-ghost/automation-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Host plugin exposing browser automation (CDP) and Windows computer control as model tools.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "dependencies": {
+    "@dsh-ghost/automation": "0.0.0",
+    "playwright-core": "^1.56.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3"
+  },
+  "files": [
+    "lib",
+    "src"
+  ]
+}

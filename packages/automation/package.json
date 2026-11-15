@@ -1,0 +1,17 @@
+{
+  "name": "@dsh-ghost/automation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser automation over CDP (no bundled browser) and Windows computer control via UI Automation.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test --experimental-transform-types tests/*.test.ts"
+  },
+  "files": ["lib", "src"]
+}

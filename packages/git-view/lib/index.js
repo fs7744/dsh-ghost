@@ -1,11 +1,12 @@
+/** porcelain v1 的状态字母（X=暂存区，Y=工作区）。 */
 const STATUS_MAP = {
-    added: 'added',
-    modified: 'modified',
-    deleted: 'deleted',
-    renamed: 'renamed',
-    copied: 'added',
-    unmerged: 'conflicted',
-    untracked: 'untracked',
+    M: 'modified',
+    A: 'added',
+    D: 'deleted',
+    R: 'renamed',
+    C: 'added',
+    U: 'conflicted',
+    T: 'modified',
 };
 /**
  * 解析 `git status --porcelain=v1` 的输出。
@@ -24,9 +25,12 @@ export function parseStatusPorcelain(stdout) {
         // 重命名会写成 `old -> new`；只看新路径。
         const path = rest.includes(' -> ') ? (rest.split(' -> ')[1] ?? rest) : rest;
         const key = code.trim();
+        // 任一列是 U（unmerged）即为冲突；否则看暂存区那一列。
         const status = key === '??'
             ? 'untracked'
-            : (key.includes('U') || key.includes('A') && key.includes('A') ? 'conflicted' : (STATUS_MAP[key.slice(0, 1)] ?? 'unknown'));
+            : key.includes('U')
+                ? 'conflicted'
+                : (STATUS_MAP[key.slice(0, 1)] ?? 'unknown');
         out.push({ path: path.replace(/^"|"$/g, ''), status, additions: 0, deletions: 0 });
     }
     return out;

@@ -25,14 +25,14 @@ const GROUPS = {
     'check:secrets', 'verify:events', 'verify:port-discipline', 'verify:contract',
     'verify:mock-server', 'verify:models', 'verify:init', 'verify:compaction',
     'verify:playbook-editor', 'verify:shell', 'release:check', 'verify:l5',
-    'verify:superagent-assets', 'verify:gates',
+    'verify:superagent-assets', 'verify:automation', 'verify:gates',
   ],
   host: [
     'verify:port', 'verify:skill', 'verify:plugin-boot', 'verify:tool-visibility',
     'verify:auth', 'verify:commands', 'verify:orchestrator', 'verify:github',
     'verify:outbox', 'verify:source-hub', 'verify:command-palette',
     'verify:session-export', 'verify:rewind', 'verify:memory-ui', 'verify:panels',
-    'verify:evolution', 'verify:ai-config', 'verify:ui-extensions',
+    'verify:evolution', 'verify:ai-config', 'verify:ui-extensions', 'verify:automation-plugin',
   ],
   model: ['verify:l3', 'verify:real-model', 'verify:ticket-tool', 'verify:auto-run', 'verify:github-loop'],
 }

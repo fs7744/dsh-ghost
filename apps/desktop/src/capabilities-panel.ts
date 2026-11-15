@@ -123,7 +123,27 @@ export function mountCapabilitiesPanel(host: HTMLElement, services: PanelService
       }).join('')
       : `<div class="empty">${escapeHtml(pluginsResult.reason)}</div>`
 
-    // 4) 静态台账
+    // 4) 自动化（浏览器 / Windows 电脑操控）
+    const automationResult = await safeCall(() => services.transport.call('ghostAutomation/status' as never, {} as never))
+    const automation = automationResult.ok ? record(automationResult.value) : {}
+    const browserInfo = record(automation.browser)
+    const computerInfo = record(automation.computer)
+    const automationBlock = automationResult.ok
+      ? `<div class="lrow"><span class="lname">${escapeHtml(services.t('capabilities.browserAutomation'))}</span>
+          <span class="ldetail">${escapeHtml(browserInfo.available === true
+            ? `${services.t('capabilities.available')}（${String(browserInfo.name ?? '')}）`
+            : services.t('capabilities.noBrowser'))}</span>
+          <button data-act="toggle-automation" data-value="browser" data-enabled="${browserInfo.enabled === true}"
+            ${browserInfo.enabled === true ? 'disabled' : ''} data-t="${browserInfo.enabled === true ? 'capabilities.on' : 'capabilities.enable'}"></button></div>`
+        + `<div class="lrow"><span class="lname">${escapeHtml(services.t('capabilities.computerControl'))}</span>
+          <span class="ldetail">${escapeHtml(computerInfo.available === true
+            ? services.t('capabilities.available')
+            : services.t('capabilities.notWindows'))}</span>
+          <button data-act="toggle-automation" data-value="computer" data-enabled="${computerInfo.enabled === true}"
+            ${computerInfo.enabled === true ? 'disabled' : ''} data-t="${computerInfo.enabled === true ? 'capabilities.on' : 'capabilities.enable'}"></button></div>`
+      : `<div class="empty">${escapeHtml(automationResult.reason)}</div>`
+
+    // 5) 静态台账
     const ledger = CAPABILITY_LEDGER.map(row => `<div class="lrow">
         <span class="lname">${escapeHtml(row.label)}</span>
         <span class="lstate ${row.state}">${escapeHtml(services.t(`capabilities.state.${row.state}`))}</span>
@@ -131,6 +151,7 @@ export function mountCapabilitiesPanel(host: HTMLElement, services: PanelService
       </div>`).join('')
 
     body.innerHTML = `<section><h3 data-t="capabilities.presets"></h3>${presetBlock}</section>`
+      + `<section><h3 data-t="capabilities.automation"></h3>${automationBlock}</section>`
       + `<section><h3 data-t="capabilities.computerUse"></h3>${cuaBlock}</section>`
       + `<section><h3 data-t="capabilities.hostPlugins"></h3>${pluginBlock}</section>`
       + `<section><h3 data-t="capabilities.ledger"></h3>${ledger}</section>`
@@ -150,6 +171,17 @@ export function mountCapabilitiesPanel(host: HTMLElement, services: PanelService
           services.notice(result.ok ? services.t('capabilities.selected') : result.reason)
           void load()
         })
+      return
+    }
+    if (action === 'toggle-automation') {
+      const which = button.dataset.value === 'computer' ? 'computer' : 'browser'
+      const enabled = button.dataset.enabled !== 'true'
+      void safeCall(() => services.transport.call('ghostAutomation/setEnabled' as never, {
+        input: { [which]: enabled },
+      } as never)).then(result => {
+        services.notice(result.ok ? services.t('capabilities.automationToggled') : result.reason)
+        void load()
+      })
       return
     }
     if (action === 'toggle-host-plugin') {

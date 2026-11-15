@@ -1,0 +1,12 @@
+feat(automation): 浏览器自动化（Playwright 优先）与 Windows 电脑操控
+
+- 浏览器：Playwright（playwright-core，不带浏览器，驱动系统 Chrome/Edge）为主引擎，
+  自研 CDP 直连为兜底；独立临时画像、不碰用户登录态、站点白名单、窗口默认可见。
+- Windows 电脑操控：宿主官方 CUA 只面向 macOS，故自写一套（系统脚本宿主 + 内置 .NET）：
+  虚拟屏幕截图、鼠标点击、Unicode 输入、特殊按键、UI Automation 元素树（按控件名定位而非盲点）。
+- 新增 packages/automation（纯逻辑）+ packages/automation-plugin（11 个模型工具、ghostAutomation/* 开关）；
+  开关默认关且每次调用现读，界面开启即生效。
+- 真机验收：verify:automation（开页/读正文/点击生效/填值/截图 + 整屏截图 + UIA 120 元素）、
+  verify:automation-plugin（宿主内状态与开关），均全绿。
+- 修 lib-driver 缺失 rmSync 导入；port-discipline 白名单登记 automation-plugin。
+- 验证：607 用例、local 21/21、7/7 门禁。
