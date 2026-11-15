@@ -1,10 +1,10 @@
-# 图标与品牌资产占位说明
+# 图标与品牌资产设计说明
 
 > 本目录（apps/shell）只放桌面壳代码与页面；真实图标文件在 `build/resources/`，
 > 打包时由 electron-builder 的 `extraResources` 带进安装包。当前为占位说明，
-> 图标已按「赛博朋克 + 幽灵」设计并生成；矢量源在 `build/resources/src/`，可复现重建。
+> 图标已按「赛博朋克 + 熊猫幽灵」设计并生成；矢量源在 `build/resources/src/`，可复现重建。
 
-## 需要的图标（待补，属外部依赖）
+## 图标产物
 
 | 用途 | 文件 | 规格 | 状态 |
 |---|---|---|---|
@@ -32,9 +32,10 @@ electron-builder 配置见 `build/electron-builder.yml`。
 
 ## 设计与重建
 
-- 风格：石墨黑瓦片（`#141412`）+ 米白幽灵（`#ECEAE4`）+ 青绿信号线（`#5DCAA5`），
-  与 `apps/desktop/src/style.css` 的 UI 变量一致；赛博朋克靠**青色眼环 + 直角信号线 + 数据尾迹**，
-  不用大面积霓虹。
+- 风格：石墨黑瓦片（`#141412`）+ 米白熊猫幽灵（`#ECEAE4`）+ 青绿信号线（`#5DCAA5`），
+  与 `apps/desktop/src/style.css` 的 UI 变量一致。
+- 熊猫特征：白色耳廓 + 黑色内耳、倾斜黑眼斑 + 白点眼、黑色鼻；幽灵特征：圆头 + 三个 V 形缺口。
+- 赛博朋克靠**左眼青色植入环 + 直角信号线 + 数据尾迹**，不用大面积霓虹。
 - 源文件：`build/resources/src/icon.svg`（大尺寸）、`icon-small.svg`（16/24/32 光学变体）、
   `trayTemplate.svg`（macOS 托盘）。
 - 重建：`npm run icons`；校验：`npm run icons:check`。

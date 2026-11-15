@@ -16,7 +16,7 @@
 |---|---|
 | `electron-builder.yml` | win/mac/linux 目标、文件关联、dsh-ghost 协议、更新通道占位、签名/公证占位 |
 | `installer.nsh` | NSIS 自定义安装/卸载宏（本地优先、不写凭据、卸载保留用户数据） |
-| `resources/README.md` | 图标与许可文件占位说明 |
+| `resources/README.md` | 图标产物与许可文件说明 |
 
 ## 根脚本名映射（由集成者登记到根 package.json）
 

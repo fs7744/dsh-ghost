@@ -17,7 +17,7 @@
 ## 约束
 
 - 图标与品牌资产必须原创，不使用 DeepSeek 标识或官方素材（docs/LICENSING.md §6）。
-- 未补齐图标前，electron-builder 使用默认图标，产物**不能作为正式发布物**。
+- 图标已生成；产物仍**不能作为正式发布物**，因为未签名/未公证。
 - 许可文件为 MIT 合规的必做动作（docs/LICENSING.md §4），发第一版安装包前必须补齐。
 
 源文件在 `src/`（SVG），运行 `npm run icons` 重建；设计说明见 `apps/shell/ASSETS.md`。

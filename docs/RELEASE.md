@@ -83,9 +83,9 @@
    `--dir` 已产出（Windows 上只验证了 asar 结构，未运行 ELF）。**macOS 打包必须在 macOS
    runner 上做**（dmg 工具链），本机未构建。文件关联、协议唤醒、开机启动、干净机器仍需实测。
    本地打包用 `CSC_IDENTITY_AUTO_DISCOVERY=false` 跳过签名；未签名包不能作为正式发布物。
-4. **真实图标与许可文件**：`build/resources/` 目前是占位说明（见 `apps/shell/ASSETS.md`），
-   发第一版安装包前必须补齐原创图标、`LICENSE.electron.txt`、`LICENSES.chromium.html`、
-   `THIRD_PARTY_NOTICES`。
+4. **图标与许可文件**：图标已按「赛博朋克熊猫幽灵」生成（见 `apps/shell/ASSETS.md`），
+   三平台格式齐全；仍需补齐 `LICENSE.electron.txt`、`LICENSES.chromium.html`、
+   `THIRD_PARTY_NOTICES` 等发布随附文件。
 5. **自动更新真实放量**：需要真实 feed 服务、各平台签名后的 `latest.yml` / `latest-mac.yml` / `latest-linux.yml` 与灰度配置；本期不发布。
 6. **宿主启动参数（已按真实 CLI 修正）**：`dsh --profile <name> [--patch <yml>]
    --host 127.0.0.1 --port N --no-open`；`DSH_HOME` 走环境变量；token 由宿主打印、
