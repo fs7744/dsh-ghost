@@ -17,7 +17,7 @@
 
 **契约面已收口**：131 项宿主侧探针 + **224 个 Remote 端点**（`remotes.json` → 类型表）+ **31 个转发事件**（`events.json` → 类型表，含 `emit` / `waterfall` 与资源身份）。两者都从运行时编译产物生成，`npm run verify:events` 做漂移校验，升级流水线第 3 步自动重生成——这正是 REVIEW R1 要求的"renderer 侧契约也必须自动生成"。
 
-**验收口径**：`npm test` = **512 个用例 / 21 个套件**；`npm run typecheck` / `check:ui` / `check:shell`；`build` = **13 个包**；`build:ui`（含 `models.html` 多页产物）；`npm run verify:all` 一条命令跑完 **42 项**验收（local 20 + host 17 + model 5），或 `verify:gates` 看 7 项 PR 门禁总表。L3 真模型冒烟只断言结构，L4 离线评分、L5 Playwright 骨架在未装依赖时显式 SKIP；本轮 L3 已用真模型跑通 3/3 结构断言。
+**验收口径**：`npm test` = **515 个用例 / 22 个套件**；`npm run typecheck` / `check:ui` / `check:shell`；`build` = **13 个包**；`build:ui`（含 `models.html` 多页产物）；`npm run verify:all` 一条命令跑完 **42 项**验收（local 20 + host 17 + model 5），或 `verify:gates` 看 7 项 PR 门禁总表。L3 真模型冒烟只断言结构，L4 离线评分、L5 Playwright 骨架在未装依赖时显式 SKIP；本轮 L3 已用真模型跑通 3/3 结构断言。
 
 **仍未在本机闭环的，只有需要外部凭据/真实环境的 P4 动作**（代码与配置已就绪，不假装验过）：
 

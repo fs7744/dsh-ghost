@@ -4,10 +4,12 @@
  * 反馈聚合 / 会话统计 / 时长格式化都是纯函数；界面把赞踩按钮挂到消息流，
  * 统计面板走 messageFeedback/list 与 session/projections，端点不可用就地降级。
  */
+import { readHarnessUsage } from '@dsh-ghost/economizer'
 import {
   asList, escapeHtml, num, paintText, pickStr, record, safeCall, str, unavailableHtml,
   type PanelInstance, type PanelServices,
 } from './panels.ts'
+import { costRows, parsePricing, PRICING_KEY, serializePricing } from './stats-cost.ts'
 
 export interface FeedbackEntry {
   target: string
@@ -111,6 +113,27 @@ export function decorateStream(stream: HTMLElement, services: PanelServices): vo
   })
 }
 
+/** 读本地保存的单价；浏览器外安全返回 null。 */
+function readPricing(): string | null {
+  try {
+    return globalThis.localStorage?.getItem(PRICING_KEY) ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 单价输入区：留空就只显示 token，不显示金额。 */
+function pricingForm(pricing: ReturnType<typeof parsePricing>, t: (key: string) => string): string {
+  const value = (key: string): string => pricing === undefined ? '' : String(pricing[key as keyof typeof pricing])
+  return `<div class="lrow"><span class="lname">${escapeHtml(t('stats.pricing'))}</span></div>`
+    + `<div class="lrow"><input data-price="inputPerMillion" type="number" step="0.01" min="0" value="${value('inputPerMillion')}" placeholder="input">`
+    + `<input data-price="outputPerMillion" type="number" step="0.01" min="0" value="${value('outputPerMillion')}" placeholder="output">`
+    + `<input data-price="cacheReadPerMillion" type="number" step="0.01" min="0" value="${value('cacheReadPerMillion')}" placeholder="cache read">`
+    + `<input data-price="cacheWritePerMillion" type="number" step="0.01" min="0" value="${value('cacheWritePerMillion')}" placeholder="cache write">`
+    + `<button data-act="save-pricing">${escapeHtml(t('stats.pricing.save'))}</button></div>`
+    + `<div class="lrow"><span class="ldetail">${escapeHtml(t('stats.pricing.hint'))}</span></div>`
+}
+
 /** C8-23 统计面板：反馈聚合 + 会话统计。 */
 export function mountStatsPanel(host: HTMLElement, services: PanelServices): PanelInstance {
   host.innerHTML = `<div class="panelbar">
@@ -152,6 +175,10 @@ export function mountStatsPanel(host: HTMLElement, services: PanelServices): Pan
       statsBox.innerHTML = unavailableHtml(services.t('common.unavailable'), projectionsResult.reason)
     } else {
       const stats = sessionStats(projectionsResult.value)
+      // 真实用量（宿主 token-meter）：token 构成与缓存命中率永远显示；金额要单价。
+      const usage = readHarnessUsage(projectionsResult.value)
+      const pricing = parsePricing(readPricing())
+      const cost = costRows(usage, pricing)
       statsBox.innerHTML = `<div class="lrow"><span class="lname">${escapeHtml(
         services.t('stats.turns').replace('{turns}', String(stats.turns)),
       )}</span></div>`
@@ -161,11 +188,41 @@ export function mountStatsPanel(host: HTMLElement, services: PanelServices): Pan
         + `<div class="lrow"><span class="lname">${escapeHtml(
           services.t('stats.duration').replace('{ms}', formatDuration(stats.llmMs)),
         )}</span></div>`
+        + cost.map(row => {
+          const template = services.t(row.key)
+          const text = template.includes('{value}') ? template.replace('{value}', row.value) : `${template} ${row.value}`
+          return `<div class="lrow"><span class="lname">${escapeHtml(text)}</span></div>`
+        }).join('')
+        + pricingForm(pricing, services.t)
     }
     statusEl.textContent = services.t('common.refresh')
   }
   host.addEventListener('click', event => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-act="refresh"]')
+    const target = event.target as HTMLElement
+    const saveButton = target.closest<HTMLButtonElement>('button[data-act="save-pricing"]')
+    if (saveButton !== null) {
+      const read = (key: string): number => {
+        const input = host.querySelector<HTMLInputElement>(`input[data-price="${key}"]`)
+        const parsed = Number.parseFloat(input?.value ?? '')
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+      }
+      const input = read('inputPerMillion')
+      const output = read('outputPerMillion')
+      try {
+        if (input === 0 && output === 0) globalThis.localStorage?.removeItem(PRICING_KEY)
+        else {
+          globalThis.localStorage?.setItem(PRICING_KEY, serializePricing({
+            inputPerMillion: input,
+            outputPerMillion: output,
+            cacheReadPerMillion: read('cacheReadPerMillion') || input * 0.1,
+            cacheWritePerMillion: read('cacheWritePerMillion') || input * 1.25,
+          }))
+        }
+      } catch { /* 存不了就只在本次会话有效 */ }
+      void load()
+      return
+    }
+    const button = target.closest<HTMLButtonElement>('button[data-act="refresh"]')
     if (button !== null) void load()
   })
   return { refresh: load }

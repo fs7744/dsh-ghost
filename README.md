@@ -68,7 +68,7 @@
 12. [docs/MODELS.md](docs/MODELS.md) — 模型管理面与对外 adapter 契约
 13. [docs/TESTING.md](docs/TESTING.md) — L0–L5 测试分层与门禁
 14. [docs/RELEASE.md](docs/RELEASE.md) — 三平台打包 / 签名与公证 / 更新通道 / 发版前核对
-15. [docs/ECONOMIZER.md](docs/ECONOMIZER.md) — Token 节省：简报、剪枝、上下文提醒、成本换算、凭据护栏
+15. [docs/ECONOMIZER.md](docs/ECONOMIZER.md) — Token 节省：简报、剪枝、上下文提醒、成本看板、凭据护栏（`npm run measure:tokens` 实测每次请求省 ≈902 token）
 16. [docs/HARNESS-AUDIT.md](docs/HARNESS-AUDIT.md) — 与 harness 的能力对照：哪些用宿主、哪些是我们独有
 15. [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) · [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — 隐私、许可、诊断包
 
@@ -83,7 +83,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 512 个用例 / 21 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 515 个用例 / 22 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

@@ -73,7 +73,16 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
     「上下文已到 X%，建议 /compact」，并保留手动压缩入口。
 - 拿不到投影时**不猜、不提醒**。
 
-### 5. 缓存感知成本换算
+### 5. 成本看板（统计页）
+
+`apps/desktop/src/stats-cost.ts` + `feedback.ts`：统计页现在显示
+**未缓存输入 / 缓存读 / 缓存写 / 输出 / 缓存命中率**（都来自宿主真实用量），
+金额只有用户填了单价才显示（单价存在 `localStorage.dsh-ghost.pricing`，
+JSON：`{"inputPerMillion":3,"outputPerMillion":15,"cacheReadPerMillion":0.3,"cacheWritePerMillion":3.75}`）。
+
+**没配单价就只显示 token，不显示金额**——宿主不提供价格表，编一个数字比不显示更糟。
+
+### 6. 缓存感知成本换算
 
 `packages/economizer/src/cost.ts` 的 `estimateCost(usage, pricing)`：把宿主的
 `uncachedInputTokens` / `cacheReadTokens` / `cacheWriteTokens` / `outputTokens`
@@ -116,7 +125,8 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
 - **不新开会话**：换会话会断掉宿主侧连续性与工具状态，代价大于省下的 token。
 - **不自动改用户 AGENTS.md / settings**：简报只读记忆索引；剪枝只影响本插件注册的可选工具。
 - **不调 judge 模型**：循环判定是确定性的；TokenEconomizer 的 judge 置信度机制没有照搬。
-- **没有真实成本基准**：暂无“省了 X%”的实测数字，只有静态估算；等有稳定样本再补。
+- **没有端到端成本基准**：`measure:tokens` 量的是**请求固定开销**（工具定义），
+  会话历史的节省还没实测（需要真实模型样本）。
 
 ## 验证
 
@@ -125,6 +135,7 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
 - `npm run test:chat-context`：4 个用例（记忆拼接、读宿主真实用量、
   宿主已压过时不重复提醒、拿不到投影不猜）。
 - `npm run verify:ai-config`：端到端——AI 调配置工具落盘 + 明文密钥被拒、不落盘、不回显。
+- `npm run measure:tokens`：真实抓包量「剪枝前 vs 剪枝后」的每请求固定开销。
 - 编排插件接入后，`npm run verify:all -- --only=local` 仍全绿。
 
 > 与宿主能力的逐项对照见 [HARNESS-AUDIT.md](HARNESS-AUDIT.md)。
