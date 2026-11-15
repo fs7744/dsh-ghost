@@ -14,13 +14,17 @@ export interface TrayApi {
 
 export interface TrayDeps {
   iconPath: string
+  /** macOS 模板图：单色，随系统深浅色自动反色。 */
+  template?: boolean
   translate: Translator
   onShow(): void
   onQuit(): void
 }
 
 export function createTray(deps: TrayDeps): TrayApi {
-  const tray = new Tray(nativeImage.createFromPath(deps.iconPath))
+  const image = nativeImage.createFromPath(deps.iconPath)
+  if (deps.template === true && process.platform === 'darwin') image.setTemplateImage(true)
+  const tray = new Tray(image)
   tray.setToolTip(deps.translate('app.name'))
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: deps.translate('tray.show'), click: () => deps.onShow() },

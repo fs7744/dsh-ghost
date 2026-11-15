@@ -19,6 +19,8 @@ export interface ShellAppApi {
   setAsDefaultProtocolClient(): void
   onSecondInstance(handler: (payload: SecondInstancePayload) => void): void
   onOpenFile(handler: (path: string) => void): void
+  /** macOS 深链走 open-url，不是 second-instance。 */
+  onOpenUrl(handler: (url: string) => void): void
   onActivate(handler: () => void): void
   onBeforeQuit(handler: () => void): void
   onWindowAllClosed(handler: () => void): void
@@ -42,9 +44,12 @@ export function createShellApp(): ShellAppApi {
     getLocale: () => app.getLocale(),
     isPackaged: () => app.isPackaged,
     quit: () => app.quit(),
-    setLoginItemSettings: enabled => app.setLoginItemSettings({ openAtLogin: enabled }),
+    setLoginItemSettings: enabled => {
+      // Linux 无「登录项」概念；平台不支持时静默降级，不让设置页崩。
+      try { app.setLoginItemSettings({ openAtLogin: enabled }) } catch { /* unsupported */ }
+    },
     setAsDefaultProtocolClient: () => {
-      app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME)
+      try { app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME) } catch { /* unsupported */ }
     },
     openExternal: url => {
       void shell.openExternal(url)
@@ -59,6 +64,12 @@ export function createShellApp(): ShellAppApi {
       app.on('open-file', (event: { preventDefault(): void }, path: string) => {
         event.preventDefault()
         handler(path)
+      })
+    },
+    onOpenUrl: handler => {
+      app.on('open-url', (event: { preventDefault(): void }, url: string) => {
+        event.preventDefault()
+        handler(url)
       })
     },
     onActivate: handler => app.on('activate', handler),

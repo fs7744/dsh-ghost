@@ -1,6 +1,6 @@
-# dsh-ghost 发布流水线（仅 Windows x64）。
+# dsh-ghost 发布流水线（Windows / macOS / Linux）。
 # 只写配置与代码，不真的发布：--publish never 只产出安装包，不上传更新元数据。
-# macOS dmg / 公证、Linux AppImage 不在本期范围，本流水线不构建它们。
+# 每个平台在自己的 runner 上构建，原生依赖（node-pty/koffi）与运行时架构才匹配。
 name: release
 
 on:
@@ -13,8 +13,30 @@ permissions:
   contents: write
 
 jobs:
-  windows-x64:
-    runs-on: windows-latest
+  build:
+    name: build-${{ matrix.platform }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            arch: x64
+            artifact: windows-x64
+          - os: macos-13
+            platform: mac
+            arch: x64
+            artifact: macos-x64
+          - os: macos-14
+            platform: mac
+            arch: arm64
+            artifact: macos-arm64
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+            artifact: linux-x64
+
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -25,42 +47,79 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: 安装依赖（含发布期 electron / electron-builder）
+      - name: 安装依赖（含 electron / electron-builder / esbuild）
         run: npm ci
 
-      # 根脚本名 release:check：比较根 package.json / apps/shell/package.json /
-      # docs/RELEASE.md 的版本标记一致；不一致直接失败。
       - name: 版本一致性核对 (release:check)
         run: node --experimental-transform-types scripts/verify-shell.mjs --only=version
 
-      # 根脚本名 build:shell：主进程纯模块编译到 apps/shell/dist。
-      - name: 编译主进程 (build:shell)
-        run: npx tsc -p apps/shell/tsconfig.build.json
+      - name: 构建主进程 bundle (build:shell)
+        run: npm run build:shell
 
-      # 渲染层 Vite 产物，保证与安装包一致。
       - name: 构建渲染层
         run: npm run build:ui
 
-      # 根脚本名 verify:shell 的静态自检也在发布前跑一遍（含 CSP / 脱敏 / builder 目标）。
       - name: 桌面壳静态自检 (verify:shell)
         run: node --experimental-transform-types scripts/verify-shell.mjs
 
-      # 签名证书从 CI secret 注入，未配置时产出未签名包（不能作为正式发布物）。
-      # 更新 feed 占位 secret 仅供生成元数据，--publish never 不会真的上传。
-      - name: 打包 Windows x64 NSIS（不发布）
+      # harness 运行时按当前平台/架构安装，再复制到 build/runtime。
+      # 和安装包一起分发的是这份运行时，不是仓库里的 spikes 目录。
+      - name: 准备 harness 运行时
+        run: |
+          npm install --prefix .runtime --no-save @deepseek-ai/dsh@0.2.2-rc.3
+          node scripts/prepare-runtime.mjs --apply --modules .runtime/node_modules
+
+      - name: 打包（不发布）
         env:
+          # Windows 签名（可选）
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          WIN_CERT_SUBJECT: ${{ secrets.WIN_CERT_SUBJECT }}
+          # macOS 签名 + 公证（可选）
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           SHELL_UPDATE_FEED_STABLE: ${{ secrets.SHELL_UPDATE_FEED_STABLE }}
+          SHELL_UPDATE_FEED_BETA: ${{ secrets.SHELL_UPDATE_FEED_BETA }}
           SHELL_ROLLOUT_PERCENT: ${{ secrets.SHELL_ROLLOUT_PERCENT || '0' }}
-        run: npx electron-builder --win --x64 --config build/electron-builder.yml --publish never
+        run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --config build/electron-builder.yml --publish never
 
-      - name: 上传安装包到 GitHub Release
+      - name: 收集产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.artifact }}
+          if-no-files-found: error
+          path: |
+            out/shell-release/*.exe
+            out/shell-release/*.exe.blockmap
+            out/shell-release/*.dmg
+            out/shell-release/*.zip
+            out/shell-release/*.zip.blockmap
+            out/shell-release/*.AppImage
+            out/shell-release/*.deb
+            out/shell-release/*.yml
+
+  release:
+    name: publish-github-release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 下载全部平台产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: dist-*
+
+      - name: 上传到 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            out/shell-release/*.exe
-            out/shell-release/*.exe.blockmap
+            artifacts/**/*.exe
+            artifacts/**/*.blockmap
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
+            artifacts/**/*.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

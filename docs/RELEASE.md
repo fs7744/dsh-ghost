@@ -7,9 +7,10 @@
 
 ## 1. 范围（硬边界）
 
-- **只支持 Windows x64**（Windows 10 1903+ / 11），安装包形态为 NSIS。
-- **macOS dmg + 公证、Linux AppImage 不在本期范围**：配置里没有这两个 target，
-  不预留抽象层，也**不假装已支持**。`build/electron-builder.yml` 只有 `win / nsis / x64`。
+- **Windows x64 / macOS x64+arm64 / Linux x64+arm64**。
+- 安装包形态：Windows NSIS；macOS dmg + zip（zip 给 Squirrel.Mac 更新）；Linux AppImage + deb。
+- 每个平台在**自己的 CI runner** 上构建（原生依赖与运行时架构必须匹配），不在 Windows 上交叉打 mac/linux 包。
+- 未签名/未公证的产物只能内部测试，不能作为正式发布物。
 - 不做云同步、账号体系、多窗口；界面全部自建（`apps/desktop`）。
 - 不改 harness 源码；只通过 `127.0.0.1` + 一次性 token 的 Typert Remote 契约取数。
 
@@ -17,9 +18,9 @@
 
 | 根脚本名 | 实际命令 | 用途 |
 |---|---|---|
-| `test:shell` | `node --test --experimental-transform-types apps/shell/tests/*.test.ts` | 桌面壳纯模块单测（117 用例） |
+| `test:shell` | `node --test --experimental-transform-types apps/shell/tests/*.test.ts` | 桌面壳纯模块单测（139 用例） |
 | `verify:shell` | `node --experimental-transform-types scripts/verify-shell.mjs` | 不启动 Electron 的静态自检 |
-| `build:shell` | `npx tsc -p apps/shell/tsconfig.build.json` | 主进程编译到 `apps/shell/dist` |
+| `build:shell` | `tsc --noEmit` + `esbuild` bundle | 主进程单文件 bundle 到 `apps/shell/dist/main.js` |
 | `release:check` | `node --experimental-transform-types scripts/verify-shell.mjs --only=version` | 版本一致性核对 |
 
 `apps/shell/package.json` 内也提供等价的 `test` / `verify` / `build` / `release:check` 脚本。
@@ -41,18 +42,23 @@
 | C5-10 | `diagnostics.ts`（脱敏 + 纯 JS zip）/ `electron-ipc.ts` |
 | C5-11 | `onboarding.ts` / `onboarding.html` |
 | C5-12 | `i18n.ts`（中/英，跟随系统，可覆盖） |
-| C5-13 | `credentials.ts` / `electron-safe-storage.ts`（DPAPI，降级不写明文） |
+| C5-13 | `credentials.ts` / `electron-safe-storage.ts`（Windows DPAPI / macOS Keychain / Linux libsecret；不可用时只留内存，不写明文） |
 | C2-03 | 凭据安全落点同上（密钥扫描脚本既有，加密存储由壳补齐） |
 | C6 | `build/**`、`.github/workflows/release.yml`、版本核对 |
 | C7 | `telemetry.ts`、`docs/PRIVACY.md`、`docs/THIRD-PARTY.md`、`about.html` |
 
 ## 4. 发布流水线
 
-`.github/workflows/release.yml`：打 `v*` tag 或手动触发 -> `windows-latest` -> `npm ci`
--> `release:check` -> `build:shell` -> `npm run build:ui` -> `verify:shell`
--> `electron-builder --win --x64 --publish never` -> 上传 `.exe` 到 GitHub Release。
+`.github/workflows/release.yml`：打 `v*` tag 或手动触发 -> 平台矩阵
+（`windows-latest` / `macos-13` x64 / `macos-14` arm64 / `ubuntu-22.04` x64）->
+`npm ci` -> `release:check` -> `build:shell` -> `build:ui` -> `verify:shell` ->
+`prepare:runtime --apply` -> `electron-builder --<platform> --<arch> --publish never`
+-> 上传各平台产物 -> 单个 release job 汇总上传到 GitHub Release。
 
-`--publish never` 表示只产出安装包，**不真的发布** `latest.yml` 或更新。
+每个平台在自己的 runner 上构建，原生依赖与运行时架构才匹配；**不在 Windows 上交叉打 mac/linux 包**。
+`--publish never` 表示只产出安装包，**不真的发布** `latest*.yml` 或更新。
+
+产物形态：Windows NSIS；macOS dmg + zip（zip 给 Squirrel.Mac）；Linux AppImage + deb。
 
 ## 5. 更新通道与灰度
 
@@ -66,19 +72,21 @@
 
 这些项目本期只交付代码与配置，**没有真实运行验证**，不能当成已发布能力：
 
-1. **代码签名**：证书（PFX）与口令需 CI secret `CSC_LINK` / `CSC_KEY_PASSWORD`（或
-   `WIN_CSC_*`）。未注入时产出**未签名**安装包，仅内部测试。
+1. **代码签名 / 公证**：Windows 需 PFX（`CSC_LINK` / `CSC_KEY_PASSWORD` 或 `WIN_CSC_*`）；
+   macOS 需 Developer ID + 公证（`APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID`）。
+   未注入时产出**未签名/未公证**包，仅内部测试。
 2. ✅ **Electron 内置 Node / ABI 已实测**：Electron **44.7.0**（自带 Node 24.21.0）下
    `node-pty` / `koffi` / `node:sqlite` 均可加载；真实壳启动到 `healthy`。
    ⚠️ harness 有 Electron 指纹白名单：44.x 只认 44.0.0 / 44.7.0，44.11.x 会被拒绝；
    升级 Electron 必须重跑 `docs/RELEASE.md §6` 的冒烟。
-3. **真实安装包与 NSIS 安装/卸载**：`--dir` 与 NSIS 安装包均已产出并校验了 asar 启动；
-   但本机未执行安装/卸载，文件关联、协议唤醒、开机启动、干净机器仍需实测。
-   打包用 `CSC_IDENTITY_AUTO_DISCOVERY=false` 跳过签名；未签名包不能作为正式发布物。
+3. **真实安装包与安装/卸载**：Windows `--dir` 与 NSIS 已产出并校验 asar 启动；Linux
+   `--dir` 已产出（Windows 上只验证了 asar 结构，未运行 ELF）。**macOS 打包必须在 macOS
+   runner 上做**（dmg 工具链），本机未构建。文件关联、协议唤醒、开机启动、干净机器仍需实测。
+   本地打包用 `CSC_IDENTITY_AUTO_DISCOVERY=false` 跳过签名；未签名包不能作为正式发布物。
 4. **真实图标与许可文件**：`build/resources/` 目前是占位说明（见 `apps/shell/ASSETS.md`），
    发第一版安装包前必须补齐原创图标、`LICENSE.electron.txt`、`LICENSES.chromium.html`、
    `THIRD_PARTY_NOTICES`。
-5. **自动更新真实放量**：需要真实 feed 服务、签名后的 latest.yml 与灰度配置；本期不发布。
+5. **自动更新真实放量**：需要真实 feed 服务、各平台签名后的 `latest.yml` / `latest-mac.yml` / `latest-linux.yml` 与灰度配置；本期不发布。
 6. **宿主启动参数（已按真实 CLI 修正）**：`dsh --profile <name> [--patch <yml>]
    --host 127.0.0.1 --port N --no-open`；`DSH_HOME` 走环境变量；token 由宿主打印、
    从 stdout 解析（不再自造 token）。子进程用 `ELECTRON_RUN_AS_NODE=1` 以 Node 模式运行。

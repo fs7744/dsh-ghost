@@ -5,7 +5,10 @@
 
 | 期望文件 | 用途 | 状态 |
 |---|---|---|
-| `icon.ico` | 应用 / 任务栏 / 托盘图标（16~256 px，32 位 alpha） | 占位，待补原创图标 |
+| `icon.ico` | Windows 应用 / 任务栏图标（16~256 px，32 位 alpha） | 占位，待补原创图标 |
+| `icon.icns` | macOS 应用图标（16~1024 px） | 占位 |
+| `icon.png` | Linux 应用图标（512×512，带 alpha） | 占位 |
+| `trayTemplate.png` | macOS 托盘模板图（单色，16/32 px） | 占位 |
 | `installerHeader.bmp` | NSIS 安装向导头图（150x57） | 占位，待补 |
 | `LICENSE.electron.txt` | Electron 许可全文，随安装包分发 | 占位，待由 electron 发行包拷贝 |
 | `LICENSES.chromium.html` | Chromium 第三方许可汇总 | 占位，待由 electron 发行包拷贝 |

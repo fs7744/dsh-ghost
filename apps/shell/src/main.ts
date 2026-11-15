@@ -31,6 +31,7 @@ import { resolveLocale, createTranslator } from './i18n.ts'
 import { CredentialVault } from './credentials.ts'
 import { TelemetryBuffer } from './telemetry.ts'
 import { planSecondInstance } from './single-instance.ts'
+import { iconFileFor, isSupportedPlatform, platformLabel, trayIconFileFor } from './platform.ts'
 import type { ChannelEnv } from './updater.ts'
 import type { DisplayBounds } from './window-state.ts'
 import type { FileSystem, HostLaunchInfo } from './ports.ts'
@@ -39,6 +40,20 @@ import type { FileSystem, HostLaunchInfo } from './ports.ts'
 registerSchemes()
 
 const shellApp = createShellApp()
+
+// macOS 的 open-url / open-file 可能在 app ready 之前触发；先入队，等窗口就绪再补发。
+const earlyOpenFiles: string[] = []
+const earlyDeepLinks: string[] = []
+let openFileSink: ((path: string) => void) | undefined
+let deepLinkSink: ((url: string) => void) | undefined
+shellApp.onOpenFile(path => {
+  if (openFileSink === undefined) earlyOpenFiles.push(path)
+  else openFileSink(path)
+})
+shellApp.onOpenUrl(url => {
+  if (deepLinkSink === undefined) earlyDeepLinks.push(url)
+  else deepLinkSink(url)
+})
 
 /**
  * 生产打包路径由 electron-builder 的 files / extraResources 决定。
@@ -52,6 +67,8 @@ function resolvePaths(userData: string, packaged: boolean) {
   const repoRoot = join(here, '..', '..', '..')
   // resourcesPath 是 Electron 注入的，@types/node 不认识；这里按最小形状读取。
   const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath ?? ''
+  const iconName = iconFileFor(process.platform)
+  const trayIconName = trayIconFileFor(process.platform)
   const runtimeModules = process.env['DSH_GHOST_RUNTIME']
     ?? (packaged
       ? join(resourcesPath, 'runtime', 'node_modules')
@@ -64,8 +81,11 @@ function resolvePaths(userData: string, packaged: boolean) {
     aboutPath: join(here, '..', 'about.html'),
     // 图标走 extraResources（resources/resources/icon.ico），不在 asar 里。
     iconPath: packaged
-      ? join(resourcesPath, 'resources', 'icon.ico')
-      : join(repoRoot, 'build', 'resources', 'icon.ico'),
+      ? join(resourcesPath, 'resources', iconName)
+      : join(repoRoot, 'build', 'resources', iconName),
+    trayIconPath: packaged
+      ? join(resourcesPath, 'resources', trayIconName)
+      : join(repoRoot, 'build', 'resources', trayIconName),
     runtimeModules,
     binPath: join(runtimeModules, '@deepseek-ai', 'dsh', 'lib', 'bin.js'),
     // 开发态复用 spikes 的 profile（已同步插件）；打包态用独立 DSH_HOME。
@@ -91,6 +111,12 @@ async function main(): Promise<void> {
     return
   }
   await shellApp.whenReady()
+
+  if (!isSupportedPlatform(process.platform)) {
+    process.stderr.write(`dsh-ghost: unsupported platform ${platformLabel(process.platform)}\n`)
+    shellApp.quit()
+    return
+  }
 
   const paths = resolvePaths(shellApp.getPath('userData'), shellApp.isPackaged())
   const fs = createFs()
@@ -138,6 +164,8 @@ async function main(): Promise<void> {
   let runtime: RuntimeController | null = null
   let quitting = false
   let pendingFiles: string[] = shellApp.initialPayload().files
+  pendingFiles.push(...earlyOpenFiles.splice(0))
+  const pendingDeepLinks: string[] = [...earlyDeepLinks.splice(0)]
   // 渲染层每 3s 报一次票列表；诊断包读这个快照，而不是空占位。
   let ticketCache: unknown = []
   const logBuffer: string[] = []
@@ -170,6 +198,17 @@ async function main(): Promise<void> {
     if (shellWindow === null) return
     shellWindow.restore()
     shellWindow.focus()
+  }
+
+  openFileSink = path => {
+    if (shellWindow === null) pendingFiles.push(path)
+    else shellWindow.send('shell:open-files', [path])
+    focusWindow()
+  }
+  deepLinkSink = url => {
+    if (shellWindow === null) pendingDeepLinks.push(url)
+    else shellWindow.send('shell:deep-links', [url])
+    focusWindow()
   }
 
   const ensureWindow = async (token: string): Promise<void> => {
@@ -217,15 +256,21 @@ async function main(): Promise<void> {
         onReload: () => shellWindow?.reload(),
       })
 
-      tray = createTray({
-        iconPath: paths.iconPath,
+      try {
+        tray = createTray({
+        iconPath: paths.trayIconPath,
+        template: process.platform === 'darwin',
         translate: t,
         onShow: focusWindow,
         onQuit: () => {
           quitting = true
           shellApp.quit()
         },
-      })
+        })
+      } catch (error) {
+        // 无托盘资产/桌面环境（Linux 常见）不影响主窗口。
+        process.stderr.write(`dsh-ghost: tray unavailable (${String(error)})\n`)
+      }
     }
     if (!config.onboardingCompleted) {
       await shellWindow.loadFile(paths.onboardingPath)
@@ -235,6 +280,10 @@ async function main(): Promise<void> {
     if (pendingFiles.length > 0) {
       shellWindow.send('shell:open-files', pendingFiles)
       pendingFiles = []
+    }
+    if (pendingDeepLinks.length > 0) {
+      shellWindow.send('shell:deep-links', [...pendingDeepLinks])
+      pendingDeepLinks.length = 0
     }
   }
 
@@ -319,10 +368,6 @@ async function main(): Promise<void> {
       else if (action.kind === 'openFiles') shellWindow?.send('shell:open-files', action.files)
       else if (action.kind === 'navigate') shellWindow?.send('shell:deep-links', action.deepLinks)
     }
-  })
-  shellApp.onOpenFile(path => {
-    shellWindow?.send('shell:open-files', [path])
-    focusWindow()
   })
   shellApp.onWindowAllClosed(() => {
     // Windows 下关窗隐藏到托盘，不退出进程。

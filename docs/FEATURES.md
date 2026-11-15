@@ -17,7 +17,7 @@
 | C3 模型管理 | 5 | ✅ 5/5；模型库页不再只是 demo——Electron 静态服务提供本机 `/api/models/*`，走 `model-manager` 纯逻辑，Vite 开发时降级内置示例 |
 | C4 测试设施 | 7 | L0–L4 已落地；**L5 只是可运行规格 + 截图基线骨架，未装 Playwright 时 SKIP**，不算通过 |
 | C5 桌面壳 | 13 | ✅ 13/13（代码与配置；真实安装包需证书 / Electron ABI 实测） |
-| C6 发布 | 5 | 3 项已就绪（Windows NSIS / 更新通道与灰度 / 发布流水线与版本核对）；**macOS dmg+公证、Linux AppImage 按 PLAN §8.4「先只做 Windows x64」明确不做**，不算完成也不冒充完成；真实放量仍需证书与 feed |
+| C6 发布 | 5 | 5 项配置已落地（Windows NSIS / macOS dmg+zip / Linux AppImage+deb / 更新通道与灰度 / 多平台发布流水线与版本核对）；**mac/linux 产物需在对应 runner 实测**，签名/公证与真实 feed 仍需外部条件 |
 | C7 产品化 | 4 | ✅ 4/4（默认关闭、本地优先） |
 | C8 自建界面 | 26 | ✅ 26/26 |
 | C9 剧本与技能包 | 12 | ✅ 12/12 |
@@ -26,7 +26,7 @@
 
 **本轮额外工程件**（不单列进 227 项，都有可跑验收）：事件契约生成器与漂移校验（`gen:events` / `verify:events`，31 个转发事件）、自动执行器、可插拔信息源、GitHub 全闭环、配置治理、L1 故障注入假端点、L2 回放、L3 结构断言、L4 评分、L5 规格、CI 门禁矩阵。
 
-**剩下的不是代码，是外部验证与产品决策**：Windows 签名证书、干净机器上的 NSIS 安装→自更新→卸载、Electron 44 内置 Node / 原生模块 ABI 实测、发版前官方 BYOK 冒烟，以及 PLAN §16 的 6 个待定（界面 MVP 切分、密钥谁出、adapter 是否独立成包、MCP server 时机、账号体系、测试配额）。macOS 公证与 Linux AppImage 明确不在范围。
+**剩下的不是代码，是外部验证与产品决策**：Windows 签名证书、macOS 公证、各平台干净机器上的安装→自更新→卸载、发版前官方 BYOK 冒烟，以及 PLAN §16 的 6 个待定（界面 MVP 切分、密钥谁出、adapter 是否独立成包、MCP server 时机、账号体系、测试配额）。
 
 ## 0.2 本轮补齐清单与验收入口
 
@@ -37,7 +37,7 @@
 | 记忆与上下文 | C10-05～07、C11-03/07 | `packages/evolution` + `ghostEvolution/*` / `ghostInit/*` / `ghostCompaction/*` Remote | `test:evolution`、`verify:evolution`、`verify:init`、`verify:compaction` |
 | 契约与升级 | C1-04/05、R1 事件面 | `harness-contract/{gen-events.mjs,events.json,matrix.json}`、`scripts/{upgrade-harness,check-port-discipline,verify-events}.mjs` | `verify:events`、`verify:port-discipline`、`upgrade:harness -- <v>`（dry-run） |
 | 模型与测试 | C2-03、C3、C4 | `packages/model-manager`、`packages/model-adapter-kit`、`scripts/{llm-mock-server,replay,verify-l3,verify-l5,verify-models,verify-gates}.mjs`、`.github/workflows/ci.yml` | `test:model`、`verify:mock-server`、`test:replay`、`verify:l3`、`verify:models`、`verify:gates` |
-| 壳与发布 | C5/C6/C7 | `apps/shell/**`、`build/**`、`.github/workflows/release.yml`、`docs/{RELEASE,PRIVACY,THIRD-PARTY,DIAGNOSTICS}.md` | `test:shell`（136 用例）、`verify:shell`、`check:shell` |
+| 壳与发布 | C5/C6/C7 | `apps/shell/**`、`build/**`、`.github/workflows/release.yml`、`docs/{RELEASE,PRIVACY,THIRD-PARTY,DIAGNOSTICS}.md` | `test:shell`（139 用例）、`verify:shell`、`check:shell` |
 | superagent 装配 | B2–B7、C2-01 | `packages/superagent/**`（tools / app/views / app/host / sources / infra / prompts / playbooks / scripts）、`docs/SUPERAGENT.md` | `test:superagent`（78 用例）、`verify:superagent-assets`（8 项静态验收）；**19 个 `orchestrator_*` 工具已真正注册进 `ctx.tools`**，不再只是描述符 |
 
 ## 0. 总量

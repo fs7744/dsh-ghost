@@ -117,16 +117,19 @@ check('pure-modules', () => {
 })
 
 // --- 6. builder 目标 Windows x64 ---------------------------------------------
-check('builder-win-x64', () => {
+check('builder-platforms', () => {
   const path = join(REPO, 'build', 'electron-builder.yml')
   if (!existsSync(path)) throw new Error('缺 build/electron-builder.yml')
   const raw = read(path)
   const noComments = raw.split('\n').filter(line => !line.trim().startsWith('#')).join('\n')
   if (!/^\s*win:/m.test(noComments)) throw new Error('缺少 win 配置')
   if (!/target:\s*nsis/.test(noComments)) throw new Error('缺少 nsis target')
-  if (!/-\s*x64/.test(noComments)) throw new Error('缺少 x64 arch')
-  if (/\bdmg\b|\bAppImage\b|\bmas\b|\bpkg\b/i.test(noComments)) {
-    throw new Error('配置出现 macOS/Linux 目标（本期只 Windows x64）')
+  if (!/^\s*mac:/m.test(noComments)) throw new Error('缺少 mac 配置')
+  if (!/^\s*linux:/m.test(noComments)) throw new Error('缺少 linux 配置')
+  if (!/\bdmg\b/.test(noComments)) throw new Error('mac 缺少 dmg target')
+  if (!/\bAppImage\b/.test(noComments)) throw new Error('linux 缺少 AppImage target')
+  if (!/-\s*x64/.test(noComments) || !/-\s*arm64/.test(noComments)) {
+    throw new Error('至少要有 x64 与 arm64 架构声明')
   }
 })
 
@@ -135,8 +138,11 @@ check('release-workflow', () => {
   const path = join(REPO, '.github', 'workflows', 'release.yml')
   if (!existsSync(path)) throw new Error('缺 .github/workflows/release.yml')
   const text = read(path)
-  if (!/--win --x64/.test(text)) throw new Error('流水线缺 --win --x64')
+  if (!/platform: win/.test(text) || !/platform: mac/.test(text) || !/platform: linux/.test(text)) {
+    throw new Error('流水线缺平台矩阵（win / mac / linux）')
+  }
   if (!/--publish never/.test(text)) throw new Error('流水线未禁用发布')
+  if (!/npm run build:shell/.test(text)) throw new Error('流水线未用 build:shell bundle')
 })
 
 // --- 8. 诊断包脱敏零命中（等价于 diagnostics.test.ts 口径） -------------------

@@ -1,17 +1,19 @@
-# dsh-ghost 桌面壳打包配置（仅 Windows x64）。
-# 范围声明：macOS dmg + 公证、Linux AppImage 不在本期范围，本配置不提供、也不假装支持，
-# 详见 docs/RELEASE.md。签名证书与更新 feed 全部从 CI secret 注入，配置内不硬编码。
+# dsh-ghost 桌面壳打包配置（Windows x64 / macOS x64+arm64 / Linux x64+arm64）。
+# 签名材料与更新 feed 全部从 CI secret 注入，配置内不硬编码任何口令/指纹。
+# 未注入证书时产出未签名包，只能内部测试，不能作为正式发布物。
 
 appId: com.dshghost.desktop
 productName: dsh-ghost
 copyright: Copyright (c) 2026 dsh-ghost
 compression: maximum
+asar: true
 
 directories:
   buildResources: build
-  output: ../../out/shell-release
+  # 相对仓库根：out/shell-release（CI 也能在 workspace 内取到产物）。
+  output: out/shell-release
 
-# 只打编译产物与本地页面：主进程 dist、渲染层 dist、首启向导/关于页、根 package.json。
+# 只打编译产物与本地页面：主进程 bundle、渲染层 dist、首启向导/关于页、根 package.json。
 files:
   - apps/shell/dist/**/*
   - apps/shell/onboarding.html
@@ -29,7 +31,7 @@ extraResources:
     to: resources
   # harness 运行时（含 @deepseek-ai/dsh 与原生依赖）必须放在 asar 外：
   # bin.js 要按包名解析 node_modules，asar 内的相对路径解析不了原生模块。
-  # 目录由 `node scripts/prepare-runtime.mjs` 生成（1.3GB 量级，不进 git）。
+  # 目录由 `node scripts/prepare-runtime.mjs --apply` 生成（1GB+，不进 git）。
   - from: build/runtime
     to: runtime
 
@@ -44,23 +46,22 @@ fileAssociations:
     description: Markdown 文档
     role: Editor
 
+# 自定义协议（C5-03）：dsh-ghost:// 深链；macOS 走 open-url，Windows/Linux 走 argv。
+protocols:
+  - name: dsh-ghost
+    schemes:
+      - dsh-ghost
+
 win:
   target:
     - target: nsis
       arch:
         - x64
-  artifactName: dsh-ghost-${version}-win-x64.${ext}
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
   signtoolOptions:
     signingHashAlgorithms:
       - sha256
-  # 自定义协议（C5-03）：dsh-ghost:// 深链唤醒由单实例锁处理。
-  protocols:
-    - name: dsh-ghost
-      schemes:
-        - dsh-ghost
-  # 签名占位：electron-builder 从环境变量 CSC_LINK / CSC_KEY_PASSWORD（或 Windows
-  # 证书 store 的 WIN_CSC_*）读取证书，全部由 CI secret 注入，此处不写任何口令/指纹。
-  # 未注入时产出未签名安装包，只能内部测试，不能作为正式发布物。
+  # 签名占位：CSC_LINK / CSC_KEY_PASSWORD（或 Windows 证书 store 的 WIN_CSC_*）由 CI 注入。
 
 nsis:
   oneClick: false
@@ -70,6 +71,48 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: dsh-ghost
   include: build/installer.nsh
+
+mac:
+  # dmg 给人装，zip 给 electron-updater（Squirrel.Mac 只认 zip）。
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  category: public.app-category.developer-tools
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # 公证占位：electron-builder 读取 APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD /
+  # APPLE_TEAM_ID（或 API key），由 CI secret 注入；未配置时产出未公证包。
+  # entitlements 资产补齐前不启用自定义 plist，使用 electron-builder 默认值。
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+  category: Development
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}
+  maintainer: dsh-ghost
+  synopsis: Local-first agent workbench
+  description: dsh-ghost desktop shell for the DeepSeek Harness.
+  desktop:
+    Name: dsh-ghost
+    Comment: Local-first agent workbench
+    Categories: Development;
 
 # 更新通道占位：真实 feed 地址由 CI secret（SHELL_UPDATE_FEED_STABLE /
 # SHELL_UPDATE_FEED_BETA）注入；本地与未发布构建用 --publish never，绝不上传。

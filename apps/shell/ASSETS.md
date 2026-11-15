@@ -8,8 +8,11 @@
 
 | 用途 | 文件 | 规格 | 状态 |
 |---|---|---|---|
-| 应用图标 / 任务栏 / 安装包 | `build/resources/icon.ico` | Windows .ico，含 16/32/48/64/128/256 px，32 位带 alpha | 占位，未提供二进制 |
-| 托盘图标 | 同上（Electron Tray 可用 ico 或 png） | 16/20/24 px，暗色下清晰 | 占位 |
+| Windows 应用图标 | `build/resources/icon.ico` | .ico，含 16/32/48/64/128/256 px，32 位 alpha | 占位，未提供二进制 |
+| macOS 应用图标 | `build/resources/icon.icns` | .icns，含 16~1024 px | 占位 |
+| Linux 应用图标 | `build/resources/icon.png` | 512×512 PNG，带 alpha | 占位 |
+| macOS 托盘模板图 | `build/resources/trayTemplate.png` | 16/32 px 单色模板图，自动适配深浅色 | 占位 |
+| Windows/Linux 托盘 | 同应用图标 | 16/20/24 px，暗色下清晰 | 占位 |
 | NSIS 安装向导头图 | `build/resources/installerHeader.bmp` | 150x57 / 164x314 可选 | 占位 |
 | 关于页品牌图 | 无 | 不使用任何上游标识 | 不做 |
 
@@ -23,6 +26,7 @@
 
 ## 打包路径
 
-主进程 `resolvePaths()` 里 `iconPath` 指向 `build/resources/icon.ico`；
+主进程 `resolvePaths()` 按平台选择 `icon.ico` / `icon.icns` / `icon.png`
+（`apps/shell/src/platform.ts`），托盘在 macOS 用 `trayTemplate.png`；
 electron-builder 配置见 `build/electron-builder.yml`。若替换图标位置，
-只需同步这两个引用，不改纯模块逻辑。
+只需同步这些引用，不改纯模块逻辑。

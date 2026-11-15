@@ -24,8 +24,9 @@ node scripts/prepare-runtime.mjs --apply  # 真复制（1.3GB 量级，不进 gi
 
 ## 仍是外部依赖
 
-- 运行时是**本机 npm 安装**，不是针对 Electron ABI 重新构建的产物。
-  发版前必须按 PLAN §8.5 实测 `node-pty` / `koffi` / `node:sqlite` 在 Electron
-  内置 Node 下可用，否则先走 sidecar Node 方案。
+- 运行时必须**按目标平台/架构安装**：Windows 用 win-x64，macOS 用 mac-x64/arm64，
+  Linux 用 linux-x64/arm64；CI 在对应 runner 上 `npm install` 后再复制。
+- Electron 44.7.0 内置 Node 24.21 已实测可加载 `node-pty` / `koffi` / `node:sqlite`；
+  harness 对 Electron 指纹有白名单（44.x 只认 44.0.0 / 44.7.0），升级前必须重测。
 - 正式发版应改成 `npm ci --omit=dev` 的裁剪产物，而不是整份复制。
 - 本目录只有说明文件，不应提交任何 `node_modules`。

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "dsh-ghost Electron 桌面壳（仅 Windows x64）。主进程核心逻辑均为可注入依赖的纯模块。",
+  "description": "dsh-ghost Electron 桌面壳（Windows / macOS / Linux）。主进程核心逻辑均为可注入依赖的纯模块。",
   "main": "dist/main.js",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

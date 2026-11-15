@@ -7,7 +7,7 @@
 
 ## 0. 收尾状态（2026-11-15）
 
-**仓库内可交付的工程件已全部落地**。227 项账本按下面口径结清；按 §8.4 / §A7 明确移出范围的项（macOS dmg+公证、Linux AppImage、harness 界面白拿）不算缺口，也不冒充完成：
+**仓库内可交付的工程件已全部落地**。227 项账本按下面口径结清；平台范围已扩到 **Windows / macOS / Linux**（配置与代码落地，mac/linux 产物需在对应 runner 实测）：
 
 | 类别 | 状态 | 落点 |
 |---|---|---|
@@ -17,7 +17,7 @@
 
 **契约面已收口**：131 项宿主侧探针 + **224 个 Remote 端点**（`remotes.json` → 类型表）+ **31 个转发事件**（`events.json` → 类型表，含 `emit` / `waterfall` 与资源身份）。两者都从运行时编译产物生成，`npm run verify:events` 做漂移校验，升级流水线第 3 步自动重生成——这正是 REVIEW R1 要求的"renderer 侧契约也必须自动生成"。
 
-**验收口径**：`npm test` = **491 个用例 / 20 个套件**；`npm run typecheck` / `check:ui` / `check:shell`；`build` = **12 个包**；`build:ui`（含 `models.html` 多页产物）；`npm run verify:all` 一条命令跑完 **41 项**验收（local 20 + host 16 + model 5），或 `verify:gates` 看 7 项 PR 门禁总表。L3 真模型冒烟只断言结构，L4 离线评分、L5 Playwright 骨架在未装依赖时显式 SKIP；本轮 L3 已用真模型跑通 3/3 结构断言。
+**验收口径**：`npm test` = **494 个用例 / 20 个套件**；`npm run typecheck` / `check:ui` / `check:shell`；`build` = **12 个包**；`build:ui`（含 `models.html` 多页产物）；`npm run verify:all` 一条命令跑完 **41 项**验收（local 20 + host 16 + model 5），或 `verify:gates` 看 7 项 PR 门禁总表。L3 真模型冒烟只断言结构，L4 离线评分、L5 Playwright 骨架在未装依赖时显式 SKIP；本轮 L3 已用真模型跑通 3/3 结构断言。
 
 **仍未在本机闭环的，只有需要外部凭据/真实环境的 P4 动作**（代码与配置已就绪，不假装验过）：
 
@@ -25,7 +25,7 @@
 2. ✅ **Electron 内置 Node 与原生模块已实测**：Electron **44.7.0** 自带 Node 24.21.0，`node-pty` / `koffi` / `node:sqlite` 均可加载；真实壳启动到 `healthy`，asar 产物同样可启动。注意 harness 有 Electron 指纹白名单（44.x 只认 44.0.0 / 44.7.0），**不能随意升 44.11.x**。
 3. 发版前用**官方 BYOK**跑 L3 / L4；本地网关只用于开发自测。
 4. 自动更新的真实 feed、灰度与 `latest.yml`；插件市场 / 文档站 / 遥测为默认关闭的骨架。
-5. macOS 公证与 Linux AppImage 按 §8.4 明确**不在本期范围**。
+5. macOS 公证与 Linux 包需在 macOS / Linux runner 上真实构建并安装验证。
 
 §16 剩余「待定」都是产品决策（界面 MVP 切分、密钥谁出、adapter 是否独立成包、MCP server 时机、账号体系、测试配额），不是代码阻塞项；相关能力都已按可替换的方式实现，决策变了不必改架构。
 
@@ -43,7 +43,7 @@
 | 一共要做多少 | **227 项功能/交付件**：harness 白拿 73、superagent 移植 59、自建 95。逐项清单见 [docs/FEATURES.md](docs/FEATURES.md) |
 | 桌面端 | **Electron 大窗口应用**（已定）。功能面对标 Claude / WorkBuddy，差异在 superagent 理念层；自建壳，不复用 `apps/desktop` |
 | 界面用谁的 | **自己写**。不用 harness 的 Web UI，也不用 superagent 的 Web 面板；只复用 harness 的 **API 契约**（`ctx.remote` / Typert Remote），不碰它的组件 |
-| 先支持哪些平台 | **只做 Windows（x64）**。macOS / Linux 等 Windows 跑通闭环之后再排 |
+| 先支持哪些平台 | **Windows x64 / macOS x64+arm64 / Linux x64+arm64**；发布按平台分开，不交叉打包 |
 | 剧本怎么表达 | **流程图给人、紧凑文本给模型**：`.flow` 是唯一真相源，布局 JSON 只给 UI 用，不进 prompt。见 [docs/PLAYBOOK.md](docs/PLAYBOOK.md) |
 | 剧本编译成什么 | **完整的 skill 包**（`SKILL.md` + `scripts/` + `references/` + `assets/`），不是一篇文档；确定性步骤写成脚本，模型只读输出 |
 | 记忆怎么办 | **文件式四层记忆**：会话 / 项目（进 git）/ 用户（≤2KB 常驻）/ 团队；写入有门槛，人可看可删。见 [docs/MEMORY.md](docs/MEMORY.md) |
@@ -63,7 +63,7 @@
 | 5 | 模型层不止 DeepSeek：任何模型都可换，用户还能自己写适配插件 | 做成三层：配置化路由（harness 白给）+ 我们的模型管理面 + 对外稳定的 adapter 契约（见第 12 节） |
 | 6 | P3 MVP 档位按建议收敛 | 多会话 / 工具+审批 / 文件编辑 / 终端+后台 / MCP / 多语言 / 更新；语音、账号额度、云同步后置 |
 | 7 | **不用那两个项目的 Web UI** | 界面全部自建；只复用 API 契约（`ctx.remote`），不加载 `dsh-web-app` / `client/*`，也不带 superagent 原面板 |
-| 8 | **先只支持 Windows x64** | 不为 macOS / Linux 预留抽象层；Windows 跑通闭环后再评估 |
+| 8 | **Windows / macOS / Linux** | 统一 Electron 壳 + 平台图标/深链/托盘差异；打包矩阵按 OS/arch 分 runner |
 | 9 | **剧本 = skill**：图给人、文本给模型 | `.flow` 是唯一真相源，布局 JSON 只给 UI；同一流程实测 token 差 8.7 倍（见第 9 节） |
 
 **关键推论**：既然「不改 harness + 只跟最新」，那么 harness 每次发版都可能打穿我们 —— 这是**已知的、可管理的风险**，不是要消除的缺陷。管理手段只有三个：契约面收紧、适配层单点、升级流水线。**别指望 harness 给兼容承诺**——它自己在 `AGENTS.md` 里写明 `Public APIs are pre-stable; update every consumer`。
@@ -269,7 +269,7 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **产品定位一句话**：用户拿到的第一个窗口，功能上不输 Claude / WorkBuddy；差异不在"能不能干活"，而在"**谁在什么时候干活**"——superagent 的理念层。
 
-**平台范围**：**只做 Windows x64**（Windows 10 1903+ / 11）。macOS / Linux 只在 Windows 闭环跑通后再评估，本计划不为它们预留抽象层——需要时再加，不为想象中的第二平台付设计成本。
+**平台范围**：**Windows x64 / macOS x64+arm64 / Linux x64+arm64**。平台差异收敛在 `apps/shell/src/platform.ts`（图标格式、托盘模板图）与 `electron-app.ts`（macOS `open-url`、登录项/协议降级），其余逻辑共用。
 
 ### 8.1 为什么是 Electron
 
@@ -586,7 +586,7 @@ WorkBuddy 本身是 MCP 客户端。把 superagent 的操作面（开 Ticket、�
 7. P3 MVP 档位 = 多会话 / 工具+审批 / 文件 / 终端+后台 / MCP / 多语言 / 更新。
 8. 模型层：任意模型可换 + 用户可自写适配插件（第 12 节）。
 9. **界面全部自建**，不加载 harness 的 Web UI，也不用 superagent 原面板（第 3、8 节）。
-10. **只做 Windows x64**，其他平台等闭环后再议。
+10. **Windows / macOS / Linux**；Windows 先发，macOS 公证与 Linux 包按 CI runner 分别验证。
 11. **剧本 = skill**：`.flow` 文本为唯一真相源，布局 JSON 只给 UI（第 9 节）。
 12. **剧本编辑器纯鼠标即可完成**，不要求用户记任何语法；同时支持用 AI 生成与编辑（第 9 节）。
 12b. **剧本编译成完整 skill 包**，脚本优先（确定性步骤进 `scripts/`，模型只读输出），四级渐进披露（第 9 节）。

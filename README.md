@@ -12,10 +12,10 @@
 - 剧本 = skill：`.flow` 是唯一真相源，图 / 表单 / 源码三视图共享同一条文本数据流（编辑即回写**文本**，浏览器阶段用「导出 .flow」落盘；文件直写待 Electron 工作区 IPC）；另有图 diff、可注入的 AI 生成与局部重写（默认确定性实现，无需 key）、单步试跑、脚本运行时与分层 references。
 - 记忆与进化：文件式四层记忆、写入门槛、界面可看可删；返工三次生成约束提案，剧本/技能提案落盘待人工批准，`runs.jsonl` 记度量——**禁止运行时静默改自己**。
 - 契约面：131 项宿主探针 + 224 个 Remote 端点 + 31 个转发事件，全部从 harness 编译产物生成并做漂移校验。
-- 桌面壳：`apps/shell` 是 Electron 主进程（只 Windows x64），runtime 子进程 / 单实例 / 托盘 / 开机启动 / 崩溃恢复 / 首启向导 / `safeStorage`(DPAPI) / 诊断包脱敏 / NSIS 与更新通道配置齐全。
+- 桌面壳：`apps/shell` 是 Electron 主进程（Windows x64 / macOS x64+arm64 / Linux x64+arm64），runtime 子进程 / 单实例 / 托盘 / 开机启动 / 崩溃恢复 / 首启向导 / `safeStorage`(DPAPI/Keychain) / 诊断包脱敏 / NSIS+dmg+AppImage 与更新通道配置齐全。
 - 测试分层：L0 单测、L1 确定性故障注入假端点、L2 JSONL 回放、L3 真模型**结构**断言、L4 离线评测、L5 Playwright 骨架、CI 门禁矩阵。
 
-> 仍需真实环境才能闭环的只有 P4 外部动作：代码签名证书、干净 Windows 上的 NSIS 安装→自更新→卸载、Electron 44 内置 Node 与原生模块 ABI 实测、发版前官方 BYOK 冒烟。详见 [PLAN.md §0](PLAN.md) 与 [docs/RELEASE.md](docs/RELEASE.md)。macOS / Linux 不在本期范围。
+> 仍需真实环境才能闭环的只有 P4 外部动作：代码签名/公证证书、干净机器上的安装→自更新→卸载、发版前官方 BYOK 冒烟。Electron 44.7.0 内置 Node 与原生模块已实测。详见 [PLAN.md §0](PLAN.md) 与 [docs/RELEASE.md](docs/RELEASE.md)。
 
 | 已完成 | 说明 |
 |---|---|
@@ -80,7 +80,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 491 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 494 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层
