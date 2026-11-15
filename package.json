@@ -1,0 +1,23 @@
+{
+  "name": "dsh-ghost",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A proactive agent workbench built on DeepSeek Harness. Not affiliated with or endorsed by DeepSeek.",
+  "license": "SEE LICENSE IN docs/LICENSING.md",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "gen:remotes": "node harness-contract/gen-remotes.mjs --ts packages/harness-port/src/remotes.generated.ts",
+    "verify:contract": "node scripts/verify-harness-contract.mjs",
+    "verify:port": "node --experimental-strip-types scripts/verify-port.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "ws": "^8.23.0"
+  }
+}

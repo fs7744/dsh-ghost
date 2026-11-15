@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": ["packages/*/src/**/*.ts", "scripts/**/*.mjs"],
+  "exclude": ["node_modules", "spikes"]
+}

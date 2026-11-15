@@ -1,0 +1,10 @@
+{
+  "name": "@dsh-ghost/harness-port",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The only package allowed to touch DeepSeek Harness. Typed Remote transport + generated endpoint map.",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

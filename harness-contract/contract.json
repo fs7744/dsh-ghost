@@ -1,0 +1,1081 @@
+{
+  "schema": 1,
+  "subject": "dsh-superagent (out-of-tree DSH bundle)",
+  "summary": "superagent 对 deepseek-harness 依赖的全部外部面。只允许此处列出的符号、服务键、事件、slot、清单字段与插件包名进入 src/。升级 harness 时改这个文件与 port 层，永不改 harness。",
+  "verified": [
+    {
+      "harness": "0.2.2-rc.3",
+      "cordis": "4.1.0",
+      "date": "2026-11-15",
+      "result": "pass",
+      "note": "全部 error 级检查通过；与 0.2.1-alpha.2 的差异仅剩版本声明（engines/peer），非 API 差异。"
+    },
+    {
+      "harness": "0.2.1-alpha.2",
+      "cordis": "4.0.5-alpha.1",
+      "date": null,
+      "result": "origin",
+      "note": "superagent 原始 package.json 声明的版本基线。"
+    }
+  ],
+  "checks": [
+    {
+      "id": "pkg.cordis",
+      "kind": "package",
+      "package": "@deepseek-ai/cordis",
+      "severity": "error",
+      "why": "Service 基类与 Context 类型来源"
+    },
+    {
+      "id": "pkg.agent",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-agent",
+      "severity": "error",
+      "why": "Agent 类型、ctx.agents、agent 生命周期事件"
+    },
+    {
+      "id": "pkg.session",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-session",
+      "exports": [
+        "./types"
+      ],
+      "severity": "error",
+      "why": "Session/SessionEvent/SessionId"
+    },
+    {
+      "id": "pkg.session-controller",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "exports": [
+        "./client",
+        "./types"
+      ],
+      "severity": "error",
+      "why": "执行器建会话、面板取模型目录"
+    },
+    {
+      "id": "pkg.llm",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-llm",
+      "severity": "error",
+      "why": "freezeMessage/MessageId/ReasoningEffortId"
+    },
+    {
+      "id": "pkg.subprocess",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-subprocess",
+      "severity": "error",
+      "why": "gh / lark CLI 子进程"
+    },
+    {
+      "id": "pkg.session-persistence",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-session-persistence",
+      "severity": "error",
+      "why": "读取执行器 Session 日志产出答复"
+    },
+    {
+      "id": "pkg.workspace",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-workspace",
+      "severity": "error",
+      "why": "为 Ticket 建独立工作目录"
+    },
+    {
+      "id": "pkg.tools",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tools",
+      "severity": "error",
+      "why": "agent.ctx.tools register/guard/restrict"
+    },
+    {
+      "id": "pkg.system-prompt",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-system-prompt",
+      "severity": "error",
+      "why": "agent.ctx.systemPrompt.section 注入策略段"
+    },
+    {
+      "id": "pkg.skill",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-skill",
+      "severity": "error",
+      "why": "worker 侧 skill 注册"
+    },
+    {
+      "id": "pkg.settings",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-settings",
+      "severity": "error",
+      "why": "settings.configure({auto:false}) 与 describe()"
+    },
+    {
+      "id": "pkg.scope",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-scope",
+      "severity": "error",
+      "why": "scopeParentOf 用于 Session 作用域"
+    },
+    {
+      "id": "pkg.permission-presets",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-permission-presets",
+      "severity": "error",
+      "why": "执行器会话设为 danger-full-access"
+    },
+    {
+      "id": "pkg.host-webserver",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-host-webserver",
+      "severity": "error",
+      "why": "/orchestrator 管理路由"
+    },
+    {
+      "id": "pkg.attachment",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-attachment",
+      "severity": "error",
+      "why": "图片附件类型"
+    },
+    {
+      "id": "pkg.ui-settings",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-ui-settings",
+      "exports": [
+        "./client"
+      ],
+      "severity": "error",
+      "why": "configForms 泛型表单"
+    },
+    {
+      "id": "pkg.ui-plugin-manager",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-ui-plugin-manager",
+      "exports": [
+        "./client"
+      ],
+      "severity": "error",
+      "why": "插件行部署配置视图"
+    },
+    {
+      "id": "pkg.ui-layout",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-ui-layout",
+      "exports": [
+        "./client"
+      ],
+      "severity": "error",
+      "why": "MainPanelId"
+    },
+    {
+      "id": "pkg.ui-sidebar",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-ui-sidebar",
+      "exports": [
+        "./client"
+      ],
+      "severity": "error",
+      "why": "侧边栏图标 slot 宿主属性"
+    },
+    {
+      "id": "pkg.ui-workspace",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-ui-workspace",
+      "exports": [
+        "./client"
+      ],
+      "severity": "error",
+      "why": "从面板跳转 Session"
+    },
+    {
+      "id": "pkg.ui-renderer",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-ui-renderer",
+      "exports": [
+        "./client"
+      ],
+      "severity": "error",
+      "why": "渲染器契约"
+    },
+    {
+      "id": "pkg.ui-slots",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-ui-slots",
+      "severity": "error",
+      "why": "Translate 与槽位注册"
+    },
+    {
+      "id": "pkg.client-locale",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-client-locale",
+      "exports": [
+        "./client"
+      ],
+      "severity": "error",
+      "why": "面板文案字典"
+    },
+    {
+      "id": "pkg.patch.agent-preset",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-agent-preset",
+      "severity": "error",
+      "why": "patch 里的 worker/router 预设行"
+    },
+    {
+      "id": "pkg.patch.persona",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-persona",
+      "severity": "error",
+      "why": "worker 预设行"
+    },
+    {
+      "id": "pkg.patch.agent-instructions",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-agent-instructions",
+      "severity": "error",
+      "why": "worker/router 预设行"
+    },
+    {
+      "id": "pkg.patch.time-context",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-time-context",
+      "severity": "error",
+      "why": "worker/router 预设行"
+    },
+    {
+      "id": "pkg.patch.bash-sandbox",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-bash-sandbox",
+      "severity": "error",
+      "why": "worker/router 前台命令 5 秒转后台"
+    },
+    {
+      "id": "pkg.patch.pwsh-sandbox",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-pwsh-sandbox",
+      "severity": "error",
+      "why": "Windows 分支的同一行"
+    },
+    {
+      "id": "pkg.patch.tool-bash",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-bash",
+      "severity": "error",
+      "why": "worker/router 预设行"
+    },
+    {
+      "id": "pkg.patch.tool-pwsh",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-pwsh",
+      "severity": "error",
+      "why": "worker/router 预设行"
+    },
+    {
+      "id": "pkg.patch.tool-fs",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-fs",
+      "severity": "error",
+      "why": "worker 读写文件"
+    },
+    {
+      "id": "pkg.patch.tool-fs-search",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-fs-search",
+      "severity": "error",
+      "why": "worker 搜索"
+    },
+    {
+      "id": "pkg.patch.tool-jobs",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-jobs",
+      "severity": "error",
+      "why": "worker 后台任务等待"
+    },
+    {
+      "id": "pkg.patch.skill-filesystem",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-skill-filesystem",
+      "severity": "error",
+      "why": "worker/router 加载 skills/"
+    },
+    {
+      "id": "pkg.patch.tool-skill",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-skill",
+      "severity": "error",
+      "why": "worker/router 预设行"
+    },
+    {
+      "id": "pkg.patch.compaction-basic",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-compaction-basic",
+      "severity": "error",
+      "why": "长任务的上下文压缩"
+    },
+    {
+      "id": "pkg.patch.command-compact",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-command-compact",
+      "severity": "error",
+      "why": "预设行（包已迁组，名字不变）"
+    },
+    {
+      "id": "pkg.patch.tool-result-pruner",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-compaction-tool-result-pruner",
+      "severity": "error",
+      "why": "预设行"
+    },
+    {
+      "id": "pkg.patch.tool-subagent",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-subagent",
+      "severity": "error",
+      "why": "worker 派生子代理"
+    },
+    {
+      "id": "pkg.patch.tool-subagent-control",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-subagent-control",
+      "severity": "error",
+      "why": "预设行"
+    },
+    {
+      "id": "pkg.patch.tool-todo",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-todo",
+      "severity": "error",
+      "why": "预设行"
+    },
+    {
+      "id": "pkg.patch.tool-web",
+      "kind": "package",
+      "package": "@deepseek-ai/dsh-tool-web",
+      "severity": "error",
+      "why": "worker 检索"
+    },
+    {
+      "id": "sym.cordis.Service",
+      "kind": "symbol",
+      "package": "@deepseek-ai/cordis",
+      "name": "Service",
+      "severity": "error",
+      "why": "orchestrator 服务基类"
+    },
+    {
+      "id": "sym.cordis.Volatile",
+      "kind": "symbol",
+      "package": "@deepseek-ai/cordis",
+      "name": "Volatile",
+      "severity": "error",
+      "why": "配置字段类型"
+    },
+    {
+      "id": "sym.cordis.Context",
+      "kind": "symbol",
+      "package": "@deepseek-ai/cordis",
+      "name": "Context",
+      "severity": "error",
+      "why": "插件签名"
+    },
+    {
+      "id": "sym.llm.freezeMessage",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-llm",
+      "name": "freezeMessage",
+      "severity": "error",
+      "why": "构造用户消息"
+    },
+    {
+      "id": "sym.llm.MessageId",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-llm",
+      "name": "MessageId",
+      "severity": "error",
+      "why": "消息 id 品牌类型"
+    },
+    {
+      "id": "sym.llm.ReasoningEffortId",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-llm",
+      "name": "ReasoningEffortId",
+      "severity": "error",
+      "why": "模型选择"
+    },
+    {
+      "id": "sym.llm.UserMessage",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-llm",
+      "name": "UserMessage",
+      "severity": "error",
+      "why": "投递输入"
+    },
+    {
+      "id": "sym.llm.ContextFormed",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-llm",
+      "name": "ContextFormed",
+      "severity": "warn",
+      "why": "上下文事件类型"
+    },
+    {
+      "id": "sym.scope.scopeParentOf",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-scope",
+      "name": "scopeParentOf",
+      "severity": "error",
+      "why": "Session 作用域父子"
+    },
+    {
+      "id": "sym.agent.Agent",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-agent",
+      "name": "Agent",
+      "severity": "error",
+      "why": "执行器会话句柄"
+    },
+    {
+      "id": "sym.agent.ModelSelection",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-agent",
+      "name": "ModelSelection",
+      "severity": "warn",
+      "why": "模型选择"
+    },
+    {
+      "id": "sym.session.Session",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-session",
+      "name": "Session",
+      "severity": "error",
+      "why": "权限预设入参"
+    },
+    {
+      "id": "sym.session.SessionEvent",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-session",
+      "name": "SessionEvent",
+      "severity": "error",
+      "why": "解析执行器输出"
+    },
+    {
+      "id": "sym.session.SessionId",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-session",
+      "name": "SessionId",
+      "severity": "error",
+      "why": "会话标识"
+    },
+    {
+      "id": "sym.subprocess.SubprocessRuntime",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-subprocess",
+      "name": "SubprocessRuntime",
+      "severity": "error",
+      "why": "CLI 调用"
+    },
+    {
+      "id": "sym.subprocess.SubprocessOutputReader",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-subprocess",
+      "name": "SubprocessOutputReader",
+      "severity": "warn",
+      "why": "输出读取"
+    },
+    {
+      "id": "sym.attachment.ImageAttachmentRef",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-attachment",
+      "name": "ImageAttachmentRef",
+      "severity": "warn",
+      "why": "图片输入"
+    },
+    {
+      "id": "sym.attachment.ImageMediaType",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-attachment",
+      "name": "ImageMediaType",
+      "severity": "warn",
+      "why": "图片输入"
+    },
+    {
+      "id": "sym.sc.ModelCatalog",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "ModelCatalog",
+      "severity": "error",
+      "why": "面板模型下拉"
+    },
+    {
+      "id": "sym.client.settings.ConfigForm",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-client-ui-settings",
+      "name": "ConfigForm",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "部署表单类型"
+    },
+    {
+      "id": "sym.client.pm.ConfigPageForm",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-client-ui-plugin-manager",
+      "name": "ConfigPageForm",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "插件行配置表单"
+    },
+    {
+      "id": "sym.client.pm.PluginConfigViewProps",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-client-ui-plugin-manager",
+      "name": "PluginConfigViewProps",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "部署视图 props"
+    },
+    {
+      "id": "sym.client.layout.MainPanelId",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-client-ui-layout",
+      "name": "MainPanelId",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "面板 id 品牌类型"
+    },
+    {
+      "id": "sym.client.sidebar.SidebarPanelIconOwnerProps",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-client-ui-sidebar",
+      "name": "SidebarPanelIconOwnerProps",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "侧栏图标 props"
+    },
+    {
+      "id": "sym.client.slots.Translate",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-client-ui-slots",
+      "name": "Translate",
+      "severity": "error",
+      "why": "文案函数类型"
+    },
+    {
+      "id": "sym.client.sc.ISessions",
+      "kind": "symbol",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "ISessions",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "面板跳转 Session"
+    },
+    {
+      "id": "svc.agents",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-agent",
+      "name": "agents",
+      "severity": "error",
+      "why": "inject 必达；缺失则插件永不激活"
+    },
+    {
+      "id": "svc.sessionController",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "sessionController",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.sessionPersistence",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-session-persistence",
+      "name": "sessionPersistence",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.workspaceRegistry",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-workspace",
+      "name": "workspaceRegistry",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.permissionPresets",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-permission-presets",
+      "name": "permissionPresets",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.tools",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-tools",
+      "name": "tools",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.systemPrompt",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-system-prompt",
+      "name": "systemPrompt",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.skills",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-skill",
+      "name": "skills",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.webServer",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-host-webserver",
+      "name": "webServer",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.llm",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-llm",
+      "name": "llm",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.subprocess",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-subprocess",
+      "name": "subprocess",
+      "severity": "error",
+      "why": "inject 必达"
+    },
+    {
+      "id": "svc.settings",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-settings",
+      "name": "settings",
+      "severity": "warn",
+      "why": "可选 inject；缺失则只少自动设置页抑制"
+    },
+    {
+      "id": "svc.client.slots",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-client-ui-renderer",
+      "name": "slots",
+      "scope": "src/client",
+      "fallbackPackages": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ],
+      "severity": "error",
+      "why": "面板挂载的唯一入口（SlotRegistry 由 ui-renderer 声明）"
+    },
+    {
+      "id": "svc.client.locale",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-client-locale",
+      "name": "locale",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "字典注册与绑定"
+    },
+    {
+      "id": "svc.client.sessions",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "sessions",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "面板跳转用对象层"
+    },
+    {
+      "id": "svc.client.uiWorkspace",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-client-ui-workspace",
+      "name": "uiWorkspace",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "打开 Session 目标"
+    },
+    {
+      "id": "svc.client.configForms",
+      "kind": "service",
+      "package": "@deepseek-ai/dsh-client-ui-settings",
+      "name": "configForms",
+      "scope": "src/client",
+      "severity": "warn",
+      "why": "可选；缺失则机器设置为只读"
+    },
+    {
+      "id": "evt.agent.status",
+      "kind": "event",
+      "package": "@deepseek-ai/dsh-agent",
+      "name": "agent/status",
+      "severity": "error",
+      "why": "执行器忙碌/空闲判定"
+    },
+    {
+      "id": "evt.agent.inbox.claimed",
+      "kind": "event",
+      "package": "@deepseek-ai/dsh-agent",
+      "name": "agent/inbox/claimed",
+      "severity": "error",
+      "why": "输入被取走即视为开始"
+    },
+    {
+      "id": "evt.agent.error",
+      "kind": "event",
+      "package": "@deepseek-ai/dsh-agent",
+      "name": "agent/error",
+      "severity": "error",
+      "why": "失败重试与上报"
+    },
+    {
+      "id": "evt.session.event",
+      "kind": "event",
+      "package": "@deepseek-ai/dsh-session",
+      "name": "session/event",
+      "severity": "error",
+      "why": "增量解析产出（答复/PR 链接）"
+    },
+    {
+      "id": "slot.main",
+      "kind": "slot",
+      "package": "@deepseek-ai/dsh-client-ui-layout",
+      "name": "main",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "管理面板的主面板槽"
+    },
+    {
+      "id": "slot.sidebar.panellist",
+      "kind": "slot",
+      "package": "@deepseek-ai/dsh-client-ui-sidebar",
+      "name": "sidebar.panellist",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "侧栏 Superagent 图标"
+    },
+    {
+      "id": "slot.plugins.row.config",
+      "kind": "slot",
+      "package": "@deepseek-ai/dsh-client-ui-plugin-manager",
+      "name": "plugins.row.config",
+      "scope": "src/client",
+      "severity": "error",
+      "why": "插件行里的部署配置视图"
+    },
+    {
+      "id": "man.bundle",
+      "kind": "manifestfield",
+      "package": "@deepseek-ai/dsh-package-manifest",
+      "name": "bundle",
+      "severity": "error",
+      "why": "dsh.bundle.patch 声明点"
+    },
+    {
+      "id": "man.client",
+      "kind": "manifestfield",
+      "package": "@deepseek-ai/dsh-package-manifest",
+      "name": "client",
+      "severity": "error",
+      "why": "dsh.client.platform/inject"
+    },
+    {
+      "id": "man.manifestVersion",
+      "kind": "manifestfield",
+      "package": "@deepseek-ai/dsh-package-manifest",
+      "name": "manifestVersion",
+      "severity": "error",
+      "why": "清单版本协商"
+    },
+    {
+      "id": "cfg.fs-search.sampleOverCapGlobResults",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-fs-search",
+      "name": "sampleOverCapGlobResults",
+      "severity": "warn",
+      "why": "patch 里显式设为 false"
+    },
+    {
+      "id": "cfg.jobs.waitTimeoutMs",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-jobs",
+      "name": "waitTimeoutMs",
+      "severity": "warn",
+      "why": "5000ms 转后台"
+    },
+    {
+      "id": "cfg.jobs.maxWaitTimeoutMs",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-jobs",
+      "name": "maxWaitTimeoutMs",
+      "severity": "warn",
+      "why": "同上上限"
+    },
+    {
+      "id": "cfg.sandbox.timeoutMs",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-bash-sandbox",
+      "fallbackPackages": [
+        "@deepseek-ai/dsh-bash-local"
+      ],
+      "name": "timeoutMs",
+      "severity": "warn",
+      "why": "前台命令 5 秒策略；Config 继承自 bash-local"
+    },
+    {
+      "id": "cfg.sandbox.maxTimeoutMs",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-bash-sandbox",
+      "fallbackPackages": [
+        "@deepseek-ai/dsh-bash-local"
+      ],
+      "name": "maxTimeoutMs",
+      "severity": "warn",
+      "why": "同上上限"
+    },
+    {
+      "id": "cfg.fs.write",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-fs",
+      "name": "write",
+      "severity": "warn",
+      "why": "router 预设关写"
+    },
+    {
+      "id": "cfg.fs.edit",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-fs",
+      "name": "edit",
+      "severity": "warn",
+      "why": "router 预设关编辑"
+    },
+    {
+      "id": "cfg.subagent.provider",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-subagent",
+      "name": "provider",
+      "severity": "warn",
+      "why": "provider: spawn"
+    },
+    {
+      "id": "cfg.subagent.agentPreset",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-subagent",
+      "name": "agentPreset",
+      "severity": "warn",
+      "why": "standard 预设"
+    },
+    {
+      "id": "cfg.todo.allowParallelInProgress",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-todo",
+      "name": "allowParallelInProgress",
+      "severity": "warn",
+      "why": "worker 待办并行"
+    },
+    {
+      "id": "cfg.web.fetch",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-web",
+      "name": "fetch",
+      "severity": "warn",
+      "why": "worker 关 fetch"
+    },
+    {
+      "id": "cfg.web.searchTimeoutMs",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-tool-web",
+      "name": "searchTimeoutMs",
+      "severity": "warn",
+      "why": "检索超时"
+    },
+    {
+      "id": "cfg.persona.prefix",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-persona",
+      "name": "prefix",
+      "severity": "warn",
+      "why": "worker 人格前缀"
+    },
+    {
+      "id": "cfg.instructions.maxBytes",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-agent-instructions",
+      "name": "maxBytes",
+      "severity": "warn",
+      "why": "65536 上限"
+    },
+    {
+      "id": "cfg.preset.order",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-agent-preset",
+      "name": "order",
+      "severity": "warn",
+      "why": "预设排序 90/91"
+    },
+    {
+      "id": "cfg.preset.plugins",
+      "kind": "configkey",
+      "package": "@deepseek-ai/dsh-agent-preset",
+      "name": "plugins",
+      "severity": "warn",
+      "why": "预设的插件树"
+    },
+    {
+      "id": "mth.sessionController.resolveAgent",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "resolveAgent",
+      "severity": "warn",
+      "why": "执行器会话解析"
+    },
+    {
+      "id": "mth.sessionController.create",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "create",
+      "severity": "warn",
+      "why": "建执行器会话"
+    },
+    {
+      "id": "mth.sessionController.rename",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "rename",
+      "severity": "warn",
+      "why": "会话标题"
+    },
+    {
+      "id": "mth.sessionController.modelCatalog",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "name": "modelCatalog",
+      "severity": "warn",
+      "why": "模型目录"
+    },
+    {
+      "id": "mth.sessionPersistence.open",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-session-persistence",
+      "name": "open",
+      "severity": "warn",
+      "why": "读日志"
+    },
+    {
+      "id": "mth.sessionPersistence.flush",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-session-persistence",
+      "name": "flush",
+      "severity": "warn",
+      "why": "读前落盘"
+    },
+    {
+      "id": "mth.workspaceRegistry.create",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-workspace",
+      "name": "create",
+      "severity": "warn",
+      "why": "Ticket 独立目录"
+    },
+    {
+      "id": "mth.permissionPresets.set",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-permission-presets",
+      "name": "set",
+      "severity": "warn",
+      "why": "danger-full-access"
+    },
+    {
+      "id": "mth.webServer.register",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-host-webserver",
+      "name": "register",
+      "severity": "warn",
+      "why": "管理路由"
+    },
+    {
+      "id": "mth.llm.resolveCallConfig",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-llm",
+      "name": "resolveCallConfig",
+      "severity": "warn",
+      "why": "角色模型解析"
+    },
+    {
+      "id": "mth.tools.register",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-tools",
+      "name": "register",
+      "severity": "warn",
+      "why": "Session 侧工具"
+    },
+    {
+      "id": "mth.tools.restrict",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-tools",
+      "name": "restrict",
+      "severity": "warn",
+      "why": "worker/router 工具白名单"
+    },
+    {
+      "id": "mth.tools.guard",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-tools",
+      "name": "guard",
+      "severity": "warn",
+      "why": "拒绝对话工具"
+    },
+    {
+      "id": "mth.systemPrompt.section",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-system-prompt",
+      "name": "section",
+      "severity": "warn",
+      "why": "注入策略段"
+    },
+    {
+      "id": "mth.skills.register",
+      "kind": "method",
+      "package": "@deepseek-ai/dsh-skill",
+      "name": "register",
+      "severity": "warn",
+      "why": "运行时 skill"
+    },
+    {
+      "id": "rem.session.list",
+      "kind": "remote",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "namespace": "session",
+      "name": "list",
+      "severity": "error",
+      "why": "面板列会话（唯一已验证的取数入口）"
+    },
+    {
+      "id": "rem.session.modelCatalog",
+      "kind": "remote",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "namespace": "session",
+      "name": "modelCatalog",
+      "severity": "warn",
+      "why": "模型下拉"
+    },
+    {
+      "id": "rem.session.create",
+      "kind": "remote",
+      "package": "@deepseek-ai/dsh-api-session-controller",
+      "namespace": "session",
+      "name": "create",
+      "severity": "error",
+      "why": "新建会话"
+    }
+  ]
+}

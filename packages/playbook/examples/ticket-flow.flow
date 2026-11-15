@@ -1,0 +1,16 @@
+# @ticket-flow v2
+# when 触发源收到对 agent 的请求（issue 评论 / 群提及）
+# goal 在该仓库产出可审阅结果（PR 或答复）
+# budget 准入1 执行3轮 每轮工具<=40
+
+admit       : deny -> quiet
+open-ticket
+checkout
+work        : blocked -> escalate (max 3)
+verify      : fail -> work (max 2)
+deliver     : pr-ready -> open-pr
+open-pr
+reply
+close
+quiet
+escalate
