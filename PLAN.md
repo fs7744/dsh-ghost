@@ -407,6 +407,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 - 会话操作白拿：`session/create`、`session/list`、`session/page`、`session/selectModel`、`session/projections`、`session/fork`、`session/cancel`。
 - **我们要补的 7 项**：命令面板、命令通道、压缩策略配置、上下文占用条（含压缩点标记，可展开看被压掉的原文）、checkpoint/rewind UI、会话导出、`/init` 等价的 `GHOST.md` 草案生成。
 
+**命令面板 MVP 已落地（C11-01）**：`apps/desktop/src/palette.ts` 做纯逻辑（斜杠解析、模糊排序、循环选择），`command-palette.ts` 做候选浮层与键盘接管，`send()` 把 `/` 开头的输入一律改走 `commands/execute`。命令清单来自 `commands/list`、不硬编码；`npm run verify:command-palette` 在真实宿主上验到 6 条命令、执行 `/compact` 成功、且 `user/message` 数量 `0 → 0`——命令确实没进模型消息。`!` 直通与 `@` 引用目前只做识别提示，完整实现依赖 P3 的终端面板与文件树（见 [docs/COMMANDS.md](docs/COMMANDS.md) §4.1）。
+
 > 差异在"看得见"：harness 有压缩，我们有**压缩可视化**——否则用户不敢让它长跑。
 
 ---

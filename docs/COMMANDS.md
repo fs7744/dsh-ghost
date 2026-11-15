@@ -66,6 +66,21 @@
 6. 会话导出（Markdown / JSONL）
 7. `/init` 等价物：扫描仓库生成 `GHOST.md` 草案
 
+## 4.1 已落地的 MVP（C11-01 / C11-02）
+
+**C11-02 命令通道**：`commands/list` + `commands/execute` 已验通（本地宿主返回 6 条命令，`/compact` 返回 `success`）。
+
+**C11-01 命令面板基础版**：纯逻辑在 `apps/desktop/src/palette.ts`，UI 在 `apps/desktop/src/command-palette.ts`。
+
+- 输入 `/` 浮出候选，搜索按「精确 → 前缀 → 包含 → 子序列 → 描述命中」排序；↑↓ 选择、Enter / Tab 执行、Esc 关闭。
+- 命令清单来自 `commands/list`（切换会话时刷新），**不在前端硬编码命令名**；带 `input.hint` 的命令先把 `/name ` 留在输入框让用户补参数。
+- 参数提示、是否接收附件、附件提交接口（`submittedAttachments`）都已接；附件选择 UI 待补。
+- **斜杠输入绝不进模型消息**：`send()` 识别 `/` 开头后改走 `commands/execute`。验收实测执行 `/compact` 前后 `user/message` 数量 `0 → 0`。
+
+验收命令：`npm run test:palette`（12 个用例）、`npm run verify:command-palette`（真实宿主：6 条命令 → 过滤 → 执行 → 无模型消息）。
+
+**边界**：`!` shell 直通与 `@` 文件引用目前只做**识别与提示**——完整直通要终端面板、文件选择要文件树，都属 P3；不在 MVP 里假装支持。
+
 ## 5. 不做
 
 - 不做自定义命令 DSL 让用户写脚本（先只支持插件注册与剧本）。

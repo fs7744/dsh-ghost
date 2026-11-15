@@ -7,6 +7,8 @@
 import { createTransport } from '@dsh-ghost/harness-port'
 import flowSource from '../../../packages/playbook/examples/ticket-flow.flow?raw'
 import { mountFlowEditor } from './flow-editor.ts'
+import { mountCommandPalette } from './command-palette.ts'
+import { isCommandLine, parseSlash, toCommandItems, type CommandItem } from './palette.ts'
 
 type Transport = ReturnType<typeof createTransport>
 type LogRecord = { type: string; event?: { type: string; seq: number; data: Record<string, unknown> } }
@@ -51,6 +53,7 @@ const state = {
   transport: undefined as Transport | undefined,
   sessions: [] as Array<{ sessionId: string; title?: string }>,
   active: undefined as string | undefined,
+  commands: [] as CommandItem[],
   events: 0,
   busy: false,
 }
@@ -296,7 +299,39 @@ async function openSession(sessionId: string): Promise<number> {
     renderQuestions(projections)
   } catch { /* 投影读不到就不显示占用 */ }
   el('node').innerHTML = `<dl><dt>会话</dt><dd>${sessionId}</dd><dt>记录</dt><dd>${records.length}</dd></dl>`
+  void loadCommands()
   return records.length
+}
+
+/** 拉取当前会话可用的斜杠命令（切换会话时刷新，不在每次按键时请求）。 */
+async function loadCommands(): Promise<void> {
+  const transport = state.transport
+  if (transport === undefined || state.active === undefined) return
+  try {
+    const raw = await transport.call('commands/list' as never, { agentId: state.active } as never)
+    state.commands = toCommandItems(Array.isArray(raw) ? raw : [])
+  } catch {
+    state.commands = []
+  }
+}
+
+/** 执行一行斜杠命令：不产生模型消息，结果只进会话日志。 */
+async function executeCommand(line: string): Promise<void> {
+  const transport = state.transport
+  if (transport === undefined || state.active === undefined) return
+  const name = parseSlash(line).name
+  el('f-state').textContent = `执行 /${name}…`
+  try {
+    const result = await transport.call('commands/execute' as never, {
+      agentId: state.active,
+      line,
+      submittedAttachments: [],
+    } as never)
+    el('f-state').textContent = result === undefined ? `命令 /${name} 未解析` : `命令 /${name} 已执行`
+    await openSession(state.active)
+  } catch (error) {
+    el('f-state').textContent = `命令失败：${String(error).slice(0, 60)}`
+  }
 }
 
 /**
@@ -324,9 +359,14 @@ async function send(): Promise<void> {
   const input = el<HTMLTextAreaElement>('input')
   const text = input.value.trim()
   if (transport === undefined || state.active === undefined || text === '' || state.busy) return
-  state.busy = true
-  const before = Number.parseInt(el('f-records').textContent ?? '0', 10)
   input.value = ''
+  state.busy = true
+  // 斜杠命令走 commands/execute，绝不进模型消息（不浪费 token）。
+  if (isCommandLine(text)) {
+    try { await executeCommand(text) } finally { state.busy = false }
+    return
+  }
+  const before = Number.parseInt(el('f-records').textContent ?? '0', 10)
   el('f-state').textContent = '发送中…'
   try {
     const picked = await ensureModel(state.active)
@@ -359,10 +399,7 @@ async function main(): Promise<void> {
     })
   })
   el('send').addEventListener('click', () => { void send() })
-  el('input').addEventListener('keydown', event => {
-    const keyboard = event as KeyboardEvent
-    if (keyboard.key === 'Enter' && !keyboard.shiftKey) { keyboard.preventDefault(); void send() }
-  })
+  // 输入框键盘事件由命令面板统一接管（普通 Enter 仍回到 send()）。
 
   const token = new URLSearchParams(location.search).get('token')
   if (token === null) {
@@ -389,6 +426,16 @@ async function main(): Promise<void> {
       }
     },
     onError: error => { el('f-state').textContent = `事件流错误：${String(error).slice(0, 50)}` },
+  })
+
+  mountCommandPalette({
+    listCommands: async () => {
+      if (state.commands.length === 0) await loadCommands()
+      return state.commands
+    },
+    execute: async line => { await executeCommand(line) },
+    send: () => { void send() },
+    notice: text => { el('f-state').textContent = text },
   })
 
   const refresh = async (): Promise<void> => {
