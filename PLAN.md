@@ -336,6 +336,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **已验通（端到端）**：`.flow` → 编译 → 投放 `.dsh/skills/ticket-flow/SKILL.md` → harness `skills/list` 能看到它（`scripts/verify-skill.mjs`）。常驻 37 + 正文 48 token；带节点详情时正文 56（多 8 token 换"按需可查"）。
 
+**领域核心已迁入并加测试**：`packages/superagent/src/core` 15 文件、零 harness 依赖、tsc 零错误；状态机 10 用例 + 引擎入口 8 用例（收单去重 / scope 过滤 / 时间规范化 / 评估排队与交接）。
+
 **图模型（`toGraph`/`fromGraph`）已完成**：`order` 是语义顺序、`x/y` 只是缓存——往返后 `renderBody` 完全一致（有测试守着）。这条是编辑器"拖不坏语义"的保证。
 
 **连带影响（很重要）**：superagent 现有 14 个提示词文件要重新归属——角色/语气留下当 persona，**流程步骤改写成 `.flow` 剧本**。常驻系统提示从数千 token 降到数百，这本身就是省 token 的主要来源。

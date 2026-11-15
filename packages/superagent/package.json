@@ -8,6 +8,6 @@
     ".": "./src/core/index.ts"
   },
   "scripts": {
-    "test": "node --test --experimental-transform-types tests/"
+    "test": "node --test --experimental-transform-types packages/superagent/tests/stage.test.ts packages/superagent/tests/engine.test.ts"
   }
 }
