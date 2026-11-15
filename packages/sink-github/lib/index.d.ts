@@ -28,6 +28,12 @@ export interface GithubSinkOptions {
     repo: string;
     /** 投递函数；默认用 fetch。测试与假服务器可注入。 */
     post?: (url: string, body: unknown, headers: Record<string, string>) => Promise<PostResult>;
+    /**
+     * 同一条消息最多尝试几次，默认 5。
+     * 定时 flush 会一直重试 pending；没有上限时，永久失败（404 / 422 超长正文）
+     * 会变成每 10 秒一次的无限重试，既刷日志也打 API。
+     */
+    maxAttempts?: number;
 }
 /** 一条消息的去向。 */
 interface Entry {

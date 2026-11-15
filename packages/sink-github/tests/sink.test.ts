@@ -68,6 +68,32 @@ test('失败保持 pending 并记原因，下次 flush 会重试', async () => {
   assert.equal(sink.entries()[0]?.attempts, 1)
 })
 
+test('永久失败（4xx）立即丢弃，不再无限重试', async () => {
+  let calls = 0
+  const sink = createGithubSink({
+    token: 't', repo: 'r',
+    post: async () => { calls += 1; return { ok: false, error: 'HTTP 404' } },
+  })
+  sink.send(message())
+  await sink.flush()
+  assert.equal(sink.status('m1'), 'dropped')
+  await sink.flush()
+  assert.equal(calls, 1, '4xx 不应再重试')
+})
+
+test('服务端失败（5xx）重试到上限后丢弃', async () => {
+  let calls = 0
+  const sink = createGithubSink({
+    token: 't', repo: 'r', maxAttempts: 3,
+    post: async () => { calls += 1; return { ok: false, error: 'HTTP 500' } },
+  })
+  sink.send(message())
+  for (let index = 0; index < 5; index += 1) await sink.flush()
+  assert.equal(calls, 3)
+  assert.equal(sink.status('m1'), 'dropped')
+  assert.match(sink.entries()[0]?.error ?? '', /max-attempts/)
+})
+
 test('找不到目标编号时丢弃，不发也不重试', async () => {
   const { calls, post } = fakePost()
   const sink = createGithubSink({ token: 't', repo: 'r', post })

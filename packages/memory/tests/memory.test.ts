@@ -48,6 +48,25 @@ test('索引形态：写入后索引有行、正文可读、删除同步', async
   assert.ok(!(await readFile(join(root, 'MEMORY.md'), 'utf8')).includes('build-command'))
 })
 
+test('拒绝路径穿越：read / remove 不接受带分隔符的名字', async () => {
+  const root = await tempRoot()
+  const store = new MemoryStore({ root, mode: 'indexed', now: fixedNow })
+  await store.init()
+  // 项目外放一个 .md：旧实现会把它读出来 / 删掉。
+  const outside = join(root, '..', 'outside-secret.md')
+  await writeFile(outside, '不该被读到', 'utf8')
+
+  for (const name of ['../outside-secret', '..\\outside-secret', 'a/b', '..', '']) {
+    assert.equal(await store.read(name), undefined, `read 应拒绝 ${JSON.stringify(name)}`)
+    assert.equal(await store.remove(name), false, `remove 应拒绝 ${JSON.stringify(name)}`)
+  }
+  assert.equal(await readFile(outside, 'utf8'), '不该被读到')
+
+  await store.write({ name: 'ok-name', text: '正常条目', source: 't1' })
+  assert.match((await store.read('ok-name')) ?? '', /正常条目/)
+  assert.equal(await store.remove('ok-name'), true)
+})
+
 test('幂等：同名覆盖不产生重复索引行，且留 .bak', async () => {
   const root = await tempRoot()
   const store = new MemoryStore({ root, mode: 'indexed', now: fixedNow })

@@ -282,6 +282,9 @@ export interface ProposalStore {
   put(proposal: Proposal): Promise<void>
 }
 
+/** 提案 id 会直接进文件名：必须收口，否则 approve({id:'../../x'}) 能读到项目外 JSON。 */
+const PROPOSAL_ID = /^[a-z0-9][a-z0-9-]{0,80}$/
+
 /** 构造提案仓库；io 可注入（测试用内存实现）。 */
 export function createProposalStore(root: string, io: FileIo = nodeFileIo()): ProposalStore {
   const dir = join(root, 'proposals')
@@ -302,6 +305,7 @@ export function createProposalStore(root: string, io: FileIo = nodeFileIo()): Pr
       return items.sort((left, right) => left.createdAt.localeCompare(right.createdAt))
     },
     async get(id: string): Promise<Proposal | undefined> {
+      if (!PROPOSAL_ID.test(id)) return undefined
       try {
         const parsed: unknown = JSON.parse(await io.read(fileOf(id)))
         return isProposal(parsed) ? parsed : undefined
@@ -310,6 +314,7 @@ export function createProposalStore(root: string, io: FileIo = nodeFileIo()): Pr
       }
     },
     async put(proposal: Proposal): Promise<void> {
+      if (!PROPOSAL_ID.test(proposal.id)) throw new Error(`提案 id 不合法：${proposal.id}`)
       await io.write(fileOf(proposal.id), `${JSON.stringify(proposal, null, 2)}\n`)
     },
   }

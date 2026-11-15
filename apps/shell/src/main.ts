@@ -40,17 +40,34 @@ registerSchemes()
 
 const shellApp = createShellApp()
 
-/** 生产打包路径由 electron-builder 的 files / extraResources 决定；此处为可运行骨架。 */
-function resolvePaths(userData: string) {
+/**
+ * 生产打包路径由 electron-builder 的 files / extraResources 决定。
+ *
+ * 关键点：运行时不打包进 asar，而是放在 `resources/runtime/node_modules`
+ * （见 build/electron-builder.yml 的 extraResources）；这样 bin.js 仍能按
+ * 包名解析 `@deepseek-ai/*` 依赖。开发态直接复用 spikes 的安装目录。
+ */
+function resolvePaths(userData: string, packaged: boolean) {
   const here = fileURLToPath(new URL('.', import.meta.url))
+  const repoRoot = join(here, '..', '..', '..')
+  // resourcesPath 是 Electron 注入的，@types/node 不认识；这里按最小形状读取。
+  const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath ?? ''
+  const runtimeModules = process.env['DSH_GHOST_RUNTIME']
+    ?? (packaged
+      ? join(resourcesPath, 'runtime', 'node_modules')
+      : join(repoRoot, 'spikes', 'p05-transport', 'node_modules'))
   return {
     userData,
     preloadPath: join(here, 'electron-preload.js'),
     distDir: join(here, '..', '..', 'desktop', 'dist'),
     onboardingPath: join(here, '..', 'onboarding.html'),
     aboutPath: join(here, '..', 'about.html'),
-    iconPath: join(here, '..', '..', 'build', 'resources', 'icon.ico'),
-    binPath: join(here, '..', '..', '..', 'resources', 'dsh', 'lib', 'bin.js'),
+    // 图标走 extraResources（resources/resources/icon.ico），不在 asar 里。
+    iconPath: packaged
+      ? join(resourcesPath, 'resources', 'icon.ico')
+      : join(repoRoot, 'build', 'resources', 'icon.ico'),
+    runtimeModules,
+    binPath: join(runtimeModules, '@deepseek-ai', 'dsh', 'lib', 'bin.js'),
     stateDir: join(userData, 'state'),
   }
 }
@@ -70,7 +87,7 @@ async function main(): Promise<void> {
   }
   await shellApp.whenReady()
 
-  const paths = resolvePaths(shellApp.getPath('userData'))
+  const paths = resolvePaths(shellApp.getPath('userData'), shellApp.isPackaged())
   const fs = createFs()
   const clock = createClock()
   fs.mkdir(paths.userData)
@@ -91,6 +108,9 @@ async function main(): Promise<void> {
     fs,
     clock,
     pidAlive: (pid: number): boolean => {
+      // 锁文件损坏时 holderPid 可能是 -1：process.kill(-1) 在 POSIX 上是「发给进程组」，
+      // 不是探测一个进程。非法 pid 一律按已死处理，允许回收锁。
+      if (!Number.isInteger(pid) || pid <= 0) return false
       try {
         process.kill(pid, 0)
         return true
@@ -246,7 +266,10 @@ async function main(): Promise<void> {
       logger.info(line)
     },
     onReady: info => {
-      void onHostReady(info)
+      void onHostReady(info).catch(error => {
+        logger.error(`host ready handling failed ${String(error)}`)
+        tray?.notify('approval')
+      })
     },
     onFatal: error => {
       logger.error(`runtime fatal ${error.message}`)
@@ -305,4 +328,9 @@ async function main(): Promise<void> {
   await runtime.start()
 }
 
-void main()
+void main().catch(error => {
+  // 没有这一步，main 里任何同步/异步异常都只会变成一条 unhandled rejection，
+  // 用户看到的是「双击没反应」。
+  process.stderr.write(`dsh-ghost shell failed: ${String(error)}\n`)
+  shellApp.quit()
+})

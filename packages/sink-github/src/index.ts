@@ -30,6 +30,12 @@ export interface GithubSinkOptions {
   repo: string
   /** 投递函数；默认用 fetch。测试与假服务器可注入。 */
   post?: (url: string, body: unknown, headers: Record<string, string>) => Promise<PostResult>
+  /**
+   * 同一条消息最多尝试几次，默认 5。
+   * 定时 flush 会一直重试 pending；没有上限时，永久失败（404 / 422 超长正文）
+   * 会变成每 10 秒一次的无限重试，既刷日志也打 API。
+   */
+  maxAttempts?: number
 }
 
 /** 一条消息的去向。 */
@@ -52,6 +58,7 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
   entries: () => Entry[]
 } {
   const apiBase = options.apiBase ?? 'https://api.github.com'
+  const maxAttempts = Math.max(1, options.maxAttempts ?? 5)
   const table = new Map<string, Entry>()
   const headers = {
     authorization: `Bearer ${options.token}`,
@@ -103,6 +110,11 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
           entry.error = 'no-target'
           continue
         }
+        if (entry.attempts >= maxAttempts) {
+          entry.status = 'dropped'
+          entry.error = `max-attempts(${maxAttempts}): ${entry.error ?? 'unknown'}`
+          continue
+        }
         entry.attempts += 1
         const result = await post(
           `${apiBase}/repos/${options.repo}/issues/${number}/comments`,
@@ -116,6 +128,11 @@ export function createGithubSink(options: GithubSinkOptions): Outbox & {
         } else {
           entry.error = result.error ?? 'unknown'
           failed += 1
+          // 4xx（除 408 / 429）是确定性拒绝：重试只会得到同样的结果，直接丢弃。
+          const status = Number(/HTTP (\d{3})/.exec(entry.error)?.[1] ?? 0)
+          if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+            entry.status = 'dropped'
+          }
         }
       }
       return { sent, failed }

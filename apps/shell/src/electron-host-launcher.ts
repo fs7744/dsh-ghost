@@ -49,9 +49,13 @@ export function createHostLauncher(deps: HostLauncherDeps): HostLauncher {
         '--permission-mode', deps.permissionMode,
       ]
       const child = spawn(process.execPath, args, {
+        // Electron 主进程里 process.execPath 是 electron.exe，不是 node：
+        // 不加这个变量会把 bin.js 当成第二个 Electron 应用的入口。
+        // 代价是宿主跑在 Electron 内置 Node 上，原生模块 ABI 需按 §8.5 实测。
         env: {
           ...process.env,
           ...deps.env,
+          ELECTRON_RUN_AS_NODE: '1',
           DSH_CONNECT_TOKEN: token,
           DSH_PORT: String(port),
         },

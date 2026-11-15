@@ -65,8 +65,12 @@ function aliases(options: GithubSourceOptions): string[] {
  * @param options - 含 botLogin / mentionAliases 的配置
  */
 export function mentionsAgent(text: string, options: GithubSourceOptions): boolean {
-  const lower = text.toLowerCase()
-  return aliases(options).some(alias => lower.includes(alias))
+  return aliases(options).some(alias => {
+    // 不能只用 includes：`@ghostbusters` / `@ghost-bot` 会把 agent 误唤醒。
+    // 边界排除字母、数字、下划线与连字符（GitHub 用户名允许连字符）。
+    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`(^|[^a-z0-9_-])${escaped}(?![a-z0-9_-])`, 'i').test(text)
+  })
 }
 
 /** 人写的还是机器写的。 */

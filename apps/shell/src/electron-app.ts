@@ -12,6 +12,8 @@ export interface ShellAppApi {
   getPath(name: string): string
   getVersion(): string
   getLocale(): string
+  /** 是否运行在打包后的安装目录（决定 resources 路径与运行时位置）。 */
+  isPackaged(): boolean
   quit(): void
   setLoginItemSettings(enabled: boolean): void
   setAsDefaultProtocolClient(): void
@@ -38,6 +40,7 @@ export function createShellApp(): ShellAppApi {
     getPath: name => app.getPath(name),
     getVersion: () => app.getVersion(),
     getLocale: () => app.getLocale(),
+    isPackaged: () => app.isPackaged,
     quit: () => app.quit(),
     setLoginItemSettings: enabled => app.setLoginItemSettings({ openAtLogin: enabled }),
     setAsDefaultProtocolClient: () => {

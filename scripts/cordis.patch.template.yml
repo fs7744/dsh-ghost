@@ -6,6 +6,8 @@
       name: '@dsh-ghost/memory-plugin'
       config:
         root: '{{REPO}}/.ghost/memory'
+        # /init 草案只允许扫描仓库内；桌面端以后改成用户工作目录。
+        repoRoot: '{{REPO}}'
 
     - id: ghost-orchestrator
       name: '@dsh-ghost/orchestrator-plugin'
@@ -65,11 +67,11 @@
       wb:
         displayName: WorkBuddy Gateway
         api: openai-completions
-        baseURL: {{BASE_URL}}
+        baseURL: '{{BASE_URL}}'
         apiKeyEnv: WB_KEY
         models:
-          - id: {{MODEL}}
-            name: {{MODEL}}
+          - id: '{{MODEL}}'
+            name: '{{MODEL}}'
             contextWindow: 192000
             maxTokens: 8192
 
@@ -78,4 +80,4 @@
   name: "@deepseek-ai/dsh-agent-default-model"
   config:
     provider: wb
-    model: {{MODEL}}
+    model: '{{MODEL}}'

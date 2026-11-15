@@ -77,9 +77,15 @@
    发第一版安装包前必须补齐原创图标、`LICENSE.electron.txt`、`LICENSES.chromium.html`、
    `THIRD_PARTY_NOTICES`。
 5. **自动更新真实放量**：需要真实 feed 服务、签名后的 latest.yml 与灰度配置；本期不发布。
-6. **宿主启动参数**：`electron-host-launcher.ts` 里 bin.js 的参数与 token 注入方式需按真实
-   harness 实测对接（P3 前置核对）。
-7. **诊断包里的真实票状态**：当前 `tickets()` 为空占位，需接宿主 Remote 后才有数据。
+6. **宿主启动参数**：`electron-host-launcher.ts` 已按 `bin.js --host/--port/--state-dir/
+   --permission-mode` 接线，并用 `ELECTRON_RUN_AS_NODE=1` 以 Node 模式跑 Electron 可执行文件
+   （否则会当成第二个 Electron 应用启动）。真实参数仍需按宿主版本核对。
+7. **宿主运行时打包**：`@deepseek-ai/dsh` 与原生依赖不能进 asar。`build/electron-builder.yml`
+   的 `extraResources` 会把 `build/runtime` 拷到 `resources/runtime`，入口按
+   `resources/runtime/node_modules/@deepseek-ai/dsh/lib/bin.js` 解析。
+   目录由 `npm run prepare:runtime -- --apply` 生成（默认 dry-run，1.3GB 量级，不进 git）；
+   正式发版应改成 `npm ci --omit=dev` 的裁剪产物。开发态直接复用 `spikes/p05-transport/node_modules`。
+8. **诊断包里的真实票状态**：当前 `tickets()` 为空占位，需接宿主 Remote 后才有数据。
 
 ## 7. 文档站骨架（C7 产品化，占位）
 

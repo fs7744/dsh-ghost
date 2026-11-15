@@ -62,6 +62,12 @@ export function createEvolutionService(deps) {
                 });
                 if (proposal === undefined)
                     return { created: false, count: accumulated.length };
+                // id 由 key 决定：已决策的提案不能被下一次返工重新打开成 pending，
+                // 否则「批准过的约束」会被悄悄重置，人闸形同虚设。
+                const existing = await store.get(proposal.id);
+                if (existing !== undefined && existing.status !== 'pending') {
+                    return { proposal: existing, created: false, count: accumulated.length };
+                }
                 await store.put(proposal);
                 return { proposal, created: true, count: accumulated.length };
             }
@@ -73,6 +79,10 @@ export function createEvolutionService(deps) {
                     reworks: input.occurrences ?? [],
                     ...proposalDeps,
                 });
+                const existing = await store.get(proposal.id);
+                if (existing !== undefined && existing.status !== 'pending') {
+                    return { proposal: existing, created: false, count: (input.occurrences ?? []).length };
+                }
                 await store.put(proposal);
                 return { proposal, created: true, count: (input.occurrences ?? []).length };
             }
@@ -81,11 +91,19 @@ export function createEvolutionService(deps) {
             const proposal = proposeScriptPromotion({ ...input.script, ...proposalDeps });
             if (proposal === undefined)
                 return { created: false, count: 0 };
+            const existing = await store.get(proposal.id);
+            if (existing !== undefined && existing.status !== 'pending') {
+                return { proposal: existing, created: false, count: 2 };
+            }
             await store.put(proposal);
             return { proposal, created: true, count: 2 };
         },
         async approve(input) {
             const current = await requireProposal(input.id);
+            // 人闸只能走一次：已批准 / 已驳回 / 已回滚的提案不能再批准。
+            if (current.status !== 'pending') {
+                return { proposal: current, applied: false, reason: `提案状态是 ${current.status}，只有 pending 可批准` };
+            }
             const next = approveProposal(current, input.by, proposalDeps);
             await store.put(next);
             const result = await applyProposal(next, {
@@ -95,6 +113,9 @@ export function createEvolutionService(deps) {
         },
         async reject(input) {
             const current = await requireProposal(input.id);
+            if (current.status !== 'pending') {
+                return { proposal: current, applied: false, reason: `提案状态是 ${current.status}，只有 pending 可驳回` };
+            }
             const next = rejectProposal(current, input.by, proposalDeps);
             await store.put(next);
             // 驳回分支：绝不调用 applyProposal，不写任何记忆/剧本文件。
@@ -102,6 +123,12 @@ export function createEvolutionService(deps) {
         },
         async rollback(input) {
             const current = await requireProposal(input.id);
+            if (current.status !== 'approved')
+                return { proposal: current };
+            // 回滚要真的撤销效果，不能只改状态：memory 提案把写入的 L2 约束删掉。
+            if (current.kind === 'memory' && current.constraint !== undefined && deps.removeMemory !== undefined) {
+                await deps.removeMemory(current.constraint.name);
+            }
             const next = rollbackProposal(current, input.by, proposalDeps);
             await store.put(next);
             return { proposal: next };

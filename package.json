@@ -79,6 +79,7 @@
     "build:shell": "tsc -p apps/shell/tsconfig.build.json",
     "release:check": "node --experimental-transform-types scripts/verify-shell.mjs --only=version",
     "upgrade:harness": "node scripts/upgrade-harness.mjs",
+    "prepare:runtime": "node scripts/prepare-runtime.mjs",
     "test:superagent": "node --test --experimental-transform-types packages/superagent/tests/assembly.test.ts packages/superagent/tests/tools.test.ts packages/superagent/tests/views.test.ts packages/superagent/tests/sources.test.ts packages/superagent/tests/setup-status.test.ts packages/superagent/tests/prompts-budget.test.ts packages/superagent/tests/watchdog.test.ts",
     "verify:superagent-assets": "node --experimental-transform-types scripts/verify-superagent-assets.mjs"
   },

@@ -12,7 +12,8 @@ import {
   normalizeFileContent, normalizeFileEntries, sortTree,
 } from '../src/workspace.ts'
 import {
-  buildUploadRequest, normalizeDirectoryList, normalizeDroppedFiles, pickedPath, sortDirectoryList,
+  buildUploadRequest, bytesToBase64, normalizeDirectoryList, normalizeDroppedFiles, pickedPath,
+  sortDirectoryList, uploadedReceipt,
 } from '../src/attachments.ts'
 
 test('asList 从裸数组与常见容器字段挖数组，畸形返回空', () => {
@@ -153,9 +154,12 @@ test('normalizeDroppedFiles 丢弃无名称项，buildUploadRequest 构造 wire 
   assert.equal(items.length, 1)
   assert.deepEqual(items[0], { name: 'a.txt', size: 10, type: 'text/plain' })
   assert.deepEqual(normalizeDroppedFiles([{ name: 'b.md' }]), [{ name: 'b.md', size: 0, type: '' }])
-  assert.deepEqual(buildUploadRequest('sess-1', items), {
-    request: { files: [{ name: 'a.txt', size: 10, type: 'text/plain' }] },
-  })
+  // 真实上传必须带字节：宿主字段是 base64 data + 可选 name。
+  assert.deepEqual(buildUploadRequest('QUJD', 'a.txt'), { data: 'QUJD', name: 'a.txt' })
+  assert.deepEqual(buildUploadRequest('QUJD', ''), { data: 'QUJD' })
+  assert.equal(bytesToBase64(new Uint8Array([65, 66, 67])), 'QUJD')
+  assert.equal(uploadedReceipt({ receiptId: 'r-1' }), 'r-1')
+  assert.equal(uploadedReceipt({}), '')
 })
 
 test('pickedPath 兼容字符串、直接对象与 result 嵌套', () => {

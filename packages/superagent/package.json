@@ -8,6 +8,14 @@
     ".": {
       "types": "./src/core/index.ts",
       "default": "./lib/core/index.js"
+    },
+    "./tools": {
+      "types": "./src/tools/index.ts",
+      "default": "./lib/tools/index.js"
+    },
+    "./views": {
+      "types": "./src/app/views/index.ts",
+      "default": "./lib/app/views/index.js"
     }
   },
   "scripts": {

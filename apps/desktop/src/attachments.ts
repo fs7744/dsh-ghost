@@ -50,13 +50,30 @@ export function normalizeDroppedFiles(files: readonly Partial<UploadItem>[]): Up
   return out
 }
 
-/** 构造 fileUploads/upload 的 wire 参数（agentId + request）。 */
-export function buildUploadRequest(agentId: string, items: readonly UploadItem[]): { request: Record<string, unknown> } {
-  return {
-    request: {
-      files: items.map(item => ({ name: item.name, size: item.size, type: item.type })),
-    },
+/**
+ * 构造 fileUploads/upload 的 request：一次一个文件，字段是**真实字节**的 base64。
+ * 早期版本只发 name/size/type，宿主收到的是空文件——看起来上传成功，实际什么都没传。
+ */
+export function buildUploadRequest(data: string, name: string): { data: string; name?: string } {
+  return { data, ...(name === '' ? {} : { name }) }
+}
+
+/** 字节 → base64（分块，避免大文件把参数列表撑爆）。 */
+export function bytesToBase64(bytes: Uint8Array): string {
+  const chunk = 0x8000
+  let binary = ''
+  for (let index = 0; index < bytes.length; index += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunk))
   }
+  return btoa(binary)
+}
+
+/** 单文件上限：超过就明确拒绝，别让宿主在传输层报一个看不懂的错。 */
+export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+
+/** 从上传响应里取 receiptId（后续 prompt 的 file part 要用它）。 */
+export function uploadedReceipt(raw: unknown): string {
+  return pickStr(record(raw), ['receiptId', 'receipt', 'id'])
 }
 
 /** 从 directoryPicker/pick 结果里取选中路径。 */
@@ -68,8 +85,15 @@ export function pickedPath(raw: unknown): string {
   return pickStr(record(item.result), ['path', 'directory'])
 }
 
+/** 附件工具句柄：send() 从这里取本轮已上传的 receiptId。 */
+export interface AttachmentTools {
+  /** 取走并清空本轮 receipts（发送后调用，避免下一条消息重复引用）。 */
+  takeReceipts: () => string[]
+}
+
 /** C8-22 + C8-24：把上传 / 选目录入口挂到输入区，并注册全局拖放。 */
-export function mountAttachmentTools(composer: HTMLElement, services: PanelServices): void {
+export function mountAttachmentTools(composer: HTMLElement, services: PanelServices): AttachmentTools {
+  const receipts: string[] = []
   const tools = document.createElement('div')
   tools.className = 'attachtools'
   tools.innerHTML = `
@@ -82,15 +106,33 @@ export function mountAttachmentTools(composer: HTMLElement, services: PanelServi
   const fileInput = tools.querySelector<HTMLInputElement>('input[data-role="file"]')!
   const status = tools.querySelector<HTMLElement>('.attachstatus')!
 
-  const upload = async (items: readonly UploadItem[]): Promise<void> => {
-    if (items.length === 0) return
+  const upload = async (files: readonly File[]): Promise<void> => {
+    if (files.length === 0) return
     const agentId = services.agentId() ?? ''
-    const result = await safeCall(() => services.transport.call('fileUploads/upload' as never, {
-      agentId, request: buildUploadRequest(agentId, items).request,
-    } as never))
-    status.textContent = result.ok
-      ? services.t('common.count').replace('{count}', String(items.length))
-      : result.reason
+    let ok = 0
+    let lastError = ''
+    for (const file of files) {
+      if (file.size > MAX_UPLOAD_BYTES) {
+        lastError = `${file.name} 超过 ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB`
+        continue
+      }
+      try {
+        const data = bytesToBase64(new Uint8Array(await file.arrayBuffer()))
+        const result = await safeCall(() => services.transport.call('fileUploads/upload' as never, {
+          agentId, request: buildUploadRequest(data, file.name),
+        } as never))
+        if (!result.ok) { lastError = result.reason; continue }
+        const receipt = uploadedReceipt(result.value)
+        if (receipt === '') { lastError = '宿主没有返回 receiptId'; continue }
+        receipts.push(receipt)
+        ok += 1
+      } catch (error) {
+        lastError = String(error).slice(0, 80)
+      }
+    }
+    status.textContent = ok === 0
+      ? `${services.t('common.unavailable')}: ${lastError}`
+      : `${ok}/${files.length} 个附件已上传${lastError === '' ? '' : `（${lastError}）`}`
   }
 
   const pickDirectory = async (): Promise<void> => {
@@ -122,8 +164,8 @@ export function mountAttachmentTools(composer: HTMLElement, services: PanelServi
     else if (button.dataset.act === 'directory') void pickDirectory()
   })
   fileInput.addEventListener('change', () => {
-    const files = Array.from(fileInput.files ?? []).map(file => ({ name: file.name, size: file.size, type: file.type }))
-    void upload(normalizeDroppedFiles(files))
+    const files = Array.from(fileInput.files ?? [])
+    void upload(files)
     fileInput.value = ''
   })
 
@@ -134,15 +176,13 @@ export function mountAttachmentTools(composer: HTMLElement, services: PanelServi
   const onDrop = (event: DragEvent): void => {
     if (event.dataTransfer === null) return
     event.preventDefault()
-    const files = Array.from(event.dataTransfer.files).map(file => ({
-      name: file.name, size: file.size, type: file.type,
-    }))
-    const items = normalizeDroppedFiles(files)
-    if (items.length > 0) {
-      void upload(items)
-      services.notice(services.t('common.count').replace('{count}', String(items.length)))
+    const files = Array.from(event.dataTransfer.files)
+    if (files.length > 0) {
+      void upload(files)
+      services.notice(services.t('common.count').replace('{count}', String(files.length)))
     }
   }
   document.addEventListener('dragover', onDragOver)
   document.addEventListener('drop', onDrop)
+  return { takeReceipts: () => receipts.splice(0) }
 }

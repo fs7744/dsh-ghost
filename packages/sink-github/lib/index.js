@@ -4,6 +4,7 @@
  */
 export function createGithubSink(options) {
     const apiBase = options.apiBase ?? 'https://api.github.com';
+    const maxAttempts = Math.max(1, options.maxAttempts ?? 5);
     const table = new Map();
     const headers = {
         authorization: `Bearer ${options.token}`,
@@ -53,6 +54,11 @@ export function createGithubSink(options) {
                     entry.error = 'no-target';
                     continue;
                 }
+                if (entry.attempts >= maxAttempts) {
+                    entry.status = 'dropped';
+                    entry.error = `max-attempts(${maxAttempts}): ${entry.error ?? 'unknown'}`;
+                    continue;
+                }
                 entry.attempts += 1;
                 const result = await post(`${apiBase}/repos/${options.repo}/issues/${number}/comments`, { body: entry.message.text }, headers);
                 if (result.ok) {
@@ -64,6 +70,11 @@ export function createGithubSink(options) {
                 else {
                     entry.error = result.error ?? 'unknown';
                     failed += 1;
+                    // 4xx（除 408 / 429）是确定性拒绝：重试只会得到同样的结果，直接丢弃。
+                    const status = Number(/HTTP (\d{3})/.exec(entry.error)?.[1] ?? 0);
+                    if (status >= 400 && status < 500 && status !== 408 && status !== 429) {
+                        entry.status = 'dropped';
+                    }
                 }
             }
             return { sent, failed };

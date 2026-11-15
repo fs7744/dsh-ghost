@@ -114,3 +114,55 @@
 R1 的后半段（事件名自动生成）曾长期挂账，本轮用 `API_REMOTE_FORWARDED_EVENTS` 单一真相源补上；R8 的 keychain 错误写法已全部改成 DPAPI。R6 的「一节点一行」由 `edit.test.ts` 与 `verify:playbook-editor` 的重放确定性守着。
 
 **仍未消除的是 §8.5 的两条 ABI 实测**（Electron 44 内置 Node ≥24.9、原生模块匹配）——它们需要真实 Electron 安装，不是文档能替代的。
+
+---
+
+## 代码复审（2026-11-16）
+
+跑完 477 个用例、41 项验收之后，按「安全 → 正确性 → 打包 → 声明一致性」逐层读代码。下面只写**测试没覆盖到、但读代码能确认**的问题。
+
+### 已修（都有回归用例）
+
+| 级别 | 问题 | 位置 | 修法 |
+|---|---|---|---|
+| **高（安全）** | `read(name)` / `remove(name)` 直接拼路径，Remote 传 `..\..\x` 可读/删项目外 `.md` | `packages/memory/src/store.ts` | 所有入口统一校验收口 `isValidEntryName`；新增穿越测试 |
+| **高（正确性）** | 已批准/已驳回的提案还能再次批准，重复写 L2；回滚只改状态、不删已写入的约束 | `packages/evolution/src/service.ts` | 人闸只允许 `pending`；回滚调用 `removeMemory` 真撤销；已决策提案不被再次 `propose` 重开 |
+| 中（安全） | 提案 id 直接进文件名，`approve({id:'../x'})` 可读项目外 JSON | `packages/evolution/src/proposals.ts` | id 白名单 + `put` 拒绝非法 id |
+| 中（运维） | GitHub 出口 4xx 永久失败仍每 10s 重试，永不停止 | `packages/sink-github/src/index.ts` | 4xx（除 408/429）立即 dropped；5xx 重试 `maxAttempts` 后 dropped |
+| 中（发布） | Electron 里 `process.execPath` 是 electron.exe，直接 spawn 会把 `bin.js` 当第二个 Electron 应用；打包后 bin/icon 路径落在 asar 内 | `electron-host-launcher.ts` / `main.ts` | `ELECTRON_RUN_AS_NODE=1`；运行时与图标改走 `resources/`；新增 `prepare:runtime` 与 `build/runtime` 说明 |
+| 中（正确性） | `runScript` 每次 Remote 调用都新建 runtime，幂等键永远不命中 | `packages/memory-plugin/src/index.ts` | 按 packageRoot 复用同一 runtime 实例 |
+| 中（安全） | `ghostInit/draft` 接受任意 `root`，可扫全盘 | 同上 | 限定在 `repoRoot` 内；模板补 `repoRoot` |
+| 中（健壮性） | 启动抛错（bin 缺失）时状态永远停在 `starting`；锁文件损坏时 `pid=-1` 会 `process.kill(-1)` | `runtime.ts` / `main.ts` | 启动失败走重试路径；非法 pid 直接判死 |
+| 低（逻辑） | `@ghost` 用 `includes` 匹配，会误伤 `@ghostbusters` / `@ghost-bot` / 邮箱 | `packages/source-github/src/index.ts` | 加前后边界正则 |
+| 中（功能） | 附件上传只发 `{name,size,type}`，**从来没传字节**；`receiptId` 也没进 prompt | `apps/desktop/src/attachments.ts` / `main.ts` | 读取 base64 → `fileUploads/upload` → receipt 作为 `file` part 进 `session/prompt` / `commands/execute` |
+
+### 仍然存在（未修，按优先级）
+
+**P0 发布阻断（需要外部环境，不是代码能否写完的问题）**
+
+1. 安装包仍要真实打一次：`resources/runtime` 现在有配置与 `prepare:runtime`，但没跑过 electron-builder，也没在干净 Windows 上装过。
+2. Electron 44 内置 Node 与 `node-pty` / `koffi` / `node:sqlite` 的 ABI 未实测；这决定 `ELECTRON_RUN_AS_NODE` 方案是否成立，失败就得改 sidecar Node。
+3. 代码签名、NSIS 升级/卸载、真实 feed 与 `latest.yml` 未验证。
+
+**P1 功能/一致性**
+
+4. **剧本编辑不能写回文件**：只有「导出 .flow」；Electron 侧没有工作区写文件 IPC。README 已改成「回写文本」，但产品上还差最后一步。
+5. **首启向导不收 API key**：向导只选模型来源，凭据要通过 `shellApi.setCredential`，GUI 里没有入口；首次启动可能无模型可用。
+6. `settings_save` / `policy_sync` / `prompts_save` 的 `SettingsStore` 是内存实现，宿主重启即丢；模型库页的本机 `/api/models/*` 同样是内存 store。接口都留了 `CatalogStore` / 文件实现位。
+7. **两套装配并存**：`packages/superagent/src/app/host` 的 `dsh-superagent` 入口没有被 cordis patch 加载，实际生效的是 orchestrator-plugin（现已注册 19 工具）。要么挂上它并去掉重复，要么明确它是备选方案。
+8. 诊断包 `tickets()` 仍是空占位，未接 `ghostTickets/list`。
+9. C2-02 的 Peer 角色级隔离、C4-07 的 L5 截图基线、C6 的 macOS/Linux 安装包：分别依赖 harness 访问控制、Playwright 依赖、平台环境，账本已改成「未完成/骨架」。
+
+**P2 风险与债务**
+
+10. `source-github` 无密钥时默认**跳过**签名校验（有测试固化该行为）。只允许本地调试；生产必须显式配置 `secret`，建议后续把默认改成拒绝。
+11. 声明式映射的 `getPath` 允许 `__proto__` / `constructor` 路径，只读不写，风险低但建议加键黑名单。
+12. GitHub 出口没有 429/Retry-After 处理；报告正文可能超过 GitHub 64KB 限制，现在会当 4xx 直接丢弃（不重试），但用户看不到失败提示。
+13. 记忆 frontmatter 的 `title/source` 未转义换行，模型可以写坏索引格式（不会执行代码）。
+14. `npm audit` 报 16 个漏洞（1 critical，多来自 electron-builder 依赖链）；未 `audit fix`，发版前必须处理或换构建链。
+15. `check-port-discipline` 仍有 6 处白名单 WARN（插件必须用 `TypertRemoteService`），`--strict` 会失败；这是可接受的过渡态，但要写进升级检查单。
+16. UI 大量 `innerHTML`，本次抽查的渲染点都做了 `escapeHtml`；但没有静态门禁防止以后漏写，建议加一条 lint 规则或 `escape` 封装。
+
+### 复审结论
+
+核心架构站得住：`harness-port` 是唯一适配层，领域核心零 harness 依赖，界面只消费 Remote，剧本文本是唯一真相源。测试深度在同类项目里算扎实（477 用例 + 41 项验收，且 L3 只断言结构）。**剩余风险集中在「真实打包/ABI」和「最后一段产品接线」**，不是核心正确性；这两类都不该用「已完成」三个字盖过去。

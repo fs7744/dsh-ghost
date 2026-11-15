@@ -118,6 +118,9 @@ test('C10-06 提案仓库：落盘为文件、可查看、驳回状态持久化'
   assert.equal((await store.get(proposal.id))?.status, 'rejected')
   assert.equal((await store.list())[0]?.decidedBy, 'bob')
   assert.equal(await store.get('nope'), undefined)
+  // id 会进文件名：路径穿越必须在这里挡住。
+  assert.equal(await store.get('../outside'), undefined)
+  await assert.rejects(() => store.put({ ...proposal, id: '../outside' }), /id 不合法/)
 })
 
 test('C10-07 runs.jsonl：编解码往返，脏行被跳过', () => {
@@ -184,6 +187,40 @@ test('C10-05 服务：三次返工累积成提案 → 批准写 L2 → 驳回分
   assert.equal(rejected.applied, false)
   assert.equal(rejected.proposal.status, 'rejected')
   assert.equal(written, 1, '驳回分支绝不写 L2')
+})
+
+test('人闸不可重放：已决策提案不能再批/驳，回滚会真删 L2 约束', async () => {
+  const io = memoryFileIo()
+  const written: string[] = []
+  const removed: string[] = []
+  const service = createEvolutionService({
+    root: '/evo', io, now: fixedNow,
+    writeMemory: constraint => { written.push(constraint.name) },
+    removeMemory: name => { removed.push(name) },
+  })
+  for (let index = 0; index < 3; index += 1) await service.propose({ key: 'npm', constraint })
+  const proposal = (await service.list())[0]
+  assert.ok(proposal !== undefined)
+
+  const first = await service.approve({ id: proposal.id, by: 'alice' })
+  assert.equal(first.applied, true)
+  assert.deepEqual(written, ['no-npm'])
+
+  const twice = await service.approve({ id: proposal.id, by: 'mallory' })
+  assert.equal(twice.applied, false)
+  assert.equal(written.length, 1, '重复批准不能再次写 L2')
+
+  const rejected = await service.reject({ id: proposal.id, by: 'mallory' })
+  assert.equal(rejected.proposal.status, 'approved')
+  assert.equal(rejected.applied, false)
+
+  // 已批准的提案不能被下一次返工重新打开成 pending。
+  await service.propose({ key: 'npm', constraint })
+  assert.equal((await service.list())[0]?.status, 'approved')
+
+  const rolled = await service.rollback({ id: proposal.id, by: 'alice' })
+  assert.equal(rolled.proposal.status, 'rolled-back')
+  assert.deepEqual(removed, ['no-npm'], '回滚必须撤销 L2 写入，不能只改状态')
 })
 
 test('C10-07 服务 metrics：记录 run 并返回看板与记录数', async () => {

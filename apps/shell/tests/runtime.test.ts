@@ -157,6 +157,18 @@ test('主动 stop 后崩溃回调失效，不再重启', async () => {
   assert.equal(h.ready.length, 1)
 })
 
+test('启动抛错不卡在 starting：重试到上限后进入 failed', async () => {
+  const h = harness({ policy: { baseMs: 1, factor: 1, maxMs: 1, maxRestarts: 2 } })
+  const throwing = {
+    launch: async (): Promise<never> => { throw new Error('bin missing') },
+  } as unknown as RuntimeDeps['launcher']
+  const c = new RuntimeController({ ...h.deps, launcher: throwing })
+  await c.start()
+  assert.equal(c.getState(), 'failed')
+  assert.equal(h.fatal.length, 1)
+  assert.match(h.logger.errors.join('\n'), /host launch failed/)
+})
+
 test('状态锁：首启获得、他人占用拒绝、stale 回收、仅自己可释放', () => {
   const fs = new FakeFs()
   const clock = new FakeClock(10_000)

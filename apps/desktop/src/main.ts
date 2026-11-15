@@ -27,7 +27,7 @@ import { mountSettingsPanel, mountPluginsPanel } from './admin-panels.ts'
 import { mountStatsPanel, decorateStream } from './feedback.ts'
 import { mountSuperagentPanel } from './superagent-panel.ts'
 import { mountApprovalLayer, type ApprovalLayer } from './approval.ts'
-import { mountAttachmentTools } from './attachments.ts'
+import { mountAttachmentTools, type AttachmentTools } from './attachments.ts'
 import { renderContextBar } from './context-bar.ts'
 
 type Transport = ReturnType<typeof createTransport>
@@ -95,6 +95,7 @@ const T = makeTranslator()
 // 面板依赖与审批层在 main() 里装配完成后赋值，供 renderStream / openSession 复用。
 let services: PanelServices | undefined
 let approvalLayer: ApprovalLayer | undefined
+let attachmentTools: AttachmentTools | undefined
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char] as string))
@@ -289,7 +290,7 @@ async function loadCommands(): Promise<void> {
 }
 
 /** 执行一行斜杠命令：不产生模型消息，结果只进会话日志。 */
-async function executeCommand(line: string): Promise<void> {
+async function executeCommand(line: string, receipts: readonly string[] = []): Promise<void> {
   const transport = state.transport
   if (transport === undefined || state.active === undefined) return
   const name = parseSlash(line).name
@@ -298,7 +299,7 @@ async function executeCommand(line: string): Promise<void> {
     const result = await transport.call('commands/execute' as never, {
       agentId: state.active,
       line,
-      submittedAttachments: [],
+      submittedAttachments: receipts.map(receiptId => ({ type: 'file' as const, receiptId })),
     } as never)
     el('f-state').textContent = result === undefined ? `命令 /${name} 未解析` : `命令 /${name} 已执行`
     await openSession(state.active)
@@ -379,12 +380,15 @@ async function send(): Promise<void> {
   const transport = state.transport
   const input = el<HTMLTextAreaElement>('input')
   const text = input.value.trim()
-  if (transport === undefined || state.active === undefined || text === '' || state.busy) return
+  if (transport === undefined || state.active === undefined || state.busy) return
+  // 附件先取走再判断：只有附件、没有文字的消息也是合法输入。
+  const receipts = attachmentTools?.takeReceipts() ?? []
+  if (text === '' && receipts.length === 0) return
   input.value = ''
   state.busy = true
   // 斜杠命令走 commands/execute，绝不进模型消息（不浪费 token）。
   if (isCommandLine(text)) {
-    try { await executeCommand(text) } finally { state.busy = false }
+    try { await executeCommand(text, receipts) } finally { state.busy = false }
     return
   }
   const before = Number.parseInt(el('f-records').textContent ?? '0', 10)
@@ -393,7 +397,15 @@ async function send(): Promise<void> {
     const picked = await ensureModel(state.active)
     if (picked !== undefined) el('f-state').textContent = `模型 ${picked}`
     await transport.call('session/prompt', {
-      request: { requestId: `ui-${Date.now()}`, sessionId: state.active, mode: 'queue', content: [{ type: 'text', text }] },
+      request: {
+        requestId: `ui-${Date.now()}`,
+        sessionId: state.active,
+        mode: 'queue',
+        content: [
+          ...(text === '' ? [] : [{ type: 'text' as const, text }]),
+          ...receipts.map(receiptId => ({ type: 'file' as const, receiptId })),
+        ],
+      },
     })
     el('f-state').textContent = '已投递，等模型…'
     for (let i = 0; i < 60; i += 1) {
@@ -503,8 +515,8 @@ async function main(): Promise<void> {
     notice: text => { el('f-state').textContent = text },
   }
   mountMemoryPanel(el('memory'), memoryHost)
-  // C8-22 / C8-24：附件上传、目录选择、全局文件拖拽。
-  mountAttachmentTools(el('composer'), services)
+  // C8-22 / C8-24：附件上传、目录选择、全局文件拖拽；上传后的 receipt 由 send() 带走。
+  attachmentTools = mountAttachmentTools(el('composer'), services)
 
   // C8 剩余项统一注册：静态 3 页 + 动态 11 页，标签切换与降级都由 panels.ts 管。
   const mounted = mountPanels({

@@ -7,6 +7,11 @@ export interface EvolutionDeps {
     root: string;
     /** 写 L2 项目记忆的写入器（memory 提案批准时调用）。 */
     writeMemory?: (constraint: ConstraintDraft) => Promise<void> | void;
+    /**
+     * 删除 L2 记忆的写入器（memory 提案回滚时调用）。
+     * 没有它就只能改状态，"可回滚"会变成一句空话——接线时必须一起给。
+     */
+    removeMemory?: (name: string) => Promise<void> | void;
     now?: () => Date;
     makeId?: () => string;
     io?: FileIo;

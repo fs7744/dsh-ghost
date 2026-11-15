@@ -9,7 +9,7 @@
 **仓库内的工程件已按 [PLAN.md](PLAN.md) 全部落地。** 主链路是：**外部事件 → 可插拔信息源 → 票 → 自动执行（真模型）→ 报告 → 回写来源会话**。
 
 - 界面 26 项全自建：会话树 / 对话 / 工具卡片 / 审批 / 文件树 / 终端 / 后台任务 / 交付物与文档预览 / 计划 / 目标 / 子代理 / 团队 / 技能 / 设置 / 插件市场 / 命令面板 / 主题 / 中英 i18n / 附件 / 反馈统计 / Superagent 面板，全部走 Typert Remote。
-- 剧本 = skill：`.flow` 是唯一真相源，图 / 表单 / 源码三视图编辑即回写；另有图 diff、可注入的 AI 生成与局部重写（默认确定性实现，无需 key）、单步试跑、脚本运行时与分层 references。
+- 剧本 = skill：`.flow` 是唯一真相源，图 / 表单 / 源码三视图共享同一条文本数据流（编辑即回写**文本**，浏览器阶段用「导出 .flow」落盘；文件直写待 Electron 工作区 IPC）；另有图 diff、可注入的 AI 生成与局部重写（默认确定性实现，无需 key）、单步试跑、脚本运行时与分层 references。
 - 记忆与进化：文件式四层记忆、写入门槛、界面可看可删；返工三次生成约束提案，剧本/技能提案落盘待人工批准，`runs.jsonl` 记度量——**禁止运行时静默改自己**。
 - 契约面：131 项宿主探针 + 224 个 Remote 端点 + 31 个转发事件，全部从 harness 编译产物生成并做漂移校验。
 - 桌面壳：`apps/shell` 是 Electron 主进程（只 Windows x64），runtime 子进程 / 单实例 / 托盘 / 开机启动 / 崩溃恢复 / 首启向导 / `safeStorage`(DPAPI) / 诊断包脱敏 / NSIS 与更新通道配置齐全。
@@ -37,7 +37,7 @@
 | **会话导出（C11-06）** | 顶栏一键导出 Markdown（与界面视图一致）/ JSONL（原始日志不丢字段），命令执行记录可见 |
 | **回退（C11-05）** | 每条用户消息可 `session/fork` 出新会话，精确 `atSeq` 前缀，原会话不变、可撤销 |
 | **记忆界面（C10-03）** | 分组查看 / 逐条编辑 / 删除 / 总开关，走 `ghostMemory/*` Remote；与模型工具共用同一存储与写入门槛 |
-| **剧本编辑器（C9-04）** | 图 + 表单 + 源码三视图；增删节点/条件边/人闸/回退上限、改名、调顺序，编辑即回写 `.flow`，实时校验 + 导出 |
+| **剧本编辑器（C9-04）** | 图 + 表单 + 源码三视图；增删节点/条件边/人闸/回退上限、改名、调顺序，编辑即回写文本并实时校验；落盘走「导出 .flow」（文件直写待 Electron IPC） |
 | `apps/desktop` | 26 项自建界面：会话树 + 对话 + 工具卡片 + 审批 + 文件树 + 终端 / 任务 / 计划 / 目标 / 子代理 / 团队 / 技能 / 设置 / 插件 + 主题 + 中英 i18n + 附件 + 反馈统计 + Superagent 面板 + 剧本编辑器（全走 Remote） |
 | **事件契约** | `gen-events.mjs` → `events.json`（31 个转发事件）+ `events.generated.ts`；`verify:events` 查漂移，升级流水线先重生成再跑探针 |
 | **剧本打磨（C9-05～12）** | 图 diff、可注入 AI 生成/局部重写、单步试跑、脚本运行时（白名单/超时/并发/幂等）、`{ok,code,fix,hint}` 输出协议、references 分层加载 |
@@ -80,7 +80,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 471 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 477 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

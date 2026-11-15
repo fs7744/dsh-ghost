@@ -26,6 +26,8 @@ export type WriteOutcome = {
     reasons: string[];
     oneShot?: boolean;
 };
+/** 条目名是否合法（供 Remote / UI 复用同一口径）。 */
+export declare function isValidEntryName(name: string): boolean;
 /** 文件式记忆库。 */
 export declare class MemoryStore {
     #private;

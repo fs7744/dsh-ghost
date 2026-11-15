@@ -24,6 +24,11 @@ extraResources:
     to: dist
   - from: build/resources
     to: resources
+  # harness 运行时（含 @deepseek-ai/dsh 与原生依赖）必须放在 asar 外：
+  # bin.js 要按包名解析 node_modules，asar 内的相对路径解析不了原生模块。
+  # 目录由 `node scripts/prepare-runtime.mjs` 生成（1.3GB 量级，不进 git）。
+  - from: build/runtime
+    to: runtime
 
 # 文件关联（C5-06）：.flow 剧本与 .md 用本产品打开；argv / open-file 在壳内解析。
 fileAssociations:

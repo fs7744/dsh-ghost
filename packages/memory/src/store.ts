@@ -44,6 +44,20 @@ const INDEX_FILE = 'MEMORY.md'
 const BLOCK_FILE = 'user-memory.md'
 const ENTRIES_DIR = 'entries'
 
+/**
+ * 条目名必须与 gate 的 kebab-case 规则一致。
+ *
+ * `write` 一直走 gate，但 `read` / `remove` 曾经直接用 name 拼文件路径：
+ * Remote 调用方传 `..\\..\\x` 就能读或删项目外的 `.md`（路径穿越）。
+ * 名字是文件名的一部分，所以所有入口都必须在这里收口。
+ */
+const ENTRY_NAME = /^[a-z0-9][a-z0-9-]{0,62}$/
+
+/** 条目名是否合法（供 Remote / UI 复用同一口径）。 */
+export function isValidEntryName(name: string): boolean {
+  return ENTRY_NAME.test(name)
+}
+
 /** 文件式记忆库。 */
 export class MemoryStore {
   readonly #root: string
@@ -102,6 +116,7 @@ export class MemoryStore {
 
   /** 读一条正文（按需调用的入口）。 */
   async read(name: string): Promise<string | undefined> {
+    if (!isValidEntryName(name)) return undefined
     if (this.#mode === 'block') {
       const text = await this.resident()
       const section = text.split(/^## /m).find(part => slug(part.split('\n')[0]?.trim() ?? '') === name)
@@ -154,6 +169,7 @@ export class MemoryStore {
 
   /** 删除一条记忆，并同步索引。 */
   async remove(name: string): Promise<boolean> {
+    if (!isValidEntryName(name)) return false
     if (this.#mode === 'block') {
       const before = await this.resident()
       const sections = before.split(/^## /m)

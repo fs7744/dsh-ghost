@@ -13,9 +13,9 @@
 | A harness 白拿 | 73 | 随升级即得，只写配置 |
 | B superagent 移植 | 59 | B1 领域核心 8 + **B2–B7 本轮补齐**（插件入口 3 / 会话工具 19 / 视图 7 / 触发源 2 / 提示词与技能 6 组 16 文件 / 部署自检 4），见 [SUPERAGENT.md](SUPERAGENT.md) |
 | C1 兼容与契约 | 6 | ✅ 6/6（本轮补 C1-04 升级流水线、C1-05 import 纪律） |
-| C2 安全与鉴权 | 3 | ✅ 3/3（C2-01 管理面全走 Remote，无自建 `/orchestrator` 路由；C2-03 补 `safeStorage`/DPAPI 与明文凭据拒绝） |
+| C2 安全与鉴权 | 3 | C2-01/03 完成；C2-02 的 4 条边界已固化，**Peer 角色级隔离仍依赖 harness 尚未启用的访问控制**，不算完成 |
 | C3 模型管理 | 5 | ✅ 5/5；模型库页不再只是 demo——Electron 静态服务提供本机 `/api/models/*`，走 `model-manager` 纯逻辑，Vite 开发时降级内置示例 |
-| C4 测试设施 | 7 | ✅ 7/7 |
+| C4 测试设施 | 7 | L0–L4 已落地；**L5 只是可运行规格 + 截图基线骨架，未装 Playwright 时 SKIP**，不算通过 |
 | C5 桌面壳 | 13 | ✅ 13/13（代码与配置；真实安装包需证书 / Electron ABI 实测） |
 | C6 发布 | 5 | 3 项已就绪（Windows NSIS / 更新通道与灰度 / 发布流水线与版本核对）；**macOS dmg+公证、Linux AppImage 按 PLAN §8.4「先只做 Windows x64」明确不做**，不算完成也不冒充完成；真实放量仍需证书与 feed |
 | C7 产品化 | 4 | ✅ 4/4（默认关闭、本地优先） |
@@ -37,8 +37,8 @@
 | 记忆与上下文 | C10-05～07、C11-03/07 | `packages/evolution` + `ghostEvolution/*` / `ghostInit/*` / `ghostCompaction/*` Remote | `test:evolution`、`verify:evolution`、`verify:init`、`verify:compaction` |
 | 契约与升级 | C1-04/05、R1 事件面 | `harness-contract/{gen-events.mjs,events.json,matrix.json}`、`scripts/{upgrade-harness,check-port-discipline,verify-events}.mjs` | `verify:events`、`verify:port-discipline`、`upgrade:harness -- <v>`（dry-run） |
 | 模型与测试 | C2-03、C3、C4 | `packages/model-manager`、`packages/model-adapter-kit`、`scripts/{llm-mock-server,replay,verify-l3,verify-l5,verify-models,verify-gates}.mjs`、`.github/workflows/ci.yml` | `test:model`、`verify:mock-server`、`test:replay`、`verify:l3`、`verify:models`、`verify:gates` |
-| 壳与发布 | C5/C6/C7 | `apps/shell/**`、`build/**`、`.github/workflows/release.yml`、`docs/{RELEASE,PRIVACY,THIRD-PARTY,DIAGNOSTICS}.md` | `test:shell`（125 用例）、`verify:shell`、`check:shell` |
-| superagent 装配 | B2–B7、C2-01 | `packages/superagent/**`（tools / app/views / app/host / sources / infra / prompts / playbooks / scripts）、`docs/SUPERAGENT.md` | `test:superagent`（78 用例）、`verify:superagent-assets`（8 项静态验收） |
+| 壳与发布 | C5/C6/C7 | `apps/shell/**`、`build/**`、`.github/workflows/release.yml`、`docs/{RELEASE,PRIVACY,THIRD-PARTY,DIAGNOSTICS}.md` | `test:shell`（126 用例）、`verify:shell`、`check:shell` |
+| superagent 装配 | B2–B7、C2-01 | `packages/superagent/**`（tools / app/views / app/host / sources / infra / prompts / playbooks / scripts）、`docs/SUPERAGENT.md` | `test:superagent`（78 用例）、`verify:superagent-assets`（8 项静态验收）；**19 个 `orchestrator_*` 工具已真正注册进 `ctx.tools`**，不再只是描述符 |
 
 ## 0. 总量
 

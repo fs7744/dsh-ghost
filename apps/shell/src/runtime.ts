@@ -106,8 +106,17 @@ export class RuntimeController {
   private async startOnce(): Promise<boolean> {
     const gen = ++this.generation
     this.set('starting')
-    const port = await this.deps.ports.allocate()
-    const launch = await this.deps.launcher.launch(port)
+    let launch: HostLaunch
+    try {
+      const port = await this.deps.ports.allocate()
+      launch = await this.deps.launcher.launch(port)
+    } catch (error) {
+      // 启动失败（bin 缺失 / 端口分配失败 / spawn 报错）要回到可重试路径，
+      // 不能让异常穿出 start() 把状态永远留在 starting。
+      this.deps.logger.error(`host launch failed: ${String(error)}`)
+      this.current = null
+      return false
+    }
     this.current = launch
     this.attachCrashHandlers(gen, launch)
 

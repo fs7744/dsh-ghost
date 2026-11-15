@@ -40,7 +40,7 @@ var __esDecorate = (this && this.__esDecorate) || function (ctor, descriptorIn, 
  * 总开关落盘到 `<root>/settings.json`，关闭后模型与界面都不能再写入（已写的仍可读）。
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { MemoryStore, memoryTools } from '@dsh-ghost/memory';
 /** 插件名，cordis 用它做去重与诊断。 */
@@ -78,12 +78,20 @@ let evolutionRootSlot;
 let runtimeRootSlot;
 let repoRootSlot;
 let evolutionServicePromise;
+/**
+ * 脚本运行时必须复用同一个实例：并发上限与幂等键都活在实例里。
+ * 之前每次 Remote 调 runScript() 都新建一个，幂等键等于没用。
+ */
+let runtimeInstance;
 /** 惰性构造进化服务：纯模块第一次被用到时才加载。 */
 const getEvolutionService = () => {
     if (evolutionServicePromise === undefined) {
         evolutionServicePromise = (async () => {
             const evo = await loadEvolution();
             const api = evolutionApiSlot;
+            const removeMemory = api === undefined
+                ? undefined
+                : async (name) => { await api.remove(name); };
             const writeMemory = api === undefined
                 ? undefined
                 : async (constraint) => {
@@ -102,6 +110,7 @@ const getEvolutionService = () => {
             return evo.createEvolutionService({
                 root: evolutionRootSlot ?? join(process.cwd(), '.ghost', 'memory', 'evolution'),
                 ...(writeMemory === undefined ? {} : { writeMemory }),
+                ...(removeMemory === undefined ? {} : { removeMemory }),
             });
         })();
     }
@@ -233,12 +242,16 @@ let GhostPlaybookRemote = (() => {
         async runScript(input) {
             try {
                 const rt = await loadRuntime();
-                const outcome = await rt.runScript({
+                const root = runtimeRootSlot ?? process.cwd();
+                if (runtimeInstance === undefined || runtimeInstance.root !== root) {
+                    runtimeInstance = { root, runtime: rt.createRuntime({ packageRoot: root }) };
+                }
+                const outcome = await runtimeInstance.runtime.run({
                     script: input.script,
                     ...(input.args === undefined ? {} : { args: input.args }),
                     ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
                     ...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
-                }, { packageRoot: runtimeRootSlot ?? process.cwd() });
+                });
                 return { ok: true, outcome };
             }
             catch (error) {
@@ -267,7 +280,14 @@ let GhostInitRemote = (() => {
         async draft(input) {
             try {
                 const evo = await loadEvolution();
-                const scan = await evo.scanRepo(input?.root ?? repoRootSlot ?? process.cwd());
+                // `/init` 只该扫当前仓库；Remote 调用方传任意 root 会把扫描面扩到整台机器。
+                const base = resolve(repoRootSlot ?? process.cwd());
+                const requested = resolve(input?.root ?? base);
+                const rel = relative(base, requested);
+                if (rel.startsWith('..') || isAbsolute(rel)) {
+                    return { ok: false, error: `只允许扫描仓库内目录：${requested}` };
+                }
+                const scan = await evo.scanRepo(requested);
                 const result = evo.draftGhostMd(scan);
                 return {
                     ok: true,

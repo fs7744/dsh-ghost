@@ -21,6 +21,16 @@ test('没有密钥时跳过校验（只允许本地调试）', () => {
   assert.deepEqual(verifySignature({}, 'x', undefined), { ok: true })
 })
 
+test('@ 提及按边界匹配：不误伤 ghostbusters / ghost-bot / 邮箱', () => {
+  const options = { botLogin: 'ghost' }
+  assert.equal(mentionsAgent('@ghost 看一下', options), true)
+  assert.equal(mentionsAgent('请 @ghost，谢谢', options), true)
+  assert.equal(mentionsAgent('@ghostbusters 看一下', options), false)
+  assert.equal(mentionsAgent('@ghost-bot 看一下', options), false)
+  assert.equal(mentionsAgent('发到 a@ghost.com', options), false)
+  assert.equal(mentionsAgent('@dsh-ghost 看一下', { botLogin: 'dsh-ghost' }), true)
+})
+
 test('issue_comment：人 @ agent → addressed=mention，线程是 repo#编号', () => {
   const payload = {
     action: 'created',

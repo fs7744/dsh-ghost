@@ -20,6 +20,11 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { createGithubSink } from '@dsh-ghost/sink-github'
 import { createRegistry, importMapper, type SourceSpec, type SourceSummary } from '@dsh-ghost/source-hub'
 import { Engine, MemoryRepositories, persisting, ticketStage, type Ticket, type Trigger } from '@dsh-ghost/superagent'
+import { SettingsStore, TOOL_DESCRIPTORS } from '@dsh-ghost/superagent/tools'
+import {
+  buildDeployView, buildOverviewView, buildRecordsView, buildSettingsView,
+  buildSourcesView, buildThreadsView, buildTicketsView, renderViewText,
+} from '@dsh-ghost/superagent/views'
 
 /** 插件名。 */
 export const name = 'ghost-orchestrator'
@@ -422,6 +427,50 @@ export function apply(ctx: Context, config: Config = {}): void {
       if (event.type === 'ticket.created' || event.type === 'ticket.ended') flush()
     },
   })
+
+  // B3：把 19 个 orchestrator_* 会话工具真正注册给模型。
+  // 描述符早就写好了，但如果不注册，它们在运行时等于不存在（模型永远调不到）。
+  const toolConfig = new SettingsStore({ policyVersion: 'v1' })
+  const toolContext = {
+    repo,
+    engine,
+    config: toolConfig,
+    views: {
+      /** 视图要反映「当前」仓储状态，所以每次读都现算，不缓存快照。 */
+      read: (view: string): string | undefined => {
+        const builders: Record<string, () => ReturnType<typeof buildOverviewView>> = {
+          overview: () => buildOverviewView(repo),
+          tickets: () => buildTicketsView(repo),
+          records: () => buildRecordsView(repo),
+          threads: () => buildThreadsView(repo),
+          sources: () => buildSourcesView(repo),
+          settings: () => buildSettingsView(repo),
+          deploy: () => buildDeployView(repo),
+        }
+        const build = builders[view]
+        return build === undefined ? undefined : renderViewText(build())
+      },
+    },
+  }
+  for (const descriptor of TOOL_DESCRIPTORS) {
+    ctx.effect(() => ctx.tools.register({
+      name: descriptor.name,
+      description: descriptor.description,
+      parameters: descriptor.parameters as unknown as never,
+      output: {
+        schema: OUTPUT_SCHEMA as unknown as never,
+        render: (_args, value) => [{ type: 'text', text: (value as unknown as { text: string }).text }],
+      },
+      async execute(args) {
+        try {
+          return { text: descriptor.handler((args ?? {}) as Record<string, unknown>, toolContext) }
+        } catch (error) {
+          // 领域拒绝（UserError）原样给人话，让模型据此改参数自愈。
+          return { text: `未执行：${String(error)}` }
+        }
+      },
+    }), `ghost-orchestrator: ${descriptor.name}`)
+  }
 
   // Outbox 兜底投递：attention / acknowledgement 也能发出去，失败留 pending 等下一轮重试。
   if (sink !== undefined) {
