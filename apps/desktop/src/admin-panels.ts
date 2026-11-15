@@ -8,7 +8,7 @@ import {
   asList, bool, escapeHtml, num, paintText, pickStr, record, safeCall, unavailableHtml,
   type PanelInstance, type PanelServices,
 } from './panels.ts'
-import { invokeSlot, slotSection } from './extensions.ts'
+import { applyCustomSkin, invokeSlot, slotSection } from './extensions.ts'
 
 export function sortByName<T extends { name: string }>(rows: readonly T[]): T[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name))
@@ -177,6 +177,8 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       <section><h3 data-t="admin.providers"></h3><div data-sec="providers"></div></section>
       <section><h3 data-t="admin.mcp"></h3><div data-sec="mcp"></div></section>
       <section><h3 data-t="settings.llmServices"></h3><div data-sec="llm"></div></section>
+      <section><h3 data-t="settings.proxy"></h3><div data-sec="proxy"></div></section>
+      <section><h3 data-t="settings.skin"></h3><div data-sec="skin"></div></section>
       <section><h3 data-t="ui.extensions"></h3><div data-sec="slots"></div></section>
       <section><h3 data-t="admin.settings"></h3><div data-sec="settings"></div></section>
     </div>`
@@ -228,6 +230,8 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       box.innerHTML = job.render(result.value, services)
     }
     await renderLlmServices(host, services)
+    await renderProxySection(host, services)
+    await renderSkinSection(host, services)
     await renderExtensionSlots(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length}`
   }
@@ -239,6 +243,16 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     if (action === 'refresh') { void load(); return }
     if (action === 'add-provider') {
       void submitProvider(host, services)
+      return
+    }
+    if (action === 'save-proxy') {
+      void submitProxy(host, services)
+      return
+    }
+    if (action === 'reload-skin') {
+      void applyCustomSkin(services).then(applied => {
+        services.notice(applied ? services.t('settings.skin.applied') : services.t('settings.skin.empty'))
+      })
       return
     }
     const slotButton = target.closest<HTMLButtonElement>('button[data-slot-endpoint]')
@@ -327,12 +341,59 @@ async function submitProvider(host: HTMLElement, services: PanelServices): Promi
       },
     }],
   })
-  const saved = await safeCall(() => services.transport.call('ghostUI/providersSave' as never, { providers } as never))
+  const saved = await safeCall(() => services.transport.call('ghostUI/providersSave' as never, { input: { providers } } as never))
   if (!saved.ok) {
     services.notice(saved.reason)
     return
   }
   services.notice(services.t('settings.llmServices.saved'))
+}
+
+/** 网络代理区：填 http/https/noProxy，交给宿主插件校验并落盘（重启宿主后生效）。 */
+async function renderProxySection(host: HTMLElement, services: PanelServices): Promise<void> {
+  const box = host.querySelector<HTMLElement>('[data-sec="proxy"]')
+  if (box === null) return
+  const result = await safeCall(() => services.transport.call('ghostUI/proxy' as never, {} as never))
+  if (!result.ok) {
+    box.innerHTML = unavailableHtml(services.t('common.unavailable'), result.reason)
+    return
+  }
+  const raw = record(result.value)
+  const proxy = record(raw.proxy)
+  const errors = asList(raw.errors).map(item => String(item))
+  box.innerHTML = `<div class="lrow">
+      <input data-proxy="http" placeholder="http://proxy:port" value="${escapeHtml(String(proxy.http ?? ''))}" />
+      <input data-proxy="https" placeholder="https://proxy:port" value="${escapeHtml(String(proxy.https ?? ''))}" />
+      <input data-proxy="noProxy" placeholder="no_proxy（逗号分隔）" value="${escapeHtml(String(proxy.noProxy ?? ''))}" />
+      <button data-act="save-proxy" data-t="settings.proxy.save"></button></div>`
+    + (errors.length === 0 ? '' : `<div class="empty">${escapeHtml(errors.join('；'))}</div>`)
+    + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.proxy.hint'))}</span></div>`
+}
+
+/** 提交代理配置。 */
+async function submitProxy(host: HTMLElement, services: PanelServices): Promise<void> {
+  const read = (key: string): string => host.querySelector<HTMLInputElement>(`[data-proxy="${key}"]`)?.value.trim() ?? ''
+  const saved = await safeCall(() => services.transport.call('ghostUI/proxySave' as never, {
+    input: { proxy: { http: read('http'), https: read('https'), noProxy: read('noProxy') } },
+  } as never))
+  if (!saved.ok) {
+    services.notice(saved.reason)
+    return
+  }
+  services.notice(services.t('settings.proxy.saved'))
+}
+
+/** 自定义皮肤区：告诉用户放哪、怎么改，以及重新加载。 */
+async function renderSkinSection(host: HTMLElement, services: PanelServices): Promise<void> {
+  const box = host.querySelector<HTMLElement>('[data-sec="skin"]')
+  if (box === null) return
+  const result = await safeCall(() => services.transport.call('ghostUI/customCss' as never, {} as never))
+  const css = result.ok ? String(record(result.value).css ?? '') : ''
+  const vars = [...css.matchAll(/(--[a-z-]+)\s*:/g)].map(match => match[1] ?? '').filter(name => name !== '')
+  box.innerHTML = `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.skin.hint'))}</span></div>`
+    + (vars.length === 0 ? '' : `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
+        <span class="ldetail">${escapeHtml(vars.join('、'))}</span></div>`)
+    + `<div class="lrow"><button data-act="reload-skin" data-t="settings.skin.reload"></button></div>`
 }
 
 /** 扩展插槽区：把 settings.sections 插槽渲染到设置页。 */

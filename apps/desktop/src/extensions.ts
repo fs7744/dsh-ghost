@@ -129,3 +129,22 @@ export function mountExtensionPanel(
   })
   return { refresh: load }
 }
+
+/**
+ * 应用用户自定义皮肤：把 `.ghost/ui/custom.css` 的内容注入成一个 <style>。
+ * 皮肤就是一组 CSS 变量（--surface-*、--accent…），覆盖它们即可换肤。
+ */
+export async function applyCustomSkin(services: PanelServices): Promise<boolean> {
+  const result = await safeCall(() => services.transport.call('ghostUI/customCss' as never, {} as never))
+  if (!result.ok) return false
+  const css = typeof record(result.value).css === 'string' ? String(record(result.value).css) : ''
+  if (typeof document === 'undefined') return false
+  let style = document.getElementById('custom-skin') as HTMLStyleElement | null
+  if (style === null) {
+    style = document.createElement('style')
+    style.id = 'custom-skin'
+    document.head.appendChild(style)
+  }
+  style.textContent = css
+  return css.trim() !== ''
+}

@@ -73,9 +73,11 @@ test('normalizeTheme / toggleThemeValue 暗色优先', () => {
   assert.equal(normalizeTheme('light'), 'light')
   assert.equal(normalizeTheme('dark'), 'dark')
   assert.equal(normalizeTheme(undefined), 'dark')
+  assert.equal(normalizeTheme('system'), 'system')
+  assert.equal(toggleThemeValue('light'), 'system')
+  assert.equal(toggleThemeValue('system'), 'dark')
   assert.equal(normalizeTheme('weird'), 'dark')
   assert.equal(toggleThemeValue('dark'), 'light')
-  assert.equal(toggleThemeValue('light'), 'dark')
 })
 
 test('applyTheme / toggleTheme 在无 DOM 环境也安全更新状态', () => {

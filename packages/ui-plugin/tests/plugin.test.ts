@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 // src 里有装饰器语法，先编译再测。
-import { readPanels, readSlots, saveProviders } from '../lib/index.js'
+import { readCustomCss, readPanels, readProxy, readSlots, saveProviders, saveProxy } from '../lib/index.js'
 
 const tempRoot = () => mkdtemp(join(tmpdir(), 'ghost-ui-'))
 
@@ -53,4 +53,24 @@ test('LLM 服务：校验通过才写盘，明文密钥类的配置被拒', asyn
   ] as never)
   assert.equal(bad.ok, false)
   assert.ok(bad.errors.length >= 3)
+})
+
+test('网络代理：只认 http(s) 地址，非法值不落盘', async () => {
+  const root = await tempRoot()
+  const bad = saveProxy(root, { http: 'ftp://proxy', https: 'not a url' })
+  assert.equal(bad.ok, false)
+  assert.equal(bad.errors.length, 2)
+
+  const good = saveProxy(root, { http: 'http://127.0.0.1:7890', noProxy: 'localhost,127.0.0.1' })
+  assert.equal(good.ok, true)
+  const read = readProxy(root)
+  assert.equal(read.http, 'http://127.0.0.1:7890')
+  assert.equal(read.noProxy, 'localhost,127.0.0.1')
+})
+
+test('自定义皮肤：读 .ghost/ui/custom.css，没有就是空', async () => {
+  const root = await tempRoot()
+  assert.equal(readCustomCss(root), '')
+  await writeFile(join(root, 'custom.css'), ':root{--accent:#ff0000;}')
+  assert.match(readCustomCss(root), /--accent:#ff0000/)
 })

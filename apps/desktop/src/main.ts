@@ -30,7 +30,7 @@ import { mountSuperagentPanel } from './superagent-panel.ts'
 import { mountApprovalLayer, type ApprovalLayer } from './approval.ts'
 import { mountAttachmentTools, type AttachmentTools } from './attachments.ts'
 import { renderContextBar } from './context-bar.ts'
-import { invokeSlot, loadExtensions, mountExtensionPanel, slotButtons } from './extensions.ts'
+import { applyCustomSkin, invokeSlot, loadExtensions, mountExtensionPanel, slotButtons } from './extensions.ts'
 
 type Transport = ReturnType<typeof createTransport>
 
@@ -534,6 +534,8 @@ async function main(): Promise<void> {
   // 用户扩展：放 JSON 就能多出页签 / 往聊天工具栏注入按钮（不改我们的代码）。
   const panelServices = services
   const extensions = await loadExtensions(panelServices)
+  // 用户自定义皮肤：.ghost/ui/custom.css 覆盖 CSS 变量即可换肤。
+  await applyCustomSkin(panelServices)
   const extensionDefs = extensions.panels.map(manifest => ({
     id: `ext-${manifest.id}`,
     labelKey: 'tab.extensions',

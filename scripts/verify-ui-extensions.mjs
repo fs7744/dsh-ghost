@@ -9,7 +9,7 @@
  */
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { boot, stop, login, createTransport } from './lib-driver.mjs'
+import { boot, stop, login, createTransport, readProxyEnv } from './lib-driver.mjs'
 
 const REPO = join(import.meta.dirname, '..')
 const UI_ROOT = join(REPO, '.ghost', 'ui')
@@ -45,6 +45,10 @@ try {
     endpoint: 'ghostTickets/list',
     args: {},
   }))
+  writeFileSync(join(UI_ROOT, 'custom.css'), ':root { --accent: #ff0000; }\n')
+  writeFileSync(join(UI_ROOT, 'proxy.json'), JSON.stringify({
+    http: 'http://127.0.0.1:7890', noProxy: 'localhost',
+  }))
   writeFileSync(PROVIDERS_FILE, JSON.stringify([{
     id: 'demo-local',
     displayName: 'Demo Local',
@@ -76,6 +80,17 @@ try {
     const providers = await transport.call('ghostUI/providers', {}).catch(error => ({ error: String(error) }))
     const providerList = Array.isArray(providers?.providers) ? providers.providers : []
     check(providerList.some(provider => provider.id === 'demo-local'), 'ghostUI/providers 读到了登记的 LLM 服务')
+
+    const css = await transport.call('ghostUI/customCss', {}).catch(() => undefined)
+    check(String(css?.css ?? '').includes('--accent'), 'ghostUI/customCss 读到了用户放的自定义皮肤')
+
+    const proxySaved = await transport.call('ghostUI/proxySave', {
+      input: { proxy: { http: 'http://127.0.0.1:7890', noProxy: 'localhost' } },
+    }).catch(() => undefined)
+    check(proxySaved?.ok === true, 'ghostUI/proxySave 接受了合法的代理配置')
+    const proxyEnv = readProxyEnv(UI_ROOT)
+    check(proxyEnv.HTTP_PROXY === 'http://127.0.0.1:7890' && proxyEnv.NO_PROXY === 'localhost',
+      '代理配置被翻译成宿主进程要的 env（HTTP_PROXY / NO_PROXY）')
 
     const catalog = await transport.call('session/modelCatalog', {}).catch(() => undefined)
     const groups = Array.isArray(catalog?.groups) ? catalog.groups : []

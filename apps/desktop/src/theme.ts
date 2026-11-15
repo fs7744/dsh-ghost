@@ -6,17 +6,32 @@
  * 并做环境判断，模块顶层不碰浏览器 API。
  */
 
-export type Theme = 'dark' | 'light'
+export type Theme = 'dark' | 'light' | 'system'
 
 const STORAGE_KEY = 'dsh-ghost.theme'
 
-/** 任意值归一化：只有显式 'light' 才是浅色，其它一律暗色（暗色优先）。 */
+/** 任意值归一化：'light' / 'system' 认，其它一律暗色（暗色优先）。 */
 export function normalizeTheme(value: unknown): Theme {
-  return value === 'light' ? 'light' : 'dark'
+  if (value === 'light') return 'light'
+  if (value === 'system') return 'system'
+  return 'dark'
 }
 
+/** 按钮循环：暗色 → 浅色 → 跟随系统 → 暗色。 */
 export function toggleThemeValue(current: Theme): Theme {
-  return current === 'dark' ? 'light' : 'dark'
+  if (current === 'dark') return 'light'
+  if (current === 'light') return 'system'
+  return 'dark'
+}
+
+/** 跟随系统时，解析成实际用的亮/暗。 */
+export function resolveTheme(theme: Theme): 'dark' | 'light' {
+  if (theme !== 'system') return theme
+  try {
+    return globalThis.matchMedia?.('(prefers-color-scheme: light)')?.matches === true ? 'light' : 'dark'
+  } catch {
+    return 'dark'
+  }
 }
 
 let current: Theme = 'dark'
@@ -32,7 +47,7 @@ function storage(): Storage | undefined {
 
 function applyBodyClass(theme: Theme): void {
   if (typeof document === 'undefined' || document.body === null) return
-  document.body.classList.toggle('theme-light', theme === 'light')
+  document.body.classList.toggle('theme-light', resolveTheme(theme) === 'light')
 }
 
 export function getTheme(): Theme {
@@ -42,6 +57,13 @@ export function getTheme(): Theme {
 export function applyTheme(theme: Theme): void {
   current = theme
   applyBodyClass(theme)
+  // 跟随系统：系统切换时界面也跟着切。
+  if (theme === 'system') {
+    try {
+      const query = globalThis.matchMedia?.('(prefers-color-scheme: light)')
+      query?.addEventListener?.('change', () => applyBodyClass('system'))
+    } catch { /* 没有 matchMedia 就算了 */ }
+  }
   try {
     storage()?.setItem(STORAGE_KEY, theme)
   } catch {

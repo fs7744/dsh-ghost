@@ -69,6 +69,70 @@ const readJsonFiles = (dir: string): unknown[] => {
 }
 
 const PROVIDERS_FILE = 'providers.json'
+const PROXY_FILE = 'proxy.json'
+const CUSTOM_CSS_FILE = 'custom.css'
+
+/** 代理配置（空值表示不用代理）。 */
+export interface ProxyConfig {
+  http?: string
+  https?: string
+  noProxy?: string
+}
+
+/** 校验代理地址；空字符串表示「这一项不设」。非 http(s) 一律拒。 */
+export function validateProxy(config: ProxyConfig): string[] {
+  const errors: string[] = []
+  for (const key of ['http', 'https'] as const) {
+    const value = config[key]
+    if (value === undefined || value === '') continue
+    if (typeof value !== 'string' || !/^https?:\/\/[^\s]+$/.test(value)) {
+      errors.push(`${key} 必须是 http(s) 地址`)
+    }
+  }
+  if (config.noProxy !== undefined && config.noProxy !== '' && typeof config.noProxy !== 'string') {
+    errors.push('noProxy 必须是字符串（逗号分隔的主机列表）')
+  }
+  return errors
+}
+
+/** 读代理配置（纯函数）。 */
+export function readProxy(root: string): ProxyConfig {
+  const target = join(root, PROXY_FILE)
+  if (!existsSync(target)) return {}
+  try {
+    const parsed = JSON.parse(readFileSync(target, 'utf8')) as ProxyConfig
+    return typeof parsed === 'object' && parsed !== null ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+/** 写代理配置：校验后原子落盘（纯函数）。 */
+export function saveProxy(root: string, config: ProxyConfig): { ok: boolean; errors: string[] } {
+  const errors = validateProxy(config)
+  if (errors.length > 0) return { ok: false, errors }
+  try {
+    mkdirSync(root, { recursive: true })
+    const target = join(root, PROXY_FILE)
+    const temporary = `${target}.tmp`
+    writeFileSync(temporary, `${JSON.stringify(config, null, 2)}\n`)
+    renameSync(temporary, target)
+    return { ok: true, errors: [] }
+  } catch (error) {
+    return { ok: false, errors: [String(error)] }
+  }
+}
+
+/** 读用户自定义皮肤 CSS（纯函数）。没有文件就返回空串。 */
+export function readCustomCss(root: string): string {
+  const target = join(root, CUSTOM_CSS_FILE)
+  if (!existsSync(target)) return ''
+  try {
+    return readFileSync(target, 'utf8')
+  } catch {
+    return ''
+  }
+}
 
 /** 读面板清单（纯函数，测试直接用）。 */
 export function readPanels(root: string): { panels: PanelManifest[]; errors: Array<{ id: string; errors: string[] }> } {
@@ -134,6 +198,26 @@ export class GhostUiRemote extends TypertRemoteService {
   @Remote('providers')
   providers(input: { root?: string }): { providers: ProviderSpec[]; errors: string[] } {
     return readProviders(input?.root ?? currentRoot)
+  }
+
+  /** 代理配置：读取。 */
+  @Remote('proxy')
+  proxy(input: { root?: string }): { proxy: ProxyConfig; errors: string[] } {
+    const config = readProxy(input?.root ?? currentRoot)
+    return { proxy: config, errors: validateProxy(config) }
+  }
+
+  /** 代理配置：保存（校验通过才写盘）。 */
+  @Remote('proxySave')
+  proxySave(input: { proxy: ProxyConfig; root?: string }): { ok: boolean; errors: string[] } {
+    const config = input?.proxy ?? {}
+    return saveProxy(input?.root ?? currentRoot, config)
+  }
+
+  /** 用户自定义皮肤 CSS（覆盖 CSS 变量即可换肤）。 */
+  @Remote('customCss')
+  customCss(input: { root?: string }): { css: string } {
+    return { css: readCustomCss(input?.root ?? currentRoot) }
   }
 
   /**

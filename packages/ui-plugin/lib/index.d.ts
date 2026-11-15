@@ -28,6 +28,23 @@ export interface UiExtensionSnapshot {
 export declare function registerPanel(manifest: PanelManifest): void;
 /** 编程注册一条插槽贡献（其它插件用）。 */
 export declare function registerSlot(slot: SlotContribution): void;
+/** 代理配置（空值表示不用代理）。 */
+export interface ProxyConfig {
+    http?: string;
+    https?: string;
+    noProxy?: string;
+}
+/** 校验代理地址；空字符串表示「这一项不设」。非 http(s) 一律拒。 */
+export declare function validateProxy(config: ProxyConfig): string[];
+/** 读代理配置（纯函数）。 */
+export declare function readProxy(root: string): ProxyConfig;
+/** 写代理配置：校验后原子落盘（纯函数）。 */
+export declare function saveProxy(root: string, config: ProxyConfig): {
+    ok: boolean;
+    errors: string[];
+};
+/** 读用户自定义皮肤 CSS（纯函数）。没有文件就返回空串。 */
+export declare function readCustomCss(root: string): string;
 /** 读面板清单（纯函数，测试直接用）。 */
 export declare function readPanels(root: string): {
     panels: PanelManifest[];
@@ -84,6 +101,27 @@ export declare class GhostUiRemote extends TypertRemoteService {
     }): {
         providers: ProviderSpec[];
         errors: string[];
+    };
+    /** 代理配置：读取。 */
+    proxy(input: {
+        root?: string;
+    }): {
+        proxy: ProxyConfig;
+        errors: string[];
+    };
+    /** 代理配置：保存（校验通过才写盘）。 */
+    proxySave(input: {
+        proxy: ProxyConfig;
+        root?: string;
+    }): {
+        ok: boolean;
+        errors: string[];
+    };
+    /** 用户自定义皮肤 CSS（覆盖 CSS 变量即可换肤）。 */
+    customCss(input: {
+        root?: string;
+    }): {
+        css: string;
     };
     /**
      * 登记 LLM 服务：先过校验，再原子写盘。

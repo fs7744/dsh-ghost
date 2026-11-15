@@ -20,6 +20,7 @@ import { createSafeStorage } from './electron-safe-storage.ts'
 import { configureUpdater } from './electron-updater.ts'
 import { startStaticServer, type StaticServer } from './electron-static.ts'
 import { createHostLauncher } from './electron-host-launcher.ts'
+import { readProxyEnv } from './proxy-env.ts'
 import {
   createClock, createSleeper, createFs, createLogger, createPortAllocator, createHealthProbe,
 } from './electron-platform.ts'
@@ -316,6 +317,8 @@ async function main(): Promise<void> {
       env: {
         WB_BASE_URL: process.env['WB_BASE_URL'] ?? '',
         WB_MODEL: process.env['WB_MODEL'] ?? '',
+        // 用户在界面里登记的代理：宿主 dsh-http-proxy 读这些 env。
+        ...readProxyEnv(config.workspaceDir !== '' ? config.workspaceDir : join(paths.userData, 'workspace')),
       },
     }),
     probe: createHealthProbe(),

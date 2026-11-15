@@ -81,6 +81,66 @@ const readJsonFiles = (dir) => {
     return out;
 };
 const PROVIDERS_FILE = 'providers.json';
+const PROXY_FILE = 'proxy.json';
+const CUSTOM_CSS_FILE = 'custom.css';
+/** 校验代理地址；空字符串表示「这一项不设」。非 http(s) 一律拒。 */
+export function validateProxy(config) {
+    const errors = [];
+    for (const key of ['http', 'https']) {
+        const value = config[key];
+        if (value === undefined || value === '')
+            continue;
+        if (typeof value !== 'string' || !/^https?:\/\/[^\s]+$/.test(value)) {
+            errors.push(`${key} 必须是 http(s) 地址`);
+        }
+    }
+    if (config.noProxy !== undefined && config.noProxy !== '' && typeof config.noProxy !== 'string') {
+        errors.push('noProxy 必须是字符串（逗号分隔的主机列表）');
+    }
+    return errors;
+}
+/** 读代理配置（纯函数）。 */
+export function readProxy(root) {
+    const target = join(root, PROXY_FILE);
+    if (!existsSync(target))
+        return {};
+    try {
+        const parsed = JSON.parse(readFileSync(target, 'utf8'));
+        return typeof parsed === 'object' && parsed !== null ? parsed : {};
+    }
+    catch {
+        return {};
+    }
+}
+/** 写代理配置：校验后原子落盘（纯函数）。 */
+export function saveProxy(root, config) {
+    const errors = validateProxy(config);
+    if (errors.length > 0)
+        return { ok: false, errors };
+    try {
+        mkdirSync(root, { recursive: true });
+        const target = join(root, PROXY_FILE);
+        const temporary = `${target}.tmp`;
+        writeFileSync(temporary, `${JSON.stringify(config, null, 2)}\n`);
+        renameSync(temporary, target);
+        return { ok: true, errors: [] };
+    }
+    catch (error) {
+        return { ok: false, errors: [String(error)] };
+    }
+}
+/** 读用户自定义皮肤 CSS（纯函数）。没有文件就返回空串。 */
+export function readCustomCss(root) {
+    const target = join(root, CUSTOM_CSS_FILE);
+    if (!existsSync(target))
+        return '';
+    try {
+        return readFileSync(target, 'utf8');
+    }
+    catch {
+        return '';
+    }
+}
 /** 读面板清单（纯函数，测试直接用）。 */
 export function readPanels(root) {
     const result = normalizePanels([...readJsonFiles(join(root, 'panels')), ...registeredPanels]);
@@ -130,6 +190,9 @@ let GhostUiRemote = (() => {
     let _panels_decorators;
     let _slots_decorators;
     let _providers_decorators;
+    let _proxy_decorators;
+    let _proxySave_decorators;
+    let _customCss_decorators;
     let _providersSave_decorators;
     return class GhostUiRemote extends _classSuper {
         static {
@@ -137,10 +200,16 @@ let GhostUiRemote = (() => {
             _panels_decorators = [Remote('panels')];
             _slots_decorators = [Remote('slots')];
             _providers_decorators = [Remote('providers')];
+            _proxy_decorators = [Remote('proxy')];
+            _proxySave_decorators = [Remote('proxySave')];
+            _customCss_decorators = [Remote('customCss')];
             _providersSave_decorators = [Remote('providersSave')];
             __esDecorate(this, null, _panels_decorators, { kind: "method", name: "panels", static: false, private: false, access: { has: obj => "panels" in obj, get: obj => obj.panels }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _slots_decorators, { kind: "method", name: "slots", static: false, private: false, access: { has: obj => "slots" in obj, get: obj => obj.slots }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _providers_decorators, { kind: "method", name: "providers", static: false, private: false, access: { has: obj => "providers" in obj, get: obj => obj.providers }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _proxy_decorators, { kind: "method", name: "proxy", static: false, private: false, access: { has: obj => "proxy" in obj, get: obj => obj.proxy }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _proxySave_decorators, { kind: "method", name: "proxySave", static: false, private: false, access: { has: obj => "proxySave" in obj, get: obj => obj.proxySave }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _customCss_decorators, { kind: "method", name: "customCss", static: false, private: false, access: { has: obj => "customCss" in obj, get: obj => obj.customCss }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _providersSave_decorators, { kind: "method", name: "providersSave", static: false, private: false, access: { has: obj => "providersSave" in obj, get: obj => obj.providersSave }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
@@ -159,6 +228,20 @@ let GhostUiRemote = (() => {
         /** 已登记的 LLM 服务（provider 规格）。 */
         providers(input) {
             return readProviders(input?.root ?? currentRoot);
+        }
+        /** 代理配置：读取。 */
+        proxy(input) {
+            const config = readProxy(input?.root ?? currentRoot);
+            return { proxy: config, errors: validateProxy(config) };
+        }
+        /** 代理配置：保存（校验通过才写盘）。 */
+        proxySave(input) {
+            const config = input?.proxy ?? {};
+            return saveProxy(input?.root ?? currentRoot, config);
+        }
+        /** 用户自定义皮肤 CSS（覆盖 CSS 变量即可换肤）。 */
+        customCss(input) {
+            return { css: readCustomCss(input?.root ?? currentRoot) };
         }
         /**
          * 登记 LLM 服务：先过校验，再原子写盘。

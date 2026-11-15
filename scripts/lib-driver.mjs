@@ -24,6 +24,34 @@ export function renderPatch() {
 }
 
 /**
+ * 读用户在界面里登记的代理配置，转成宿主进程要用的 env。
+ * 文件在 `.ghost/ui/proxy.json`（由 ghost-ui 插件写入，校验过才落盘）。
+ */
+export function readProxyEnv(root = join(REPO, '.ghost', 'ui')) {
+  const file = join(root, 'proxy.json')
+  if (!existsSync(file)) return {}
+  try {
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    const env = {}
+    if (typeof parsed?.http === 'string' && parsed.http !== '') {
+      env.HTTP_PROXY = parsed.http
+      env.http_proxy = parsed.http
+    }
+    if (typeof parsed?.https === 'string' && parsed.https !== '') {
+      env.HTTPS_PROXY = parsed.https
+      env.https_proxy = parsed.https
+    }
+    if (typeof parsed?.noProxy === 'string' && parsed.noProxy !== '') {
+      env.NO_PROXY = parsed.noProxy
+      env.no_proxy = parsed.noProxy
+    }
+    return env
+  } catch {
+    return {}
+  }
+}
+
+/**
  * 把用户在界面里登记的 LLM 服务渲染成 profile 的 providers 片段。
  * 读 `.ghost/ui/providers.json`（由 ghost-ui 插件写入，校验过才落盘）。
  */
@@ -101,6 +129,8 @@ export async function boot(options = {}) {
   // headless 验收是无人值守：审批请求必须立即被拒，否则模型回合会卡在 approval/asked。
   // 桌面 UI 显式传 'workspace-write'，保留人工审批闸门。
   process.env.DSH_PERMISSION_MODE = permissionMode ?? 'danger-full-access'
+  // 用户在界面里登记的代理：注入宿主进程 env（宿主 dsh-http-proxy 会读它们）。
+  Object.assign(process.env, readProxyEnv())
   lastProfile = rest.profile ?? 'p05'
   syncPlugins(lastProfile)
   writePatch(lastProfile, patch ?? renderPatch())
