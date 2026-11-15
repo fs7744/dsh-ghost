@@ -20,7 +20,7 @@
 | `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已验通模型侧可见并被调用** |
 | `superagent` | 领域核心（15 文件，零 harness 依赖）；**状态机 10 + 引擎 15 个用例** |
 | **真模型验证** | 真实模型（hy3）自己调用 `memory_write` 写入记忆，11.3s 完成 |
-| `apps/desktop` | 第一屏：会话树 + 剧本流程图（SVG）+ 节点详情；`npm run dev:ui` 打开 |
+| `apps/desktop` | 会话树 + **对话（可发送、真实模型回复）** + 剧本流程图；`npm run dev:ui` 打开 |
 
 ## 文档
 
@@ -56,7 +56,7 @@ npm run verify:auth                 # 安全边界：401 / 伪造 Cookie / 非�
 npm run verify:commands             # 斜杠命令：commands/list + commands/execute
 npm run check:secrets               # 扫描受版本控制的文件里有没有密钥
 
-npm run dev:ui                      # 起 harness + 前端，打印带 token 的地址（第一屏）
+npm run dev:ui                      # 起 harness + 前端（会自动读 .env），打印带 token 的地址
 ```
 
 `spikes/p05-transport/` 里有一份已安装的 `@deepseek-ai/dsh`（1.3GB，已被 gitignore），

@@ -7,3 +7,4 @@ out/
 .dsh/
 .ghost/
 .env
+dist/

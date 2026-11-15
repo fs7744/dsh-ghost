@@ -5,11 +5,20 @@
  * 关掉这个进程（Ctrl+C）时，harness 子进程一起退出。
  */
 import { spawn } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { boot, stop } from '../spikes/p05-transport/lib/harness-client.mjs'
 
 const REPO = join(import.meta.dirname, '..')
+
+// 读 .env：harness 子进程要拿到 WB_KEY 才会把 wb provider 视为可路由
+const envFile = join(REPO, '.env')
+if (existsSync(envFile)) {
+  for (const line of readFileSync(envFile, 'utf8').split('\n')) {
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim())
+    if (match !== null && process.env[match[1]] === undefined) process.env[match[1]] = match[2]
+  }
+}
 const server = await boot({ profile: 'p05', fromDefault: false, timeoutMs: 150_000 })
 const token = new URL(server.url).searchParams.get('token')
 process.stdout.write(`harness  ${server.url.replace(/token=[\w.-]+/, 'token=***')}\n`)
