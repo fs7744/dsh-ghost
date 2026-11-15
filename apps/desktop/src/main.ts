@@ -12,6 +12,8 @@ import { isCommandLine, parseSlash, toCommandItems, type CommandItem } from './p
 import { toBubbles, type Bubble, type LogRecord } from './session-log.ts'
 import { downloadText, exportFilename, exportJsonl, exportMarkdown } from './export.ts'
 import { findRewindPoints, forkRequest, rewindLabel, type RewindPoint } from './rewind.ts'
+import { mountMemoryPanel, type MemoryHost, type MemoryWriteResult } from './memory-panel.ts'
+import type { MemoryEntry } from './memory-view.ts'
 
 type Transport = ReturnType<typeof createTransport>
 
@@ -22,6 +24,7 @@ app.innerHTML = `
     <nav id="tabs">
       <button data-tab="chat" class="on">对话</button>
       <button data-tab="flow">剧本</button>
+      <button data-tab="memory">记忆</button>
     </nav>
     <span class="status" id="conn">连接中…</span>
     <nav class="exports">
@@ -40,6 +43,7 @@ app.innerHTML = `
       </div>
     </div>
     <div id="flow" class="pane hidden"><div id="canvas"></div></div>
+    <div id="memory" class="pane hidden"></div>
   </main>
   <div id="detail">
     <h2>票</h2><div id="tickets"><div class="id">加载中…</div></div>
@@ -385,8 +389,7 @@ async function main(): Promise<void> {
   el('tabs').querySelectorAll<HTMLButtonElement>('button').forEach(button => {
     button.addEventListener('click', () => {
       el('tabs').querySelectorAll('button').forEach(other => other.classList.toggle('on', other === button))
-      el('chat').classList.toggle('hidden', button.dataset.tab !== 'chat')
-      el('flow').classList.toggle('hidden', button.dataset.tab !== 'flow')
+      for (const id of ['chat', 'flow', 'memory']) el(id).classList.toggle('hidden', button.dataset.tab !== id)
     })
   })
   el('send').addEventListener('click', () => { void send() })
@@ -437,6 +440,36 @@ async function main(): Promise<void> {
     send: () => { void send() },
     notice: text => { el('f-state').textContent = text },
   })
+
+  // 记忆页：所有读写都走 ghostMemory/* Remote，界面不碰文件。
+  const memoryHost: MemoryHost = {
+    list: async () => {
+      const result = await state.transport!.call('ghostMemory/list' as never, {} as never)
+      return (result as { items?: MemoryEntry[] })?.items ?? []
+    },
+    read: async name => {
+      const result = await state.transport!.call('ghostMemory/read' as never, { input: { name } } as never)
+      return (result as { content?: string })?.content
+    },
+    write: async input => {
+      const result = await state.transport!.call('ghostMemory/write' as never, { input } as never)
+      return result as MemoryWriteResult
+    },
+    remove: async name => {
+      const result = await state.transport!.call('ghostMemory/remove' as never, { input: { name } } as never)
+      return (result as { removed?: boolean })?.removed === true
+    },
+    status: async () => {
+      const result = await state.transport!.call('ghostMemory/status' as never, {} as never)
+      return { enabled: (result as { enabled?: boolean })?.enabled !== false }
+    },
+    toggle: async enabled => {
+      const result = await state.transport!.call('ghostMemory/toggle' as never, { input: { enabled } } as never)
+      return { enabled: (result as { enabled?: boolean })?.enabled ?? enabled }
+    },
+    notice: text => { el('f-state').textContent = text },
+  }
+  mountMemoryPanel(el('memory'), memoryHost)
 
   const refresh = async (): Promise<void> => {
     try {

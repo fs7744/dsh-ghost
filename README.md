@@ -28,6 +28,7 @@
 | **命令面板（C11-01）** | 输入 `/` 浮出真实 `commands/list` 候选，搜索/补全/参数提示，斜杠命令绝不进模型消息 |
 | **会话导出（C11-06）** | 顶栏一键导出 Markdown（与界面视图一致）/ JSONL（原始日志不丢字段），命令执行记录可见 |
 | **回退（C11-05）** | 每条用户消息可 `session/fork` 出新会话，精确 `atSeq` 前缀，原会话不变、可撤销 |
+| **记忆界面（C10-03）** | 分组查看 / 逐条编辑 / 删除 / 总开关，走 `ghostMemory/*` Remote；与模型工具共用同一存储与写入门槛 |
 | **剧本编辑器（C9-04）** | 图 + 表单 + 源码三视图；增删节点/条件边/人闸/回退上限、改名、调顺序，编辑即回写 `.flow`，实时校验 + 导出 |
 | `apps/desktop` | 会话树 + 对话 + 工具卡片 + 上下文条 + 票列表/详情 + 剧本流程图与编辑器（全走 Remote） |
 
@@ -54,13 +55,14 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 npm run build                     # 编译各包到 lib/（纯 Node 可加载）
-npm test                          # 127 个用例（剧本/编辑器/命令面板/会话解析/导出/回退/记忆/插件/领域/持久化/GitHub 出入/信息源）
+npm test                          # 133 个用例（剧本/编辑器/命令面板/会话解析/导出/回退/记忆界面/记忆/插件/领域/持久化/GitHub 出入/信息源）
 npm run check:ui                  # 前端 tsc --noEmit（含 vite/client 类型）
 npm run build:ui                  # Vite 构建桌面渲染层
 npm run verify:playbook-editor    # 9 步编辑 → 文本回写 → 编译成 skill 包
 npm run verify:command-palette    # 真实宿主：命令清单 → 过滤 → 执行 → 不进模型消息
 npm run verify:session-export     # 真实宿主：session/page → Markdown / JSONL 落盘
 npm run verify:rewind             # 真实宿主：checkpoint → session/fork → 前缀新会话
+npm run verify:memory-ui          # 真实宿主：ghostMemory/* 读/写/删 + 总开关
 
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill              # 确认 harness 的 skills/list 里能看到它

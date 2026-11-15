@@ -22,9 +22,10 @@
     "test:session-log": "node --test --experimental-transform-types apps/desktop/tests/session-log.test.ts",
     "test:export": "node --test --experimental-transform-types apps/desktop/tests/export.test.ts",
     "test:rewind": "node --test --experimental-transform-types apps/desktop/tests/rewind.test.ts",
+    "test:memory-view": "node --test --experimental-transform-types apps/desktop/tests/memory-view.test.ts",
     "test:memory": "node --test --experimental-transform-types packages/memory/tests/memory.test.ts",
-    "test": "npm run test:playbook && npm run test:edit && npm run test:palette && npm run test:session-log && npm run test:export && npm run test:rewind && npm run test:memory && npm run test:plugin && npm run test:core && npm run test:github && npm run test:sink && npm run test:hub",
-    "test:plugin": "node --test --experimental-transform-types packages/memory-plugin/tests/plugin.test.ts",
+    "test": "npm run test:playbook && npm run test:edit && npm run test:palette && npm run test:session-log && npm run test:export && npm run test:rewind && npm run test:memory-view && npm run test:memory && npm run test:plugin && npm run test:core && npm run test:github && npm run test:sink && npm run test:hub",
+    "test:plugin": "tsc -p packages/memory-plugin/tsconfig.build.json && node --test --experimental-transform-types packages/memory-plugin/tests/plugin.test.ts",
     "build": "tsc -p packages/memory/tsconfig.build.json && tsc -p packages/superagent/tsconfig.build.json && tsc -p packages/source-github/tsconfig.build.json && tsc -p packages/source-hub/tsconfig.build.json && tsc -p packages/sink-github/tsconfig.build.json && tsc -p packages/memory-plugin/tsconfig.build.json && tsc -p packages/orchestrator-plugin/tsconfig.build.json",
     "smoke:plugin": "node scripts/smoke-built-plugin.mjs",
     "verify:plugin-boot": "node scripts/verify-plugin-boot.mjs",
@@ -51,7 +52,8 @@
     "check:ui": "tsc --noEmit -p apps/desktop/tsconfig.json",
     "verify:command-palette": "node --experimental-transform-types scripts/verify-command-palette.mjs",
     "verify:session-export": "node --experimental-transform-types scripts/verify-session-export.mjs",
-    "verify:rewind": "node --experimental-transform-types scripts/verify-rewind.mjs"
+    "verify:rewind": "node --experimental-transform-types scripts/verify-rewind.mjs",
+    "verify:memory-ui": "node --experimental-transform-types scripts/verify-memory-ui.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3",

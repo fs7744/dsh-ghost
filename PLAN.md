@@ -368,6 +368,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **决策：记忆是文件，不是数据库；常驻的必须极小；写入有门槛；人永远能看见和删掉。**
 
+**记忆界面已落地（C10-03）**：`memory-plugin` 新增 `ghostMemory/*` Remote，桌面端第三个标签页做分组查看、逐条编辑 / 删除与总开关。模型工具与界面共用同一个 `MemoryStore` 和写入门槛；总开关落盘 `<root>/settings.json`，关闭后两侧都写不进去、已写的仍可读可删。`npm run verify:memory-ui` 在真实宿主上验通整条链，详见 [docs/MEMORY.md](docs/MEMORY.md) §7。
+
 四层：
 
 | 层 | 存什么 | 存哪 | 谁写 | 何时进上下文 |

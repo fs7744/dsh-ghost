@@ -94,3 +94,14 @@
 | 脚本输出 | | 40–80 / 次 |
 
 按 5 个剧本 + 1 个用户记忆块算，常驻约 **750 token**。这比"把所有流程和约定写进系统提示"（通常数千 token）小一个数量级。
+
+## 7. 记忆界面与总开关（C10-03 已落地）
+
+界面**不直接读文件**：`memory-plugin` 注册 `ghostMemory/list|read|write|remove|status|toggle` Remote，
+与模型的 `memory_*` 工具共用同一个 `MemoryStore` 和写入门槛，所以「模型记了什么」在界面里一定看得到。
+
+- **分组查看**：按 `updated` 分「今天 / 近 7 天 / 更早 / 未标注时间」，组内按名称排序；正文按需读取。
+- **逐条编辑 / 删除**：编辑复用 `write`（同名覆盖、`source: desktop-ui`），仍过 gate；删除同步索引。
+- **一个总开关**：落盘到 `<root>/settings.json`，宿主重启后仍生效。关闭后**模型侧 `memory_write` 与界面侧 `ghostMemory/write` 都被拒**，已写的仍可读、可删——它是「别再记新的」，不是「把记忆藏起来」。
+- 验收：`npm run verify:memory-ui`（真实宿主）、`npm run test:memory-view`（5 用例）、
+  `npm run test:plugin`（4 用例，含关闭后模型写不进去）。
