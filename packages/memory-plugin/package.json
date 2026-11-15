@@ -5,7 +5,10 @@
   "type": "module",
   "description": "Host plugin: exposes the three memory tools to every agent.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
   },
   "dependencies": {
     "@dsh-ghost/memory": "0.0.0"
@@ -16,5 +19,9 @@
   },
   "scripts": {
     "test": "node --test --experimental-strip-types tests/plugin.test.ts"
-  }
+  },
+  "files": [
+    "lib",
+    "src"
+  ]
 }

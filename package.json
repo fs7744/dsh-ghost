@@ -19,7 +19,10 @@
     "test:playbook": "node --test --experimental-strip-types packages/playbook/tests/playbook.test.ts",
     "test:memory": "node --test --experimental-strip-types packages/memory/tests/memory.test.ts",
     "test": "npm run test:playbook && npm run test:memory && npm run test:plugin",
-    "test:plugin": "node --test --experimental-strip-types packages/memory-plugin/tests/plugin.test.ts"
+    "test:plugin": "node --test --experimental-strip-types packages/memory-plugin/tests/plugin.test.ts",
+    "build": "tsc -p packages/memory/tsconfig.build.json && tsc -p packages/memory-plugin/tsconfig.build.json",
+    "smoke:plugin": "node scripts/smoke-built-plugin.mjs",
+    "verify:plugin-boot": "node scripts/verify-plugin-boot.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

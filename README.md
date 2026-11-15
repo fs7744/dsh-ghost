@@ -17,7 +17,7 @@
 | `harness-port` | 传输层（调用 + 事件），零 `@deepseek-ai` 依赖 |
 | `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返（15 个测试全绿） |
 | `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门 + 三个模型工具（10 个测试全绿） |
-| `memory-plugin` | 宿主插件：把三个记忆工具注册给所有 agent（3 个测试全绿） |
+| `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已在真实 harness 中装载验证** |
 
 ## 文档
 
@@ -44,6 +44,9 @@ npm run typecheck                 # tsc --noEmit
 npm test                            # 剧本 15 + 记忆 7 个用例
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill                # 确认 harness 的 skills/list 里能看到它
+npm run build                       # 编译成 lib/（纯 Node 可加载）
+npm run smoke:plugin                # 编译产物冒烟（不启 harness）
+npm run verify:plugin-boot          # 把插件挂进 profile 真启动一次
 ```
 
 `spikes/p05-transport/` 里有一份已安装的 `@deepseek-ai/dsh`（1.3GB，已被 gitignore），

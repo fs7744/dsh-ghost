@@ -7,6 +7,8 @@
  * 注册的是**全局工具**（所有 agent 可见）；如果以后要做"按 agent 隔离的记忆"，
  * 改为在 agent 作用域上注册即可，工具定义本身不用动。
  */
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
 import { MemoryStore, memoryTools, type JsonSchema } from '@dsh-ghost/memory'
@@ -65,6 +67,21 @@ export function apply(ctx: Context, config: Config): void {
         return { text: await tool.execute((args ?? {}) as Record<string, unknown>) }
       },
     }), `ghost-memory: ${tool.name}`)
+  }
+
+  // 自检文件：让"插件真的活着"可被外部观测（日志级别不可靠，文件不会骗人）。
+  // 同时它是排障入口：谁在什么时候、以什么配置加载了哪些工具。
+  try {
+    mkdirSync(config.root, { recursive: true })
+    writeFileSync(join(config.root, 'plugin-state.json'), JSON.stringify({
+      plugin: name,
+      tools: memoryTools(store).map(tool => tool.name),
+      mode: config.mode ?? 'indexed',
+      at: new Date().toISOString(),
+      pid: process.pid,
+    }, null, 2))
+  } catch {
+    // 自检文件写不了不该影响插件本身
   }
 }
 
