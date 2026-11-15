@@ -38,6 +38,7 @@ app.innerHTML = `
     <span id="f-sessions">— 个会话</span>
     <span id="f-records">— 条记录</span>
     <span id="f-events">— 个事件</span>
+    <span id="f-ctx" title="上下文占用"><span class="track"><span id="f-ctx-bar"></span></span><span id="f-ctx-num">—</span></span>
     <span id="f-state">—</span>
   </footer>
 `
@@ -59,12 +60,14 @@ const escapeHtml = (value: string): string =>
 type Bubble =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string; tool?: string }
-  | { kind: 'tool'; text: string }
+  | { kind: 'toolcall'; name: string; text: string }
+  | { kind: 'tool'; name: string; text: string }
   | { kind: 'note'; text: string }
 
 /** 从会话日志里抽出可显示的消息。 */
 function toBubbles(records: readonly LogRecord[]): Bubble[] {
   const bubbles: Bubble[] = []
+  const callNames = new Map<string, string>()
   for (const record of records) {
     const event = record.type === 'event' ? record.event : undefined
     if (event === undefined) continue
@@ -73,6 +76,12 @@ function toBubbles(records: readonly LogRecord[]): Bubble[] {
       content?: Array<{ type: string; text?: string }>
       result?: unknown
       reason?: { kind?: string }
+      callId?: string
+      id?: string
+      name?: string
+      arguments?: unknown
+      toolCallId?: string
+      message?: { content?: Array<{ type: string; text?: string }> }
     }
     if (event.type === 'user/message') {
       const text = (data.content ?? []).filter(part => part.type === 'text').map(part => part.text ?? '').join('\n')
@@ -82,14 +91,61 @@ function toBubbles(records: readonly LogRecord[]): Bubble[] {
       const text = parts.filter(part => part.type === 'text').map(part => part.text ?? '').join('')
       const tool = parts.find(part => part.type === 'tool-call')?.name
       if (text !== '' || tool !== undefined) bubbles.push({ kind: 'assistant', text, ...(tool === undefined ? {} : { tool }) })
+    } else if (event.type === 'tool/call') {
+      const callId = data.callId ?? data.id ?? ''
+      const name = String(data.name ?? 'tool')
+      callNames.set(callId, name)
+      bubbles.push({ kind: 'toolcall', name, text: summarize(parseMaybe(data.arguments)) })
     } else if (event.type === 'tool/result') {
-      bubbles.push({ kind: 'tool', text: JSON.stringify(data.result ?? data).slice(0, 400) })
+      const callId = data.callId ?? data.id ?? ''
+      const name = callNames.get(callId) ?? String(data.name ?? 'tool')
+      // 工具结果在 message.content[] 里；没有就退回原始 JSON
+      const parts = data.message?.content ?? []
+      const text = parts.filter(part => part.type === 'text').map(part => part.text ?? '').join('\n')
+      bubbles.push({ kind: 'tool', name, text: text === '' ? summarize(data, 600) : text.slice(0, 600) })
     } else if (event.type === 'turn/end') {
       const reason = data.reason?.kind
       if (reason !== undefined) bubbles.push({ kind: 'note', text: `回合结束（${reason}）` })
     }
   }
   return bubbles
+}
+
+/** 工具参数常是 JSON 字符串，尽量解析后展示。 */
+function parseMaybe(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return value }
+}
+
+/** 把任意值压成一小段可读文本。 */
+function summarize(value: unknown, limit = 240): string {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'string') return value.slice(0, limit)
+  try {
+    const text = JSON.stringify(value, null, 1)
+    if (text === undefined) return ''
+    // 工具参数里常见的长文本字段单独截断
+    return text.length > limit ? `${text.slice(0, limit)}…` : text
+  } catch {
+    return String(value).slice(0, limit)
+  }
+}
+
+/** 上下文占用条：projectedTokens / contextWindow。 */
+function renderProjections(projections: unknown): void {
+  const values = (projections as { values?: { contextPressure?: { projectedTokens?: number; contextWindow?: number }; tokenUsage?: { outputTokens?: number }; sessionStats?: { turns?: number; llmMs?: number } } })?.values
+  const pressure = values?.contextPressure
+  const bar = el('f-ctx-bar')
+  const num = el('f-ctx-num')
+  if (pressure?.projectedTokens === undefined || pressure.contextWindow === undefined) {
+    num.textContent = '—'
+    return
+  }
+  const ratio = Math.min(1, pressure.projectedTokens / pressure.contextWindow)
+  bar.style.width = `${(ratio * 100).toFixed(1)}%`
+  bar.style.background = ratio > 0.8 ? 'var(--danger)' : 'var(--accent)'
+  const turns = values?.sessionStats?.turns ?? 0
+  num.textContent = `${(pressure.projectedTokens / 1000).toFixed(1)}k / ${(pressure.contextWindow / 1000).toFixed(0)}k · ${turns} 回合`
 }
 
 function renderStream(bubbles: readonly Bubble[]): void {
@@ -100,7 +156,8 @@ function renderStream(bubbles: readonly Bubble[]): void {
   }
   stream.innerHTML = bubbles.map(bubble => {
     if (bubble.kind === 'note') return `<div class="note">${escapeHtml(bubble.text)}</div>`
-    if (bubble.kind === 'tool') return `<details class="tool"><summary>工具结果</summary><pre>${escapeHtml(bubble.text)}</pre></details>`
+    if (bubble.kind === 'toolcall') return `<div class="tcard call"><div class="thead">调用 ${escapeHtml(bubble.name)}</div><pre>${escapeHtml(bubble.text)}</pre></div>`
+    if (bubble.kind === 'tool') return `<div class="tcard result"><div class="thead">${escapeHtml(bubble.name)} 结果</div><pre>${escapeHtml(bubble.text)}</pre></div>`
     const who = bubble.kind === 'user' ? '你' : 'Ghost'
     const chip = bubble.kind === 'assistant' && bubble.tool !== undefined ? `<div class="chip">调用 ${escapeHtml(bubble.tool)}</div>` : ''
     return `<div class="msg ${bubble.kind}"><div class="who">${who}</div><div class="body">${escapeHtml(bubble.text) === '' ? '<i>（无文本）</i>' : escapeHtml(bubble.text)}</div>${chip}</div>`
@@ -181,6 +238,10 @@ async function openSession(sessionId: string): Promise<number> {
   const records = (page as { records?: LogRecord[] })?.records ?? []
   el('f-records').textContent = `${records.length} 条记录`
   renderStream(toBubbles(records))
+  try {
+    const projections = await transport.call('session/projections', { request: { sessionId } })
+    renderProjections(projections)
+  } catch { /* 投影读不到就不显示占用 */ }
   el('node').innerHTML = `<dl><dt>会话</dt><dd>${sessionId}</dd><dt>记录</dt><dd>${records.length}</dd></dl>`
   return records.length
 }
