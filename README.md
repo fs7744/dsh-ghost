@@ -18,9 +18,10 @@
 | `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返（15 个测试全绿） |
 | `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门 + 三个模型工具（10 个测试全绿） |
 | `memory-plugin` | 宿主插件：三个记忆工具注册给所有 agent；**已验通模型侧可见并被调用** |
+| `orchestrator-plugin` | 引擎常驻宿主：`ghost_ticket` 工具 + `ghostTickets/list` Remote + 持久化 |
 | `superagent` | 领域核心（16 文件，零 harness 依赖）；**30 个用例**；`npm run ticket` 跑真实工单闭环 |
 | **真模型验证** | 真实模型（hy3）自己调用 `memory_write` 写入记忆，11.3s 完成 |
-| `apps/desktop` | 会话树 + **对话（可发送、真实模型回复）** + 剧本流程图；`npm run dev:ui` 打开 |
+| `apps/desktop` | 会话树 + 对话（真模型）+ 工具卡片 + 上下文条 + 票列表（走 Remote）+ 剧本流程图 |
 
 ## 文档
 

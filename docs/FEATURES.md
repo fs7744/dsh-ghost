@@ -310,7 +310,8 @@ Windows NSIS / macOS dmg + 公证 / Linux AppImage / 更新通道与灰度 / 发
 ### 已知限制（不在 227 项里，但要记）
 
 - ~~票不持久化~~ → **已修**：`persisting(repo, file)` 在每次事务后快照，启动时读回（4 个用例覆盖；重启验收通过）。局限：整体重写，票量大时要换 append-only/SQLite。
-- **票状态走文件桥**：界面读 `.ghost/tickets.json`（vite 中间件），不是 Remote 面。正式版需要插件注册 typert 服务。
+- ~~票状态走文件桥~~ → **已修**：插件继承 `TypertRemoteService` 注册 `ghostTickets/list`（网关 source-mode 发现，无需预生成描述符），界面直接走 Remote。
+  注意：网关调用 Remote 方法时 `this` 不保证是本实例，私有字段会抛错——用模块级槽位取视图。
 
 ### C9 剧本与技能包（12）
 

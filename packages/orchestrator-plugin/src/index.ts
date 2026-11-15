@@ -1,16 +1,18 @@
 /**
  * ghost-orchestrator：让主动引擎常驻在宿主里，并把它变成一个模型可调用的工具。
  *
- * 这一版只做"能开票 + 票可见"，不做自动派活——派活需要绑定一个运行中的 Session，
- * 那属于下一层（executor 端口由宿主提供）。先把"票是真实存在的对象"这件事坐实。
+ * 三条对外出口：
+ *  1. 工具 `ghost_ticket`：模型自己开票；
+ *  2. Remote `ghostTickets/list`：客户端直接查票（不必读文件）；
+ *  3. 状态文件：给排障与无 Remote 场景兜底。
  *
- * 状态落地到 `stateFile`（默认 `.ghost/tickets.json`）：既方便外部观测与排障，
- * 也让 UI 在还没有 Remote 面时能读到期票列表（过渡方案，正式面走 Remote）。
+ * 这一版不做自动派活——派活需要绑定运行中的 Session，属于下一层。
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { Engine, MemoryRepositories, persisting, ticketStage, type Ticket, type Trigger } from '@dsh-ghost/superagent'
 
 /** 插件名。 */
@@ -25,6 +27,42 @@ export interface Config {
   stateFile?: string
   /** 本地触发源名，出现在票的来源里。 */
   source?: string
+}
+
+/** 给 UI / 其它客户端看的票视图（不含领域内部字段）。 */
+export interface TicketView {
+  id: string
+  title: string
+  stage: { stage: string; action?: string }
+  createdAt: string
+  report: string | null
+}
+
+/**
+ * 票的 Remote 面：客户端不再需要读文件，直接 `ghostTickets/list`。
+ *
+ * 继承 `TypertRemoteService` 后由网关做 source-mode 发现——不需要预生成描述符，
+ * 开发期即可用；稳定后再接 typert generator 生成严格描述符。
+ */
+// 网关调用 Remote 方法时 `this` 不一定是本实例（它会换 receiver 做权限/绑定校验），
+// 私有字段 #view 在那种调用下会抛 "Cannot read private member"。所以取视图走模块级槽位：
+// 每个宿主进程只挂一个 orchestrator，这足够安全，也不依赖 this。
+let viewSlot: (() => TicketView[]) | undefined
+
+export class GhostTickets extends TypertRemoteService {
+  constructor(ctx: Context, view: () => TicketView[]) {
+    super(ctx, 'ghostTickets', { namespace: 'ghostTickets' })
+    viewSlot = view
+  }
+
+  /**
+   * 列出全部票。
+   * @returns 票视图，新的在前
+   */
+  @Remote('list')
+  listTickets(): { items: TicketView[] } {
+    return { items: viewSlot?.() ?? [] }
+  }
 }
 
 const OUTPUT_SCHEMA = {
@@ -44,6 +82,28 @@ export function apply(ctx: Context, config: Config = {}): void {
   const source = config.source ?? 'local'
   // 引擎状态持久化到 `<stateFile>.snapshot.json`：宿主重启后票还在
   const repo = persisting(new MemoryRepositories(), `${stateFile}.snapshot.json`)
+
+  /** 列出全部票（仓库是唯一真相，别信快照）。 */
+  const listTickets = (): Ticket[] => repo.tickets.list()
+
+  /** 票的对外视图。 */
+  const view = (): TicketView[] => listTickets().map(ticket => ({
+    id: ticket.id,
+    title: ticket.title,
+    stage: ticketStage(ticket),
+    createdAt: ticket.createdAt,
+    report: ticket.assignments.at(-1)?.report?.summary ?? null,
+  }))
+
+  /** 把当前票写进状态文件（原子替换，外部可轮询）。 */
+  const flush = (): void => {
+    try {
+      mkdirSync(dirname(stateFile), { recursive: true })
+      writeFileSync(stateFile, `${JSON.stringify({ at: new Date().toISOString(), tickets: view() }, null, 2)}\n`)
+    } catch {
+      // 状态文件写不了不影响引擎本身
+    }
+  }
 
   const engine = new Engine({
     repo,
@@ -66,33 +126,10 @@ export function apply(ctx: Context, config: Config = {}): void {
     },
   })
 
-  /** 把当前票写进状态文件（原子替换，外部可轮询）。 */
-  function flush(): void {
-    try {
-      mkdirSync(dirname(stateFile), { recursive: true })
-      const snapshot = {
-        at: new Date().toISOString(),
-        tickets: listTickets().map(ticket => ({
-          id: ticket.id,
-          title: ticket.title,
-          stage: ticketStage(ticket),
-          createdAt: ticket.createdAt,
-          report: ticket.assignments.at(-1)?.report?.summary ?? null,
-        })),
-      }
-      writeFileSync(stateFile, `${JSON.stringify(snapshot, null, 2)}\n`)
-    } catch {
-      // 状态文件写不了不影响引擎本身
-    }
-  }
-
-  /** 列出全部票（仓库是唯一真相，别信快照）。 */
-  function listTickets(): Ticket[] {
-    return repo.tickets.list()
-  }
-
-  ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length)
-
+  // Remote 面与工具都要用 view/listTickets，先建服务再注册工具。
+  // Service 的构造依赖 cordis 的 ctx.reflect，纯 Node 自检用的假 ctx 没有它。
+  const cordis = ctx as unknown as { reflect?: unknown }
+  if (cordis.reflect !== undefined) new GhostTickets(ctx, view)
   ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length)
 
   ctx.effect(() => ctx.tools.register({

@@ -181,7 +181,7 @@ async function answerQuestion(callId: string, value: string): Promise<void> {
   }
 }
 
-/** 右栏票列表：来自插件写的状态文件（过渡方案，正式版走 Remote）。 */
+/** 右栏票列表：来自插件注册的 `ghostTickets/list` Remote。 */
 function renderTickets(payload: unknown): void {
   const tickets = (payload as { tickets?: Array<{ id: string; title: string; stage: { stage: string; action?: string } }> })?.tickets ?? []
   const box = el('tickets')
@@ -427,9 +427,10 @@ async function main(): Promise<void> {
 
   const pollTickets = async (): Promise<void> => {
     try {
-      const response = await fetch('/local/tickets')
-      if (response.ok) renderTickets(await response.json())
-    } catch { /* 端点不存在就算了 */ }
+      // 走 Remote（插件注册的 ghostTickets/list），不再读文件
+      const view = await state.transport!.call('ghostTickets/list' as never, {} as never)
+      renderTickets(view)
+    } catch { /* 插件没装时静默 */ }
   }
   await pollTickets()
   setInterval(() => { void pollTickets() }, 3000)
