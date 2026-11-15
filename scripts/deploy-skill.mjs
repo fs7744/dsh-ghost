@@ -24,7 +24,18 @@ const rootIndex = argv.indexOf('--root')
 const skillsRoot = resolve(rootIndex >= 0 ? argv[rootIndex + 1] : join(REPO, '.dsh', 'skills'))
 
 const source = resolve(input)
-const result = compilePlaybook(readFileSync(source, 'utf8'))
+
+// 节点详情：剧本同目录 nodes/<节点名>.md → references/nodes/<节点名>.md
+const nodesDir = join(dirname(source), 'nodes')
+const nodeDetails = {}
+if (existsSync(nodesDir)) {
+  for (const file of readdirSync(nodesDir)) {
+    if (!file.endsWith('.md')) continue
+    nodeDetails[basename(file, '.md')] = readFileSync(join(nodesDir, file), 'utf8')
+  }
+}
+
+const result = compilePlaybook(readFileSync(source, 'utf8'), { nodeDetails })
 if (result.errors.length > 0) {
   process.stdout.write(`FAIL  剧本有 ${result.errors.length} 处问题，未投放：\n`)
   for (const error of result.errors) process.stdout.write(`  - ${error}\n`)
@@ -33,7 +44,11 @@ if (result.errors.length > 0) {
 
 const target = join(skillsRoot, result.flow.id)
 mkdirSync(target, { recursive: true })
-for (const [name, content] of Object.entries(result.files)) writeFileSync(join(target, name), content)
+for (const [name, content] of Object.entries(result.files)) {
+  const destination = join(target, name)
+  mkdirSync(dirname(destination), { recursive: true })
+  writeFileSync(destination, content)
+}
 
 // 剧本旁的 scripts/ 与 references/ 一起带过去（skill 包不只是一篇文档）。
 for (const sub of ['scripts', 'references', 'assets']) {

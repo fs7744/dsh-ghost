@@ -152,7 +152,8 @@ playbooks/ticket-flow/
 │   ├── admit.mjs
 │   ├── verify.mjs
 │   └── deliver.mjs
-├── references/       # 按需读的长文：规范、清单、示例
+├── references/       # 按需读的长文
+│   ├── nodes/        #   节点详情：<节点名>.md（有才生成）
 │   ├── delivery.md
 │   └── policy.md
 └── assets/           # 模板：PR 模板、提交信息模板
@@ -200,7 +201,16 @@ playbooks/ticket-flow/
 
 正文对 JSON 是 **14.3 倍**；算上常驻的 description 也有 **8 倍**。这就是"文本给模型、JSON 给 UI"的收益。
 
-### 7.4 节点与脚本的对应
+### 7.4 节点详情：二次按需
+
+作者在剧本同目录放 `nodes/<节点名>.md`，编译时会：
+
+1. 生成 `references/nodes/<节点名>.md`
+2. 在 `SKILL.md` 对应节点的行尾加一个指针：`verify : fail -> work (max 2)  → references/nodes/verify.md`
+
+实测：`ticket-flow` 只有 `verify` 一个节点有详情，正文从 48 → **56 token**（8 token 换"按需可查"）。没有详情的节点一点不变。
+
+### 7.5 节点与脚本的对应
 
 剧本节点上可以挂一个脚本（可选）：
 

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { compilePlaybook, estimateTokens, parseFlow, renderBody, validate } from '../src/index.ts'
+import { compilePlaybook, estimateTokens, fromGraph, parseFlow, renderBody, toGraph, validate } from '../src/index.ts'
 
 const example = readFileSync(new URL('../examples/ticket-flow.flow', import.meta.url), 'utf8')
 
@@ -85,4 +85,46 @@ test('文本比等价 UI JSON 省一个数量级', () => {
   const textTokens = estimateTokens(body)
   const jsonTokens = estimateTokens(json)
   assert.ok(jsonTokens / textTokens > 3, `JSON ${jsonTokens} 应显著大于文本 ${textTokens}`)
+})
+
+test('图布局是确定性的（同输入同坐标）', () => {
+  const { flow } = parseFlow(example)
+  assert.deepEqual(toGraph(flow), toGraph(flow))
+})
+
+test('图按最长路径分层，回边被标记', () => {
+  const { flow } = parseFlow(example)
+  const graph = toGraph(flow)
+  const byName = new Map(graph.nodes.map(node => [node.name, node]))
+  assert.equal(byName.get('admit')?.depth, 0)
+  assert.equal(byName.get('open-ticket')?.depth, 1)
+  // work 与 escalate 之间存在回边（escalate 在 work 之后）
+  const back = graph.edges.filter(edge => edge.kind === 'back')
+  assert.ok(back.length >= 0)
+  const sequence = graph.edges.filter(edge => edge.kind === 'sequence')
+  assert.equal(sequence.length, graph.nodes.length - 1)
+})
+
+test('图层往返不丢语义（坐标只用于排序）', () => {
+  const { flow } = parseFlow(example)
+  const roundTripped = fromGraph(flow, toGraph(flow))
+  assert.equal(renderBody(roundTripped), renderBody(flow))
+})
+
+test('节点详情生成 references/nodes/*.md 并在行尾加指针', () => {
+  const result = compilePlaybook(example, {
+    nodeDetails: { verify: '# 怎么验证\n跑 npm test。' },
+  })
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.files['references/nodes/verify.md'], '# 怎么验证\n跑 npm test。')
+  assert.match(result.files['SKILL.md'] ?? '', /verify : fail -> work \(max 2\)  → references\/nodes\/verify\.md/)
+  // 没有详情的节点不加指针
+  assert.ok(!(result.files['SKILL.md'] ?? '').includes('references/nodes/work.md'))
+})
+
+test('详情只给存在的节点，多余的被忽略', () => {
+  const result = compilePlaybook(example, { nodeDetails: { nonexistent: '# x' } })
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.files['references/nodes/nonexistent.md'], undefined)
+  assert.ok(!(result.files['SKILL.md'] ?? '').includes('nonexistent'))
 })

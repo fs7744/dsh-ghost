@@ -12,6 +12,12 @@ import { parseFlow, sequenceEdges, type Flow } from './parse.ts'
 export interface CompileOptions {
   /** 判断 `@script` 指向的文件是否存在；不传则跳过该检查。 */
   scriptExists?: (path: string) => boolean
+  /**
+   * 节点详情：节点名 → Markdown 正文。
+   * 有详情的节点在正文行尾加一个指针（`→ references/nodes/x.md`），
+   * 模型只在需要时去读——这就是"二次按需"的落点。
+   */
+  nodeDetails?: Record<string, string>
 }
 
 /** 一次编译的结果。 */
@@ -84,8 +90,12 @@ export function validate(flow: Flow, options: CompileOptions = {}): string[] {
   return errors
 }
 
-/** 把流程渲染成 SKILL.md 的正文（一行一节点，模型读的就是它）。 */
-export function renderBody(flow: Flow): string {
+/**
+ * 把流程渲染成 SKILL.md 的正文（一行一节点，模型读的就是它）。
+ * @param flow - 剧本
+ * @param details - 有详情的节点名集合；只影响行尾指针，不影响语义
+ */
+export function renderBody(flow: Flow, details?: ReadonlySet<string>): string {
   return flow.nodes
     .map(node => {
       const head = node.kind === 'gate' ? `?${node.name}` : node.kind === 'call' ? `call ${node.call ?? node.name}` : node.name
@@ -93,13 +103,14 @@ export function renderBody(flow: Flow): string {
         ? ''
         : ` : ${node.edges.map(edge => `${edge.on} -> ${edge.to}${edge.max === undefined ? '' : ` (max ${edge.max})`}`).join(' | ')}`
       const script = node.script === undefined ? '' : `  @${node.script}`
-      return `${head}${edges}${script}`
+      const pointer = details?.has(node.name) === true ? `  → references/nodes/${node.name}.md` : ''
+      return `${head}${edges}${script}${pointer}`
     })
     .join('\n')
 }
 
 /** 生成 SKILL.md：常驻 description 必须短，正文才是流程图。 */
-export function renderSkill(flow: Flow): { description: string; content: string } {
+export function renderSkill(flow: Flow, details?: ReadonlySet<string>): { description: string; content: string } {
   const goal = flow.goal ?? flow.id
   const trigger = flow.when === undefined ? '' : `；触发：${flow.when}`
   const description = `${goal}${trigger}`.slice(0, 160)
@@ -109,7 +120,7 @@ export function renderSkill(flow: Flow): { description: string; content: string 
     `description: ${description}`,
     '---',
     '',
-    renderBody(flow),
+    renderBody(flow, details),
     '',
   ].join('\n')
   return { description, content }
@@ -126,9 +137,18 @@ export function compilePlaybook(text: string, options: CompileOptions = {}): Com
   const files: Record<string, string> = {}
   let tokens = { description: 0, body: 0 }
   if (errors.length === 0) {
-    const skill = renderSkill(flow)
+    const details = Object.keys(options.nodeDetails ?? {})
+      .filter(name => flow.nodes.some(node => node.name === name))
+    const detailSet = new Set(details)
+    const skill = renderSkill(flow, detailSet)
     files['SKILL.md'] = skill.content
-    tokens = { description: estimateTokens(skill.description), body: estimateTokens(renderBody(flow)) }
+    for (const name of details) {
+      files[`references/nodes/${name}.md`] = options.nodeDetails?.[name] ?? ''
+    }
+    tokens = {
+      description: estimateTokens(skill.description),
+      body: estimateTokens(renderBody(flow, detailSet)),
+    }
   }
   return { flow, errors, files, tokens }
 }

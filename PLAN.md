@@ -334,7 +334,9 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 3. **模型只看 skill 包**：编译产物是**完整的 skill 包**（`SKILL.md` + `scripts/` + `references/` + `assets/`），不是一篇文档。四级加载：索引常驻（~20）、流程按需（~110）、引用按需（400–600）、**脚本只跑不看**（输出 40–80）。
 4. **编译期校验不过就不生成 skill**：悬空跳转、不可达节点、重名、缺 `goal`、回边无上限。
 
-**已验通（端到端）**：`.flow` → 编译 → 投放 `.dsh/skills/ticket-flow/SKILL.md` → harness `skills/list` 能看到它（`scripts/verify-skill.mjs`）。常驻 37 + 正文 48 token。
+**已验通（端到端）**：`.flow` → 编译 → 投放 `.dsh/skills/ticket-flow/SKILL.md` → harness `skills/list` 能看到它（`scripts/verify-skill.mjs`）。常驻 37 + 正文 48 token；带节点详情时正文 56（多 8 token 换"按需可查"）。
+
+**图模型（`toGraph`/`fromGraph`）已完成**：`order` 是语义顺序、`x/y` 只是缓存——往返后 `renderBody` 完全一致（有测试守着）。这条是编辑器"拖不坏语义"的保证。
 
 **连带影响（很重要）**：superagent 现有 14 个提示词文件要重新归属——角色/语气留下当 persona，**流程步骤改写成 `.flow` 剧本**。常驻系统提示从数千 token 降到数百，这本身就是省 token 的主要来源。
 

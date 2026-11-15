@@ -92,7 +92,8 @@ export function parseFlow(text: string): ParseResult {
       const meta = META.exec(line)
       if (meta !== null) {
         const key = meta[1] as 'when' | 'goal' | 'budget'
-        flow[key] = meta[2]?.trim()
+        const value = meta[2]?.trim()
+        if (value !== undefined && value !== '') flow[key] = value
         return
       }
       return

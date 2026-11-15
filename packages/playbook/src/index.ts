@@ -8,4 +8,6 @@
 export { parseFlow, sequenceEdges } from './parse.ts'
 export type { Flow, FlowEdge, FlowNode, ParseResult } from './parse.ts'
 export { compilePlaybook, estimateTokens, renderBody, renderSkill, validate } from './compile.ts'
+export { fromGraph, toGraph } from './graph.ts'
+export type { Graph, GraphEdge, GraphNode } from './graph.ts'
 export type { CompileOptions, CompiledPlaybook } from './compile.ts'
