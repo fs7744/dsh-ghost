@@ -36,6 +36,8 @@ const PORT_ALLOWLIST = new Map([
     '插件必须用 TypertRemoteService 装饰器暴露 ghostMemory/* Remote；cordis Context 与 dsh-tools 类型只在此出现'],
   ['packages/orchestrator-plugin/src/index.ts',
     '同上：orchestrator 的 Remote 槽位依赖 TypertRemoteService 装饰器与 cordis Context 类型'],
+  ['packages/automation-plugin/src/page-bridge.ts',
+    '同上：页面桥要暴露 ghostPage/* Remote，必须用 TypertRemoteService 装饰器与 cordis Context 类型'],
   ['packages/automation-plugin/src/index.ts',
     '同上：automation 插件要把 ghostAutomation/* 暴露成 Remote 并注册模型工具，必须用 TypertRemoteService 装饰器与 cordis Context 类型'],
   ['packages/ui-plugin/src/index.ts',

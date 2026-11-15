@@ -86,6 +86,8 @@ const send = async () => {
   inputEl.value = ''
   addBubble('user', text)
   try {
+    // 发送前刷新一次当前页面快照：模型才知道「当前页面」是什么。
+    await call('reportSnapshot')
     await call('prompt', { text })
     void poll()
   } catch (error) {

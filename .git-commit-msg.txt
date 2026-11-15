@@ -1,12 +1,11 @@
-feat(extension): 浏览器扩展侧栏会话 + 电脑操控元素级操作
+feat(extension): 扩展驱动当前标签页（页面桥）
 
-- 新增 Chrome/Edge MV3 扩展（apps/extension）：侧栏里直接和本机 agent 对话。
-- 设备码式配对：应用显示一次性 6 位码（5 分钟有效），扩展用地址+码换到宿主地址与 Cookie；
-  宿主 token 不出壳、不进扩展，扩展用 chrome.cookies + credentials 调宿主 API。
-- 桌面端设置页新增「浏览器扩展」区：应用地址与配对码。
-- 电脑操控升级为元素级动作：新增 computer_invoke(name) / computer_set_value(name,text)，
-  走 UI Automation 的 InvokePattern / LegacyIAccessible / ValuePattern（退化为聚焦+回车 / 全选+输入），
-  按控件名操作，不需要截图也不需要坐标；坐标点击降级为兜底。
-- 验收：verify:automation 增加两条元素级动作检查；壳测试新增配对码与 /extension/pair 路由。
-- 文档：新增 docs/EXTENSION.md；AUTOMATION.md 补「不用截图」的成熟路线说明。
-- 验证：610 用例、local 21/21、7/7 门禁。
+- 补上「扩展不自动带页面内容」的缺口：扩展用 chrome.debugger 驱动**用户当前标签页**，
+  与宿主之间加一条命令通道（模型排队 → 扩展轮询取 → CDP 执行 → 回传唤醒模型）。
+- 新模型工具：page_read（标题/网址/可见文本）、page_click（可见文字或 CSS 选择器）、
+  page_fill、page_screenshot（base64 回传后宿主落盘到工作区）。
+- 扩展在发消息前自动刷新页面快照并上报，模型因此知道「当前页面」是什么。
+- 队列改为 pending + inflight 两段：命令被取走仍在途，回传才能唤醒等待方。
+- 安全：走 CDP 而非注入脚本（页面看不见我们），但保留浏览器「正在被调试」提示条；
+  只在用户发消息时采集页面内容；只作用于当前活动标签页。
+- 验证：626 用例、local 21/21、7/7 门禁、插件宿主验收通过；docs/EXTENSION.md 补 §1.5。

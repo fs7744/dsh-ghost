@@ -21,6 +21,10 @@ import {
   keysScript, parseElements, screenshotScript, setValueScript, truncateText, typeScript,
   type BrowserEngine,
 } from '@dsh-ghost/automation'
+import {
+  activePageSessionId, dispatchPageCommand, GhostPageRemote, isBridgeOnline,
+  type PageSnapshot,
+} from './page-bridge.ts'
 
 /** 插件名。 */
 export const name = 'ghost-automation'
@@ -134,7 +138,11 @@ export function apply(ctx: Context, config: Config): void {
   const shotDir = join(workspaceDir, '.ghost', 'screenshots')
 
   const cordis = ctx as unknown as { reflect?: unknown }
-  if (cordis.reflect !== undefined) new GhostAutomationRemote(ctx)
+  let pageRemote: GhostPageRemote | undefined
+  if (cordis.reflect !== undefined) {
+    new GhostAutomationRemote(ctx)
+    pageRemote = new GhostPageRemote(ctx)
+  }
 
   // —— 浏览器引擎（Playwright 优先，CDP 兜底；懒启动，用完可关）——
   let engine: BrowserEngine | undefined
@@ -385,6 +393,79 @@ export function apply(ctx: Context, config: Config): void {
         if (outcome === 'not-found') return `找不到控件：${name}`
         if (outcome === 'no-action') return `控件「${name}」不能直接填值。`
         return `已给「${name}」填值（${outcome}）`
+      },
+    },
+    {
+      name: 'page_read',
+      description: '读浏览器扩展上报的「当前页面」：标题、网址与可见文本（用户正在看的那个标签页）。',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+      execute: async () => {
+        const sessionId = activePageSessionId()
+        if (sessionId === '') return '还没有浏览器扩展连上（装好扩展并配对后才有「当前页面」）。'
+        if (pageRemote === undefined) return '页面桥不可用。'
+        const result = pageRemote.read({ sessionId })
+        const snapshot = result.snapshot
+        if (snapshot === undefined) return '当前页面还没有内容（扩展可能还没采集）。'
+        return `标题：${snapshot.title}\n网址：${snapshot.url}\n正文：\n${truncateText(snapshot.text, 4000)}`
+      },
+    },
+    {
+      name: 'page_click',
+      description: '在浏览器扩展当前标签页里点击：给一段**可见文字**（如「查看新闻」）或一个 CSS 选择器。',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: '可见文字或 CSS 选择器' },
+        },
+        required: ['target'],
+        additionalProperties: false,
+      },
+      execute: async args => {
+        const sessionId = activePageSessionId()
+        if (sessionId === '') return '还没有浏览器扩展连上。'
+        const target = String(args['target'] ?? '').trim()
+        if (target === '') return '缺少 target。'
+        const result = await dispatchPageCommand(sessionId, { action: 'click', target })
+        return result.message
+      },
+    },
+    {
+      name: 'page_fill',
+      description: '在浏览器扩展当前标签页里填输入框：CSS 选择器 + 文本。',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: 'CSS 选择器' },
+          value: { type: 'string', description: '要填的文本' },
+        },
+        required: ['target', 'value'],
+        additionalProperties: false,
+      },
+      execute: async args => {
+        const sessionId = activePageSessionId()
+        if (sessionId === '') return '还没有浏览器扩展连上。'
+        const target = String(args['target'] ?? '').trim()
+        const value = String(args['value'] ?? '')
+        if (target === '') return '缺少 target。'
+        const result = await dispatchPageCommand(sessionId, { action: 'fill', target, value })
+        return result.message
+      },
+    },
+    {
+      name: 'page_screenshot',
+      description: '给浏览器扩展当前标签页截图，保存到工作区并返回路径。',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+      execute: async () => {
+        const sessionId = activePageSessionId()
+        if (sessionId === '') return '还没有浏览器扩展连上。'
+        const result = await dispatchPageCommand(sessionId, { action: 'screenshot' })
+        if (result.ok && typeof result.data === 'string' && result.data !== '') {
+          mkdirSync(shotDir, { recursive: true })
+          const target = join(shotDir, `page-${Date.now()}.png`)
+          writeFileSync(target, Buffer.from(result.data, 'base64'))
+          return `页面截图已保存：${target}`
+        }
+        return result.message
       },
     },
     {
