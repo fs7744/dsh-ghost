@@ -26,6 +26,7 @@ app.innerHTML = `
   <main>
     <div id="chat" class="pane">
       <div id="stream"></div>
+      <div id="questions" class="hidden"></div>
       <div id="composer">
         <textarea id="input" rows="2" placeholder="说点什么…（Enter 发送，Shift+Enter 换行）"></textarea>
         <button id="send">发送</button>
@@ -128,6 +129,52 @@ function summarize(value: unknown, limit = 240): string {
     return text.length > limit ? `${text.slice(0, limit)}…` : text
   } catch {
     return String(value).slice(0, limit)
+  }
+}
+
+/**
+ * 待答问题（agent 通过 ask_user_question 提问）：渲染成横幅，点选项即应答。
+ *
+ * 应答走 `userQuestions/answer`（wire 参数：agentId / callId / answer）。
+ * answer 的具体形状尚未用真实提问验证——失败时把错误原文显示出来，下一轮据此修正。
+ */
+function renderQuestions(projections: unknown): void {
+  const active = ((projections as { values?: { userQuestions?: { active?: Array<Record<string, unknown>> } } })?.values?.userQuestions?.active) ?? []
+  const box = el('questions')
+  if (active.length === 0) {
+    box.classList.add('hidden')
+    box.innerHTML = ''
+    return
+  }
+  box.classList.remove('hidden')
+  box.innerHTML = active.map(question => {
+    const callId = String(question.callId ?? question.id ?? '')
+    const text = String(question.question ?? question.text ?? question.prompt ?? '需要你确认')
+    const options = (question.options as Array<{ label?: string; value?: string }> | undefined) ?? []
+    const buttons = options.length === 0
+      ? '<button data-answer="" data-call="' + callId + '">收到</button>'
+      : options.map(option => `<button data-call="${callId}" data-answer="${escapeHtml(String(option.value ?? option.label ?? ''))}">${escapeHtml(String(option.label ?? option.value ?? ''))}</button>`).join('')
+    return `<div class="q"><div class="qtext">${escapeHtml(text)}</div><div class="qbtns">${buttons}</div></div>`
+  }).join('')
+  box.querySelectorAll<HTMLButtonElement>('button[data-call]').forEach(button => {
+    button.addEventListener('click', () => { void answerQuestion(button.dataset.call ?? '', button.dataset.answer ?? '') })
+  })
+}
+
+/** 应答一条问题。 */
+async function answerQuestion(callId: string, value: string): Promise<void> {
+  const transport = state.transport
+  if (transport === undefined || state.active === undefined) return
+  try {
+    await transport.call('userQuestions/answer', {
+      agentId: state.active,
+      callId,
+      answer: value === '' ? {} : { selected: [value] },
+    })
+    el('f-state').textContent = '已应答'
+    await openSession(state.active)
+  } catch (error) {
+    el('f-state').textContent = `应答失败：${String(error).slice(0, 90)}`
   }
 }
 
@@ -241,6 +288,7 @@ async function openSession(sessionId: string): Promise<number> {
   try {
     const projections = await transport.call('session/projections', { request: { sessionId } })
     renderProjections(projections)
+    renderQuestions(projections)
   } catch { /* 投影读不到就不显示占用 */ }
   el('node').innerHTML = `<dl><dt>会话</dt><dd>${sessionId}</dd><dt>记录</dt><dd>${records.length}</dd></dl>`
   return records.length

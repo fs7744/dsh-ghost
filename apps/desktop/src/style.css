@@ -75,3 +75,12 @@ details.tool pre { white-space:pre-wrap; background:var(--surface-mid); padding:
 #f-ctx .track { display:inline-block; width:90px; height:4px; border-radius:2px;
   background:var(--surface-high); overflow:hidden; }
 #f-ctx-bar { display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
+/* 待答问题横幅 */
+#questions { border-top:1px solid var(--outline); padding:10px 16px; display:flex; flex-direction:column; gap:8px; }
+#questions.hidden { display:none; }
+#questions .q { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+#questions .qtext { font-size:13px; }
+#questions .qbtns { display:flex; gap:6px; }
+#questions button { background:var(--surface-high); color:var(--on-surface); border:1px solid var(--outline);
+  border-radius:var(--radius-md); padding:5px 12px; font:inherit; font-size:12px; cursor:pointer; }
+#questions button:hover { border-color:var(--accent); color:var(--accent); }

@@ -384,7 +384,9 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **决策：命令、压缩、回退、导出——能力全用 harness 的，入口全自己写。**
 
-- `@deepseek-ai/dsh-commands` 已把斜杠命令暴露成 Remote（`commands/list` + `commands/execute`），且**执行不产生模型消息**、`command/run`→`command/done` 有日志可审计。**已验通（`npm run verify:commands`）**：会话里能列出 6 条命令（compact / export / feedback / goal / permission / plan），`/compact` 执行返回 `success`。剩下只有命令面板。
+- `@deepseek-ai/dsh-commands` 已把斜杠命令暴露成 Remote（`commands/list` + `commands/execute`），且**执行不产生模型消息**、`command/run`→`command/done` 有日志可审计。**人闸（ask_user_question）**：UI 已能渲染待答横幅并调用 `userQuestions/answer`（参数 `agentId/callId/answer`）；`answer` 的具体形状还没用真实提问验证过——模型在非交互回合里没触发该工具，这条留待有真实提问时补齐。
+
+**已验通（`npm run verify:commands`）**：会话里能列出 6 条命令（compact / export / feedback / goal / permission / plan），`/compact` 执行返回 `success`。剩下只有命令面板。
 - 压缩三层全是白拿：工具结果裁剪（`compaction-tool-result-pruner`）、自动压缩（`compaction-basic`）、图片离位（`compaction-image-offload`）；手动 `/compact` 走 `dsh-command-compact`。
 - 会话操作白拿：`session/create`、`session/list`、`session/page`、`session/selectModel`、`session/projections`、`session/fork`、`session/cancel`。
 - **我们要补的 7 项**：命令面板、命令通道、压缩策略配置、上下文占用条（含压缩点标记，可展开看被压掉的原文）、checkpoint/rewind UI、会话导出、`/init` 等价的 `GHOST.md` 草案生成。
