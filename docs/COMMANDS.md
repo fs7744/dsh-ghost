@@ -86,6 +86,12 @@
 
 **边界**：`!` shell 直通与 `@` 文件引用目前只做**识别与提示**——完整直通要终端面板、文件选择要文件树，都属 P3；不在 MVP 里假装支持。
 
+**C11-03 压缩策略配置**：`packages/evolution/src/compaction.ts` 提供裁剪阈值、触发阈值、保留策略与 `/compact` 焦点参数的配置模型，非法值（如 `triggerRatio > 1`）明确拒绝，序列化成 settings 形态。`ghostCompaction/config` 暴露默认值与校验。验收：`npm run verify:compaction`。
+
+**C11-04 上下文占用条升级**：`apps/desktop/src/context-bar.ts` 在占用比例之外标出压缩点，点「压缩点」可展开看被压掉的原文；压缩点从 `session/page` 记录推断，不依赖宿主新增端点。验收：`npm run test:panels` + `npm run verify:panels`。
+
+**C11-07 `/init` 等价物**：`ghostInit/draft` 扫描仓库（package.json / README / 构建脚本 / AGENTS·GHOST.md / 目录结构）生成 `GHOST.md` 草案，标出来源与不确定项；**文件已存在就绝不覆盖**。验收：`npm run verify:init`。
+
 ## 5. 不做
 
 - 不做自定义命令 DSL 让用户写脚本（先只支持插件注册与剧本）。

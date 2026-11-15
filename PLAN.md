@@ -5,6 +5,32 @@
 
 ---
 
+## 0. 收尾状态（2026-11-15）
+
+**仓库内可交付的工程件已全部落地**。227 项账本按下面口径结清；按 §8.4 / §A7 明确移出范围的项（macOS dmg+公证、Linux AppImage、harness 界面白拿）不算缺口，也不冒充完成：
+
+| 类别 | 状态 | 落点 |
+|---|---|---|
+| A 白拿 73 | 随 harness 升级即得，只写配置 | `scripts/cordis.patch.template.yml` |
+| B 移植 59 | B1 领域核心 + **B2–B7 宿主装配 / 19 个工具 / 7 个视图 / 2 个触发源 / 16 个提示词 / 部署自检** | `packages/superagent/**`、`docs/SUPERAGENT.md` |
+| C 新建 95 | 界面 26、剧本 12、记忆 7、命令 7、契约 6、鉴权 3、模型 5、测试 7、壳 13、发布 5、产品化 4 | `apps/desktop/**`、`apps/shell/**`、`packages/*` |
+
+**契约面已收口**：131 项宿主侧探针 + **224 个 Remote 端点**（`remotes.json` → 类型表）+ **31 个转发事件**（`events.json` → 类型表，含 `emit` / `waterfall` 与资源身份）。两者都从运行时编译产物生成，`npm run verify:events` 做漂移校验，升级流水线第 3 步自动重生成——这正是 REVIEW R1 要求的"renderer 侧契约也必须自动生成"。
+
+**验收口径**：`npm test` = **471 个用例 / 20 个套件**；`npm run typecheck` / `check:ui` / `check:shell`；`build` = **12 个包**；`build:ui`（含 `models.html` 多页产物）；`npm run verify:all` 一条命令跑完 **41 项**验收（local 20 + host 16 + model 5），或 `verify:gates` 看 7 项 PR 门禁总表。L3 真模型冒烟只断言结构，L4 离线评分、L5 Playwright 骨架在未装依赖时显式 SKIP；本轮 L3 已用真模型跑通 3/3 结构断言。
+
+**仍未在本机闭环的，只有需要外部凭据/真实环境的 P4 动作**（代码与配置已就绪，不假装验过）：
+
+1. Windows 代码签名证书（CI secret `CSC_LINK` / `CSC_KEY_PASSWORD`）与真实 NSIS 安装 → 自更新 → 卸载全链路。
+2. **Electron 44 内置 Node 版本与 `node-pty` / `koffi` / `node:sqlite` 的 ABI 实测**（§8.5 第 1、2 项）：本机 Node 22、未安装 Electron，只做了静态自检与纯逻辑测试。
+3. 发版前用**官方 BYOK**跑 L3 / L4；本地网关只用于开发自测。
+4. 自动更新的真实 feed、灰度与 `latest.yml`；插件市场 / 文档站 / 遥测为默认关闭的骨架。
+5. macOS 公证与 Linux AppImage 按 §8.4 明确**不在本期范围**。
+
+§16 剩余「待定」都是产品决策（界面 MVP 切分、密钥谁出、adapter 是否独立成包、MCP server 时机、账号体系、测试配额），不是代码阻塞项；相关能力都已按可替换的方式实现，决策变了不必改架构。
+
+---
+
 ## 1. 一页结论
 
 | 问题 | 结论 |
@@ -158,7 +184,7 @@ POST /api/<namespace>/<method>
 
 **一个会改变登录设计的发现**：订阅事件必须用 `interactions=answer` 换 Cookie；`interactions=none` 会被 `gateway/interactions-forbidden` 拒掉。→ **桌面端的凭据按 answer 申请**，`none` 只够拉数据。
 
-⚠️ **待补**：事件名清单还没自动生成（目前只知道 `api-session/added` 等少数几个），下一步从 descriptor 的 `EventMap` 生成 `events.json`。
+✅ **事件名清单也已生成**（REVIEW R1 收口）：`harness-contract/gen-events.mjs` 读 `@deepseek-ai/dsh-api-remotes` 的 `API_REMOTE_FORWARDED_EVENTS`，产出 **`harness-contract/events.json`（31 个事件）** 与 `packages/harness-port/src/events.generated.ts`（`RemoteEventName` + `isKnownRemoteEvent`）。`npm run verify:events` 逐项比对运行时声明，事件增删 / `emit↔waterfall` 变更 / 界面依赖事件消失都会报错；`upgrade:harness` 第 3 步先重生成再跑探针。两个 `waterfall` 是 `approval/request` 与 `user-questions/request`——它们要应答，不是广播。
 
 ```sh
 node scripts/verify-harness-contract.mjs --harness <harness 检出>
@@ -304,11 +330,11 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 ### 8.5 P3 前置核对（动手前必须先验）
 
-1. Electron 内置 Node 版本是否满足 harness 的 `engines.node >= 24.9`（harness 打包时用 `<electron> -p process.versions.node` 记录，说明路径可行，但版本要实测）。
-2. `node-pty` / `koffi` / `node:sqlite` 在 Electron ABI 下是否可用（原生模块需与内置 Node ABI 匹配）。
-3. ~~无 Web UI 时宿主怎么起~~ → **已验证**（P0.5）：宿主照常起，API Cookie + `POST /api/<ns>/<method>` 可取数；渲染进程既可直接用 HTTP，也可用 `api-gateway/client`。
-4. 窗口鉴权：本机 URL + token 如何在子资源与 WebSocket 上统一附加。
-5. 端口策略：OS 分配端口，避免与 `3080` / `3082` 冲突。
+1. ⚠️ Electron 内置 Node 版本是否满足 harness 的 `engines.node >= 24.9`：**仍需真机实测**（本机 Node 22、未装 Electron；`apps/shell` 已把这条写成发布前门禁，见 `docs/RELEASE.md`）。
+2. ⚠️ `node-pty` / `koffi` / `node:sqlite` 在 Electron ABI 下是否可用：**仍需真机实测**，原生模块需与内置 Node ABI 匹配。
+3. ✅ ~~无 Web UI 时宿主怎么起~~ → **已验证**（P0.5）：宿主照常起，API Cookie + `POST /api/<ns>/<method>` 可取数；渲染进程既可直接用 HTTP，也可用 `api-gateway/client`。
+4. ✅ 窗口鉴权：`apps/shell` 用一次性 token 换同源 Cookie，`/connect?interactions=answer` 之后子资源与 WebSocket 由同源自动携带；不暴露 `ipcRenderer`，token 不进日志与诊断包。
+5. ✅ 端口策略：`apps/shell/src/ports.ts` 由 OS 分配（端口 0），避开 `3080` / `3082`；静态服务与宿主同源代理。
 
 ---
 

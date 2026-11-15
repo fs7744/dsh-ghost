@@ -14,6 +14,21 @@ import { downloadText, exportFilename, exportJsonl, exportMarkdown } from './exp
 import { findRewindPoints, forkRequest, rewindLabel, type RewindPoint } from './rewind.ts'
 import { mountMemoryPanel, type MemoryHost, type MemoryWriteResult } from './memory-panel.ts'
 import type { MemoryEntry } from './memory-view.ts'
+// C8 / C11 剩余项：主题、i18n、快捷键、面板注册表与各领域面板
+import { initLocale, makeTranslator, subscribeLocale, toggleLocale } from './i18n.ts'
+import { initTheme, subscribeTheme, toggleTheme } from './theme.ts'
+import { defaultCombos, registerShortcuts, type ShortcutBinding } from './shortcuts.ts'
+import { mountPanels, paintText, type PanelServices } from './panels.ts'
+import { mountWorkspacePanel } from './workspace.ts'
+import {
+  mountTerminalPanel, mountJobsPanel, mountPlanPanel, mountGoalsPanel, mountCollabPanel, mountSkillsPanel,
+} from './runtime-panels.ts'
+import { mountSettingsPanel, mountPluginsPanel } from './admin-panels.ts'
+import { mountStatsPanel, decorateStream } from './feedback.ts'
+import { mountSuperagentPanel } from './superagent-panel.ts'
+import { mountApprovalLayer, type ApprovalLayer } from './approval.ts'
+import { mountAttachmentTools } from './attachments.ts'
+import { renderContextBar } from './context-bar.ts'
 
 type Transport = ReturnType<typeof createTransport>
 
@@ -21,19 +36,20 @@ const app = document.querySelector<HTMLDivElement>('#app')!
 app.innerHTML = `
   <header>
     <span class="brand">dsh-ghost</span>
-    <nav id="tabs">
-      <button data-tab="chat" class="on">对话</button>
-      <button data-tab="flow">剧本</button>
-      <button data-tab="memory">记忆</button>
-    </nav>
+    <nav id="tabs"></nav>
     <span class="status" id="conn">连接中…</span>
+    <nav class="toolbar">
+      <a id="link-models" class="navlink" href="models.html" data-t="tab.models" title="模型库、能力标注与角色路由">模型</a>
+      <button id="btn-theme" data-t="common.theme" title="切换亮/暗主题">主题</button>
+      <button id="btn-lang" title="切换中英文">中 / EN</button>
+    </nav>
     <nav class="exports">
       <button data-export="md" title="导出当前会话为 Markdown">导出 MD</button>
       <button data-export="jsonl" title="导出当前会话原始日志为 JSONL">导出 JSONL</button>
     </nav>
   </header>
   <aside><h2>会话</h2><div id="sessions"></div></aside>
-  <main>
+  <main id="main">
     <div id="chat" class="pane">
       <div id="stream"></div>
       <div id="questions" class="hidden"></div>
@@ -53,9 +69,14 @@ app.innerHTML = `
     <span id="f-sessions">— 个会话</span>
     <span id="f-records">— 条记录</span>
     <span id="f-events">— 个事件</span>
-    <span id="f-ctx" title="上下文占用"><span class="track"><span id="f-ctx-bar"></span></span><span id="f-ctx-num">—</span></span>
+    <span id="f-ctx" title="上下文占用">
+      <span class="track"><span id="f-ctx-bar"></span><span id="f-ctx-marks"></span></span>
+      <span id="f-ctx-num">—</span>
+      <button id="f-ctx-more" data-t="ctx.compaction">压缩点</button>
+    </span>
     <span id="f-state">—</span>
   </footer>
+  <div id="ctx-popover" class="hidden"></div>
 `
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T
@@ -68,6 +89,12 @@ const state = {
   events: 0,
   busy: false,
 }
+
+// 绑定到当前 locale 的翻译函数；切换语言后同一函数立即返回新文案。
+const T = makeTranslator()
+// 面板依赖与审批层在 main() 里装配完成后赋值，供 renderStream / openSession 复用。
+let services: PanelServices | undefined
+let approvalLayer: ApprovalLayer | undefined
 
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char] as string))
@@ -173,21 +200,18 @@ async function openTicket(id: string): Promise<void> {
   }
 }
 
-/** 上下文占用条：projectedTokens / contextWindow。 */
-function renderProjections(projections: unknown): void {
-  const values = (projections as { values?: { contextPressure?: { projectedTokens?: number; contextWindow?: number }; tokenUsage?: { outputTokens?: number }; sessionStats?: { turns?: number; llmMs?: number } } })?.values
-  const pressure = values?.contextPressure
-  const bar = el('f-ctx-bar')
-  const num = el('f-ctx-num')
-  if (pressure?.projectedTokens === undefined || pressure.contextWindow === undefined) {
-    num.textContent = '—'
-    return
-  }
-  const ratio = Math.min(1, pressure.projectedTokens / pressure.contextWindow)
-  bar.style.width = `${(ratio * 100).toFixed(1)}%`
-  bar.style.background = ratio > 0.8 ? 'var(--danger)' : 'var(--accent)'
-  const turns = values?.sessionStats?.turns ?? 0
-  num.textContent = `${(pressure.projectedTokens / 1000).toFixed(1)}k / ${(pressure.contextWindow / 1000).toFixed(0)}k · ${turns} 回合`
+/**
+ * 上下文占用条（C11-04 升级）：占用比例 + 压缩点标记 + 可展开看被压掉的原文。
+ * 压缩点由 session/page 的记录推断；顺带渲染待答横幅。
+ */
+function renderProjections(projections: unknown, records: readonly LogRecord[]): void {
+  renderQuestions(projections)
+  renderContextBar({
+    bar: el('f-ctx-bar'),
+    marks: el('f-ctx-marks'),
+    num: el('f-ctx-num'),
+    popover: el('ctx-popover'),
+  }, projections, records, { t: T })
 }
 
 function renderStream(bubbles: readonly Bubble[], points: readonly RewindPoint[] = []): void {
@@ -211,6 +235,8 @@ function renderStream(bubbles: readonly Bubble[], points: readonly RewindPoint[]
     return `<div class="msg ${bubble.kind}"><div class="who">Ghost</div><div class="body">${escapeHtml(bubble.text) === '' ? '<i>（无文本）</i>' : escapeHtml(bubble.text)}</div>${chip}</div>`
   }).join('')
   stream.scrollTop = stream.scrollHeight
+  // C8-23：给助手消息追加赞 / 踩按钮（renderStream 重绘后重新挂）。
+  if (services !== undefined) decorateStream(stream, services)
 }
 
 function renderSessions(): void {
@@ -242,8 +268,8 @@ async function openSession(sessionId: string): Promise<number> {
   renderStream(toBubbles(records), state.rewindPoints)
   try {
     const projections = await transport.call('session/projections', { request: { sessionId } })
-    renderProjections(projections)
-    renderQuestions(projections)
+    renderProjections(projections, records)
+    void approvalLayer?.refresh()
   } catch { /* 投影读不到就不显示占用 */ }
   el('node').innerHTML = `<dl><dt>会话</dt><dd>${sessionId}</dd><dt>记录</dt><dd>${records.length}</dd></dl>`
   void loadCommands()
@@ -383,15 +409,12 @@ async function send(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  initTheme()
+  initLocale()
+
   // 剧本页自己管文本、图与表单：编辑即回写 .flow，全部走单向数据流。
   mountFlowEditor(el('flow'), flowSource)
 
-  el('tabs').querySelectorAll<HTMLButtonElement>('button').forEach(button => {
-    button.addEventListener('click', () => {
-      el('tabs').querySelectorAll('button').forEach(other => other.classList.toggle('on', other === button))
-      for (const id of ['chat', 'flow', 'memory']) el(id).classList.toggle('hidden', button.dataset.tab !== id)
-    })
-  })
   el('send').addEventListener('click', () => { void send() })
   el('stream').addEventListener('click', event => {
     const button = (event.target as HTMLElement).closest<HTMLElement>('[data-rewind]')
@@ -402,6 +425,9 @@ async function main(): Promise<void> {
   document.querySelectorAll<HTMLButtonElement>('[data-export]').forEach(button => {
     button.addEventListener('click', () => { void exportSession(button.dataset.export === 'jsonl' ? 'jsonl' : 'md') })
   })
+  el('btn-theme').addEventListener('click', () => { toggleTheme() })
+  el('btn-lang').addEventListener('click', () => { toggleLocale() })
+  el('f-ctx-more').addEventListener('click', () => { el('ctx-popover').classList.toggle('hidden') })
   // 输入框键盘事件由命令面板统一接管（普通 Enter 仍回到 send()）。
 
   const token = new URLSearchParams(location.search).get('token')
@@ -430,6 +456,13 @@ async function main(): Promise<void> {
     },
     onError: error => { el('f-state').textContent = `事件流错误：${String(error).slice(0, 50)}` },
   })
+
+  services = {
+    transport: state.transport,
+    agentId: () => state.active,
+    notice: text => { el('f-state').textContent = text },
+    t: T,
+  }
 
   mountCommandPalette({
     listCommands: async () => {
@@ -470,6 +503,70 @@ async function main(): Promise<void> {
     notice: text => { el('f-state').textContent = text },
   }
   mountMemoryPanel(el('memory'), memoryHost)
+  // C8-22 / C8-24：附件上传、目录选择、全局文件拖拽。
+  mountAttachmentTools(el('composer'), services)
+
+  // C8 剩余项统一注册：静态 3 页 + 动态 11 页，标签切换与降级都由 panels.ts 管。
+  const mounted = mountPanels({
+    tabs: el('tabs'),
+    main: el('main'),
+    staticPanes: [
+      { id: 'chat', labelKey: 'tab.chat', order: 1 },
+      { id: 'flow', labelKey: 'tab.flow', order: 2 },
+      { id: 'memory', labelKey: 'tab.memory', order: 3 },
+    ],
+    defs: [
+      { id: 'workspace', labelKey: 'tab.workspace', order: 4, mount: mountWorkspacePanel },
+      { id: 'terminal', labelKey: 'tab.terminal', order: 5, mount: mountTerminalPanel },
+      { id: 'jobs', labelKey: 'tab.jobs', order: 6, mount: mountJobsPanel },
+      { id: 'plan', labelKey: 'tab.plan', order: 7, mount: mountPlanPanel },
+      { id: 'goals', labelKey: 'tab.goals', order: 8, mount: mountGoalsPanel },
+      { id: 'collab', labelKey: 'tab.collab', order: 9, mount: mountCollabPanel },
+      { id: 'skills', labelKey: 'tab.skills', order: 10, mount: mountSkillsPanel },
+      { id: 'settings', labelKey: 'tab.settings', order: 11, mount: mountSettingsPanel },
+      { id: 'plugins', labelKey: 'tab.plugins', order: 12, mount: mountPluginsPanel },
+      { id: 'superagent', labelKey: 'tab.superagent', order: 13, mount: mountSuperagentPanel },
+      { id: 'stats', labelKey: 'tab.stats', order: 14, mount: mountStatsPanel },
+    ],
+    services,
+    onActivate: id => { if (id === 'chat') void approvalLayer?.refresh() },
+  })
+
+  // C8-03 审批弹窗层（全局浮层，不在标签页里）。
+  approvalLayer = mountApprovalLayer(services)
+
+  subscribeLocale(() => {
+    mounted.applyLocale()
+    paintText(document.body, { t: T })
+  })
+  subscribeTheme(() => { paintText(document.body, { t: T }) })
+  paintText(document.body, { t: T })
+
+  // C8-19 快捷键集中注册；全带 Ctrl，不与命令面板的无修饰键接管冲突。
+  const combos = defaultCombos()
+  const bindings: ShortcutBinding[] = []
+  for (let i = 1; i <= 9; i += 1) {
+    const id = mounted.ids[i - 1]
+    if (id === undefined) continue
+    bindings.push({ combo: combos[`tab${i}`] ?? `Ctrl+${i}`, action: () => mounted.activate(id) })
+  }
+  bindings.push(
+    {
+      combo: combos.palette ?? 'Ctrl+K',
+      allowInEditable: true,
+      action: () => {
+        const input = el<HTMLTextAreaElement>('input')
+        if (input.value.trim() === '') input.value = '/'
+        input.focus()
+        input.dispatchEvent(new Event('input'))
+      },
+    },
+    { combo: combos.settings ?? 'Ctrl+,', allowInEditable: true, action: () => mounted.activate('settings') },
+    { combo: combos.exportMd ?? 'Ctrl+Shift+E', allowInEditable: true, action: () => { void exportSession('md') } },
+    { combo: combos.theme ?? 'Ctrl+Shift+T', allowInEditable: true, action: () => { toggleTheme() } },
+    { combo: combos.language ?? 'Ctrl+Shift+L', allowInEditable: true, action: () => { toggleLocale() } },
+  )
+  registerShortcuts(bindings)
 
   const refresh = async (): Promise<void> => {
     try {
@@ -499,7 +596,10 @@ async function main(): Promise<void> {
     await state.transport.events(frame => {
       state.events += 1
       el('f-events').textContent = `${state.events} 个事件`
-      if (frame.type === 'emit' && frame.event.startsWith('api-session/')) void refresh()
+      if (frame.type === 'emit') {
+        if (frame.event.startsWith('api-session/')) void refresh()
+        approvalLayer?.onFrame({ event: frame.event, args: frame.args })
+      }
     })
   } catch (error) {
     el('f-state').textContent = `事件订阅失败：${String(error).slice(0, 50)}`

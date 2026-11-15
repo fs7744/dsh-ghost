@@ -3,9 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Playbook: compact .flow text <-> graph model, compiled into a complete skill package.",
+  "description": "Playbook: compact .flow text <-> graph model, AI generate/rewrite, diff, dry-run, compiled into a complete skill package.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
   },
   "scripts": {
     "test": "node --test --experimental-transform-types tests/playbook.test.ts"

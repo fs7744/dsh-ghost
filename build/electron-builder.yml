@@ -1,0 +1,71 @@
+# dsh-ghost 桌面壳打包配置（仅 Windows x64）。
+# 范围声明：macOS dmg + 公证、Linux AppImage 不在本期范围，本配置不提供、也不假装支持，
+# 详见 docs/RELEASE.md。签名证书与更新 feed 全部从 CI secret 注入，配置内不硬编码。
+
+appId: com.dshghost.desktop
+productName: dsh-ghost
+copyright: Copyright (c) 2026 dsh-ghost
+compression: maximum
+
+directories:
+  buildResources: build
+  output: ../../out/shell-release
+
+# 只打编译产物与本地页面：主进程 dist、渲染层 dist、首启向导/关于页、根 package.json。
+files:
+  - apps/shell/dist/**/*
+  - apps/shell/onboarding.html
+  - apps/shell/about.html
+  - apps/desktop/dist/**/*
+  - package.json
+
+extraResources:
+  - from: apps/desktop/dist
+    to: dist
+  - from: build/resources
+    to: resources
+
+# 文件关联（C5-06）：.flow 剧本与 .md 用本产品打开；argv / open-file 在壳内解析。
+fileAssociations:
+  - ext: flow
+    name: dsh-ghost Playbook
+    description: dsh-ghost 剧本
+    role: Editor
+  - ext: md
+    name: dsh-ghost Markdown
+    description: Markdown 文档
+    role: Editor
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: dsh-ghost-${version}-win-x64.${ext}
+  signingHashAlgorithms:
+    - sha256
+  # 自定义协议（C5-03）：dsh-ghost:// 深链唤醒由单实例锁处理。
+  protocols:
+    - name: dsh-ghost
+      schemes:
+        - dsh-ghost
+  # 签名占位：electron-builder 从环境变量 CSC_LINK / CSC_KEY_PASSWORD（或 Windows
+  # 证书 store 的 WIN_CSC_*）读取证书，全部由 CI secret 注入，此处不写任何口令/指纹。
+  # 未注入时产出未签名安装包，只能内部测试，不能作为正式发布物。
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: dsh-ghost
+  include: build/installer.nsh
+
+# 更新通道占位：真实 feed 地址由 CI secret（SHELL_UPDATE_FEED_STABLE /
+# SHELL_UPDATE_FEED_BETA）注入；本地与未发布构建用 --publish never，绝不上传。
+# 灰度判定在 apps/shell/src/updater.ts（按 installId 确定性分桶）。
+publish:
+  provider: generic
+  url: "${env.SHELL_UPDATE_FEED_STABLE}"
+  channel: latest

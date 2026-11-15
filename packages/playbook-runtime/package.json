@@ -1,0 +1,14 @@
+{
+  "name": "@dsh-ghost/playbook-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Script runtime with whitelist/timeout/concurrency/idempotency guards, {ok,code,fix,hint} output protocol and layered references loading.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "files": ["lib", "src"]
+}

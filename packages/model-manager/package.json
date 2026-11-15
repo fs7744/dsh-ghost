@@ -1,0 +1,21 @@
+{
+  "name": "@dsh-ghost/model-manager",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "provider/模型目录纯逻辑：能力标注、角色路由、本地预设、连通性自测、凭据引用校验。",
+  "license": "SEE LICENSE IN docs/LICENSING.md",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test --experimental-transform-types tests/catalog.test.ts tests/credentials.test.ts"
+  },
+  "files": [
+    "lib",
+    "src"
+  ]
+}

@@ -1,6 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { type EntryMeta, type JsonSchema, type MemoryWrite, type WriteOutcome } from '@dsh-ghost/memory';
+import type { CompactionConfig, DecideInput, DecideResult, MetricsInput, MetricsResult, Proposal, ProposeInput, ProposeResult } from '@dsh-ghost/evolution';
+import type { FlowDiff, GenerateRequest, RewriteRequest, TryRunOptions, TryRunResult } from '@dsh-ghost/playbook';
+import type { RunOutcome } from '@dsh-ghost/playbook-runtime';
 /** 插件名，cordis 用它做去重与诊断。 */
 export declare const name = "ghost-memory";
 /** 依赖的工具注册表。 */
@@ -13,6 +16,8 @@ export interface Config {
     mode?: 'indexed' | 'block';
     /** 常驻预算（字节），默认 2048。 */
     maxResidentBytes?: number;
+    /** 仓库根目录，供 `ghostInit/draft` 扫描生成 GHOST.md 草案；缺省取宿主 cwd。 */
+    repoRoot?: string;
 }
 /** 界面通过 Remote 能用到的记忆能力。 */
 export interface MemoryApi {
@@ -26,6 +31,93 @@ export interface MemoryApi {
     toggle(enabled: boolean): {
         enabled: boolean;
     };
+}
+/** C10-05/06/07：记忆与剧本进化提案 + 度量看板。 */
+export declare class GhostEvolutionRemote extends TypertRemoteService {
+    constructor(ctx: Context);
+    /** 列出全部提案（可查看）。 */
+    listProposals(): Promise<{
+        items: Proposal[];
+    }>;
+    /** 记一次返工；同一 key 累计到 3 次才生成提案。 */
+    propose(input: ProposeInput): Promise<ProposeResult>;
+    /** 人闸批准：memory 提案写入 L2 项目记忆。 */
+    approve(input: DecideInput): Promise<DecideResult>;
+    /** 人闸驳回：绝不写任何记忆或剧本文件。 */
+    reject(input: DecideInput): Promise<DecideResult>;
+    /** 记录一条 run 并返回 before/after 看板。 */
+    metrics(input: MetricsInput): Promise<MetricsResult>;
+}
+/** C9-05/06/07/08/10：剧本 AI 生成/重写、diff、试跑与脚本执行。 */
+export declare class GhostPlaybookRemote extends TypertRemoteService {
+    constructor(ctx: Context);
+    /** 一句话生成合法 .flow（产物过同一道校验，非法返回 ok:false）。 */
+    generate(input: GenerateRequest): Promise<{
+        ok: boolean;
+        text?: string;
+        id?: string;
+        error?: string;
+    }>;
+    /** 选中局部按一句指令重写，产物过同一道校验。 */
+    rewrite(input: RewriteRequest): Promise<{
+        ok: boolean;
+        text?: string;
+        error?: string;
+    }>;
+    /** 单步试跑：从某节点推演，返回轨迹与停止原因。 */
+    tryRun(input: {
+        text: string;
+    } & TryRunOptions): Promise<{
+        ok: boolean;
+        result?: TryRunResult;
+        error?: string;
+    }>;
+    /** 两版 .flow 的结构化 + 文本 diff。 */
+    diff(input: {
+        before: string;
+        after: string;
+    }): Promise<{
+        ok: boolean;
+        diff?: FlowDiff;
+        error?: string;
+    }>;
+    /** 执行编译出的 scripts/*（白名单/超时/并发/幂等/输出上限）。 */
+    runScript(input: {
+        script: string;
+        args?: string[];
+        timeoutMs?: number;
+        idempotencyKey?: string;
+    }): Promise<{
+        ok: boolean;
+        outcome?: RunOutcome;
+        error?: string;
+    }>;
+}
+/** C11-07：扫描仓库生成 GHOST.md 草案（只返回草案，不覆盖既有文件）。 */
+export declare class GhostInitRemote extends TypertRemoteService {
+    constructor(ctx: Context);
+    draft(input: {
+        root?: string;
+    }): Promise<{
+        ok: boolean;
+        content?: string;
+        sources?: string[];
+        uncertainties?: string[];
+        wouldWrite?: boolean;
+        error?: string;
+    }>;
+}
+/** C11-03：压缩策略配置的校验与序列化（settings 形态）。 */
+export declare class GhostCompactionRemote extends TypertRemoteService {
+    constructor(ctx: Context);
+    config(input: {
+        config?: unknown;
+    }): Promise<{
+        ok: boolean;
+        config?: CompactionConfig;
+        settings?: string;
+        errors?: string[];
+    }>;
 }
 /** 记忆管理的 Remote 面：界面只读/写这里，不碰文件。 */
 export declare class GhostMemoryRemote extends TypertRemoteService {

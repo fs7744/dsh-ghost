@@ -1,0 +1,11 @@
+# @admission-flow v1
+# when 收到一条归一化事件，判断是否值得做
+# goal 只让被点名、有明确请求、在范围内的事件进入引擎
+# budget 工具<=4
+
+check-addressed  : no -> quiet
+check-sender     : deny -> quiet
+check-scope      : deny -> quiet
+?borderline
+open-ticket
+quiet

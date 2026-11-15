@@ -1,0 +1,493 @@
+{
+  "overview": {
+    "view": "overview",
+    "rows": [
+      {
+        "id": "overview:tk-attention",
+        "cells": {
+          "ticket": "tk-attention",
+          "title": "合并前请确认版本号",
+          "stage": "person/answer",
+          "question": "版本号用 v2 还是 v2.1？",
+          "report": "已改完，等确认",
+          "createdAt": "2026-02-01T00:00:00.000Z",
+          "updatedAt": "2026-02-01T00:00:00.000Z"
+        },
+        "needsPerson": true
+      }
+    ],
+    "summary": {
+      "total": 3,
+      "needsPerson": 1,
+      "text": "有 1 张票需要人处理",
+      "open": 2,
+      "ended": 1
+    },
+    "actions": [
+      {
+        "id": "reply:tk-attention",
+        "label": "答复提问",
+        "tool": "orchestrator_reply",
+        "target": "tk-attention",
+        "humanGate": true
+      },
+      {
+        "id": "stop:tk-attention",
+        "label": "叫停这张票",
+        "tool": "orchestrator_route",
+        "target": "tk-attention",
+        "humanGate": true
+      }
+    ]
+  },
+  "tickets": {
+    "view": "tickets",
+    "rows": [
+      {
+        "id": "ticket:tk-done",
+        "cells": {
+          "id": "tk-done",
+          "title": "修好 README 的错字",
+          "stage": "ended",
+          "outcome": "completed",
+          "assignments": 1,
+          "inputs": 0,
+          "report": "已完成",
+          "createdAt": "2026-02-01T00:00:00.000Z"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "ticket:tk-attention",
+        "cells": {
+          "id": "tk-attention",
+          "title": "合并前请确认版本号",
+          "stage": "person/answer",
+          "outcome": null,
+          "assignments": 1,
+          "inputs": 0,
+          "report": "已改完，等确认",
+          "createdAt": "2026-02-01T00:00:00.000Z"
+        },
+        "needsPerson": true
+      },
+      {
+        "id": "ticket:tk-working",
+        "cells": {
+          "id": "tk-working",
+          "title": "把登录页的校验补齐",
+          "stage": "working",
+          "outcome": null,
+          "assignments": 1,
+          "inputs": 0,
+          "report": "正在改表单校验",
+          "createdAt": "2026-02-01T00:00:00.000Z"
+        },
+        "needsPerson": false
+      }
+    ],
+    "summary": {
+      "total": 3,
+      "needsPerson": 1,
+      "text": "共 3 张票，1 张待人处理",
+      "open": 2,
+      "ended": 1
+    },
+    "actions": [
+      {
+        "id": "status:tk-attention",
+        "label": "请求状态",
+        "tool": "orchestrator_ticket_request_status",
+        "target": "tk-attention",
+        "humanGate": false
+      },
+      {
+        "id": "stop:tk-attention",
+        "label": "叫停",
+        "tool": "orchestrator_route",
+        "target": "tk-attention",
+        "humanGate": true
+      },
+      {
+        "id": "status:tk-working",
+        "label": "请求状态",
+        "tool": "orchestrator_ticket_request_status",
+        "target": "tk-working",
+        "humanGate": false
+      },
+      {
+        "id": "stop:tk-working",
+        "label": "叫停",
+        "tool": "orchestrator_route",
+        "target": "tk-working",
+        "humanGate": true
+      }
+    ]
+  },
+  "records": {
+    "view": "records",
+    "rows": [
+      {
+        "id": "decision:dec-1",
+        "cells": {
+          "kind": "decision",
+          "id": "dec-1",
+          "at": "2026-02-01T00:00:00.000Z",
+          "verdict": "accept",
+          "reason": "外部请求：补齐登录页校验",
+          "ticket": "tk-working",
+          "thread": "github:demo#1"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "report:tk-done:a3",
+        "cells": {
+          "kind": "report",
+          "id": "a3",
+          "at": "2026-02-01T00:00:00.000Z",
+          "verdict": "ready",
+          "reason": "已完成",
+          "ticket": "tk-done",
+          "thread": ""
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "report:tk-attention:a2",
+        "cells": {
+          "kind": "report",
+          "id": "a2",
+          "at": "2026-02-01T00:00:00.000Z",
+          "verdict": "progress",
+          "reason": "已改完，等确认",
+          "ticket": "tk-attention",
+          "thread": ""
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "report:tk-working:a1",
+        "cells": {
+          "kind": "report",
+          "id": "a1",
+          "at": "2026-02-01T00:00:00.000Z",
+          "verdict": "progress",
+          "reason": "正在改表单校验",
+          "ticket": "tk-working",
+          "thread": ""
+        },
+        "needsPerson": false
+      }
+    ],
+    "summary": {
+      "total": 4,
+      "needsPerson": 0,
+      "text": "1 条决策、3 条报告",
+      "decisions": 1,
+      "reports": 3
+    },
+    "actions": [
+      {
+        "id": "records:refresh",
+        "label": "刷新记录",
+        "tool": "orchestrator_read",
+        "target": "records",
+        "humanGate": false
+      }
+    ]
+  },
+  "threads": {
+    "view": "threads",
+    "rows": [
+      {
+        "id": "thread:github:demo#1",
+        "cells": {
+          "key": "github:demo#1",
+          "source": "github",
+          "id": "demo#1",
+          "subscriptions": 1,
+          "pending": 0,
+          "evaluating": null,
+          "lastAt": null,
+          "createdAt": "2026-02-01T00:00:00.000Z"
+        },
+        "needsPerson": false
+      }
+    ],
+    "summary": {
+      "total": 1,
+      "needsPerson": 0,
+      "text": "1 个线程、1 条订阅",
+      "withPending": 0,
+      "evaluating": 0,
+      "subscriptions": 1
+    },
+    "actions": [
+      {
+        "id": "unsubscribe:github:demo#1",
+        "label": "取消订阅",
+        "tool": "orchestrator_thread_unsubscribe",
+        "target": "github:demo#1",
+        "humanGate": true
+      }
+    ]
+  },
+  "sources": {
+    "view": "sources",
+    "rows": [
+      {
+        "id": "source:github",
+        "cells": {
+          "id": "github",
+          "kind": "github",
+          "description": "GitHub webhook（内置适配器）",
+          "auth": "hmac",
+          "enabled": true
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "source:feishu",
+        "cells": {
+          "id": "feishu",
+          "kind": "generic",
+          "description": "飞书 bot 提及（声明式映射）",
+          "auth": "hmac",
+          "enabled": false
+        },
+        "needsPerson": false
+      }
+    ],
+    "summary": {
+      "total": 2,
+      "needsPerson": 0,
+      "text": "2 个来源，1 个启用",
+      "enabled": 1,
+      "disabled": 1,
+      "tickets": 3
+    },
+    "actions": [
+      {
+        "id": "toggle:github",
+        "label": "停用",
+        "tool": "orchestrator_settings_save",
+        "target": "github",
+        "humanGate": true
+      },
+      {
+        "id": "ingest:github",
+        "label": "投递一次",
+        "tool": "orchestrator_read",
+        "target": "sources",
+        "humanGate": false
+      },
+      {
+        "id": "toggle:feishu",
+        "label": "启用",
+        "tool": "orchestrator_settings_save",
+        "target": "feishu",
+        "humanGate": true
+      },
+      {
+        "id": "ingest:feishu",
+        "label": "投递一次",
+        "tool": "orchestrator_read",
+        "target": "sources",
+        "humanGate": false
+      }
+    ]
+  },
+  "settings": {
+    "view": "settings",
+    "rows": [
+      {
+        "id": "settings:policy",
+        "cells": {
+          "block": "policy",
+          "keys": 2,
+          "preview": "{\"version\":\"v1\",\"paused\":false}"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "settings:executor",
+        "cells": {
+          "block": "executor",
+          "keys": 2,
+          "preview": "{\"concurrency\":2,\"timeoutMs\":120000}"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "settings:prompts",
+        "cells": {
+          "block": "prompts",
+          "keys": 1,
+          "preview": "{\"residentBudget\":700}"
+        },
+        "needsPerson": false
+      }
+    ],
+    "summary": {
+      "total": 3,
+      "needsPerson": 0,
+      "text": "3 个配置块",
+      "blocks": 3,
+      "tickets": 3
+    },
+    "actions": [
+      {
+        "id": "settings:save",
+        "label": "保存配置块",
+        "tool": "orchestrator_settings_save",
+        "target": "",
+        "humanGate": true
+      },
+      {
+        "id": "settings:sync",
+        "label": "同步策略",
+        "tool": "orchestrator_policy_sync",
+        "target": "",
+        "humanGate": true
+      },
+      {
+        "id": "settings:prompts",
+        "label": "保存提示词",
+        "tool": "orchestrator_prompts_save",
+        "target": "",
+        "humanGate": true
+      }
+    ]
+  },
+  "deploy": {
+    "view": "deploy",
+    "rows": [
+      {
+        "id": "check:stateDir",
+        "cells": {
+          "kind": "check",
+          "id": "stateDir",
+          "ok": true,
+          "reason": "状态目录可写"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "check:githubSecret",
+        "cells": {
+          "kind": "check",
+          "id": "githubSecret",
+          "ok": false,
+          "reason": "缺少环境变量 GH_WEBHOOK_SECRET"
+        },
+        "needsPerson": true
+      },
+      {
+        "id": "check:orchestratorRoute",
+        "cells": {
+          "kind": "check",
+          "id": "orchestratorRoute",
+          "ok": true,
+          "reason": "管理面全部走 Typert Remote，无自建 /orchestrator 路由"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "deploy:service",
+        "cells": {
+          "kind": "deploy",
+          "key": "service",
+          "value": "dsh-superagent"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "deploy:stateDir",
+        "cells": {
+          "kind": "deploy",
+          "key": "stateDir",
+          "value": ".ghost/superagent"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "deploy:watch",
+        "cells": {
+          "kind": "deploy",
+          "key": "watchIntervalMinutes",
+          "value": 60
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "deploy:account:github",
+        "cells": {
+          "kind": "deploy",
+          "key": "account",
+          "value": "github"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "deploy:account:feishu",
+        "cells": {
+          "kind": "deploy",
+          "key": "account",
+          "value": "feishu"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "deploy:machine:os",
+        "cells": {
+          "kind": "deploy",
+          "key": "os",
+          "value": "windows"
+        },
+        "needsPerson": false
+      },
+      {
+        "id": "deploy:machine:arch",
+        "cells": {
+          "kind": "deploy",
+          "key": "arch",
+          "value": "x64"
+        },
+        "needsPerson": false
+      }
+    ],
+    "summary": {
+      "total": 10,
+      "needsPerson": 1,
+      "text": "1 项配置未就绪",
+      "checks": 3,
+      "failed": 1,
+      "ready": 2,
+      "tickets": 3
+    },
+    "actions": [
+      {
+        "id": "deploy:status",
+        "label": "重新自检",
+        "tool": "orchestrator_read",
+        "target": "deploy",
+        "humanGate": false
+      },
+      {
+        "id": "deploy:setup",
+        "label": "运行 SETUP 向导",
+        "tool": "orchestrator_settings_save",
+        "target": "",
+        "humanGate": true
+      },
+      {
+        "id": "deploy:restart",
+        "label": "重启服务",
+        "tool": "orchestrator_settings_save",
+        "target": "",
+        "humanGate": true
+      }
+    ]
+  }
+}

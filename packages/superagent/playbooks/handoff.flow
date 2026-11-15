@@ -1,0 +1,10 @@
+# @handoff-flow v1
+# when 主会话与执行器之间要交接上下文
+# goal 交接后双方对同一张票的边界一致
+# budget 工具<=6
+
+collect-context
+write-handoff
+?confirm-scope
+attach-note
+resume

@@ -1,0 +1,34 @@
+{
+  "ledgerNote": "docs/FEATURES.md §B6 账本写 16 个文件；逐项明细为 17 个（15 个纯提示词 + 2 个技能 SKILL.md）。本实现以逐项明细为准全部交付，不丢项、不凑数。",
+  "residentMaxChars": 700,
+  "groups": [
+    { "id": "B6-01", "name": "主会话提示词", "level": "resident", "note": "persona + 底线 + 订阅规则，常驻且极小" },
+    { "id": "B6-02", "name": "派遣与交接", "level": "on-demand", "note": "流程步骤已改写为 playbooks/dispatch.flow 与 playbooks/handoff.flow，按需加载" },
+    { "id": "B6-03", "name": "执行器提示词", "level": "mixed", "note": "worker.md 常驻 persona；work.md / cli.md 按需" },
+    { "id": "B6-04", "name": "准入与答复", "level": "on-demand", "note": "判断标准进剧本节点详情，按需加载" },
+    { "id": "B6-05", "name": "团队约束段", "level": "on-demand", "note": "shared.md 引用，细节按需" },
+    { "id": "B6-06", "name": "技能", "level": "on-demand", "note": "frontmatter 常驻约 20 token，正文按需" }
+  ],
+  "files": [
+    { "path": "orchestrator.md", "group": "B6-01", "level": "resident" },
+    { "path": "shared.md", "group": "B6-01", "level": "resident" },
+    { "path": "subscriptions.md", "group": "B6-01", "level": "resident" },
+    { "path": "dispatch.md", "group": "B6-02", "level": "on-demand" },
+    { "path": "handoff.md", "group": "B6-02", "level": "on-demand" },
+    { "path": "handoff-orchestrator.md", "group": "B6-02", "level": "on-demand" },
+    { "path": "handoff-worker.md", "group": "B6-02", "level": "on-demand" },
+    { "path": "worker.md", "group": "B6-03", "level": "resident" },
+    { "path": "work.md", "group": "B6-03", "level": "on-demand" },
+    { "path": "cli.md", "group": "B6-03", "level": "on-demand" },
+    { "path": "admission.md", "group": "B6-04", "level": "on-demand" },
+    { "path": "replies.md", "group": "B6-04", "level": "on-demand" },
+    { "path": "team/communication.md", "group": "B6-05", "level": "on-demand" },
+    { "path": "team/delivery.md", "group": "B6-05", "level": "on-demand" },
+    { "path": "team/scope.md", "group": "B6-05", "level": "on-demand" },
+    { "path": "skills/dsh-superagent-github/SKILL.md", "group": "B6-06", "level": "on-demand", "skill": true },
+    { "path": "skills/dsh-superagent-feishu/SKILL.md", "group": "B6-06", "level": "on-demand", "skill": true }
+  ],
+  "playbooks": [
+    "superagent.flow", "admission.flow", "dispatch.flow", "handoff.flow", "work.flow", "replies.flow"
+  ]
+}

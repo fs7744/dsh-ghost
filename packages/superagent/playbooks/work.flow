@@ -1,0 +1,9 @@
+# @work-flow v1
+# when 执行器拿到一张票
+# goal 产出可验证的结果并报告
+# budget 轮次<=3 工具<=40
+
+read-repo
+implement
+self-check    : fail -> implement (max 2)
+report-ready

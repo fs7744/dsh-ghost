@@ -11,6 +11,7 @@
  * 所以在 Node 与 Electron 渲染进程里都能跑。
  */
 import type { RemoteEndpoint, RemoteMap } from './remotes.generated.ts'
+import type { RemoteEventName } from './events.generated.ts'
 
 /** WebSocket 的最小面，Node 的 ws 与浏览器的 WebSocket 都能适配。 */
 export interface SocketLike {
@@ -24,8 +25,10 @@ export interface SocketLike {
 /** 事件流下行帧。 */
 export type EventFrame =
   | { type: 'ready'; clientId: string; host: { home: string } }
-  | { type: 'emit'; event: string; args: readonly unknown[] }
-  | { type: 'waterfall'; event: string; eventId: string; agentId: string; request: Record<string, unknown> }
+  // 事件名由 gen-events.mjs 从 harness 的白名单生成；`| (string & {})` 保留自动补全，
+  // 同时允许插件自定义事件（生成器没见过的名字不该在类型层就判死）。
+  | { type: 'emit'; event: RemoteEventName | (string & {}); args: readonly unknown[] }
+  | { type: 'waterfall'; event: RemoteEventName | (string & {}); eventId: string; agentId: string; request: Record<string, unknown> }
 
 /** 一次登录的结果：origin 与 API Cookie。 */
 export interface Session {

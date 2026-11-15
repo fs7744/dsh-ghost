@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>关于与许可 - dsh-ghost</title>
+  <style>
+    :root {
+      --surface-lowest:#141412; --surface-low:#1c1c1a; --on-surface:#eceae4;
+      --on-surface-variant:#b4b2a9; --outline-variant:#45443f; --accent:#5dcaa5;
+      --radius-lg:12px; --font-ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; min-height:100vh; background:var(--surface-lowest); color:var(--on-surface);
+      font-family:var(--font-ui); font-size:14px; line-height:1.6; padding:28px;
+    }
+    main { max-width:640px; margin:0 auto; }
+    h1 { font-size:20px; font-weight:500; margin:0 0 4px; }
+    h2 { font-size:15px; font-weight:500; margin:24px 0 6px; color:var(--accent); }
+    p, li { color:var(--on-surface-variant); }
+    .brand { color:var(--accent); }
+    #versions { font-variant-numeric:tabular-nums; }
+    a { color:var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>关于 <span class="brand">dsh-ghost</span></h1>
+    <p id="versions">正在读取版本信息…</p>
+    <p>Built on DeepSeek Harness. Not affiliated with or endorsed by DeepSeek.</p>
+
+    <h2>上游许可</h2>
+    <ul>
+      <li>deepseek-harness：MIT，Copyright (c) 2026 DeepSeek</li>
+      <li>dsh-superagent-prototype：MIT，Copyright (c) 2026 DeepSeek Harness Team</li>
+      <li>harness 的 382 个包：均为 MIT</li>
+      <li>Electron / Chromium：BSD 系及各类第三方许可，随安装包分发 LICENSE.electron.txt 与 LICENSES.chromium.html</li>
+    </ul>
+    <p>完整清单见 docs/THIRD-PARTY.md 与安装包内的 THIRD_PARTY_NOTICES。</p>
+
+    <h2>本仓库三段许可</h2>
+    <ul>
+      <li>应用（apps/desktop、apps/shell）：专有，All rights reserved</li>
+      <li>对外插件契约（model-adapter-kit、剧本格式规范）：Apache-2.0</li>
+      <li>示例剧本包 playbooks/*：MIT；文档 docs/*：CC BY 4.0</li>
+    </ul>
+    <p>改写的 superagent 文件保留原版权行，并标注 Modifications。MVP 不做 Office 转换，规避 MPL-2.0 源码可得义务。</p>
+
+    <h2>隐私与数据</h2>
+    <p>本地优先，无云同步、无账号体系。遥测与崩溃上报默认关闭，可导出可删除，详见 docs/PRIVACY.md 与 docs/DIAGNOSTICS.md。</p>
+
+    <h2>反馈与文档</h2>
+    <p>反馈入口默认关闭；崩溃上报在设置里手动开启后才生效。文档站骨架说明见 docs/RELEASE.md 的产品化一节。</p>
+  </main>
+  <script>
+    // 版本信息来自主进程 appInfo()（preload 暴露的最小 API），不读环境变量、不联网。
+    const api = window.shellApi
+    const box = document.querySelector('#versions')
+    api.appInfo().then(info => {
+      const lines = [
+        '产品版本 ' + info.product,
+        '壳版本 ' + info.shell,
+        'Electron ' + info.electron,
+        'Chromium ' + info.chromium,
+        'Node ' + info.node,
+      ]
+      box.textContent = lines.join(' / ')
+    }).catch(() => {
+      box.textContent = '版本信息不可用'
+    })
+  </script>
+</body>
+</html>

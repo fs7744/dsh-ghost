@@ -4,14 +4,41 @@
 >
 > 计数口径：「一项」= 一个用户可感知的能力，或一个必须交付的工程件。粒度有意碾平——不是为了精确，是为了不漏项。
 
-## 0.1 进度快照（2026-11-15）
+## 0.1 进度快照（2026-11-15 收尾）
 
-**已完成 38 项 / 227**（含 C2-02、C2-03 基础版、C10-03、C11-01/02/05/06 与 C8-01/02/05 基础版）：B1-01～08（领域核心 + 25 个用例）、C1-01（transport）、C1-02（契约 + 224 端点生成）、C1-03（探针）、C1-06（通路 spike）、C9-01（解析器）、C9-02（编译器 + 节点详情）、C9-03（流程图渲染基础版）、C9-04（图编辑器 MVP）、C9-09（包结构编译）、C10-01（记忆存储）、C10-02（记忆工具，真模型验通）、C10-03（记忆界面）、C10-04（写入门槛）、C11-01（命令面板基础版）、C11-05（Checkpoint / rewind）、C11-06（会话导出）、C8-01（聊天流）、C8-02（工具卡片）、C8-05（会话树）。
+**227 项里，仓库内可交付的工程件已全部落地。** 分组结论见 §0.2；下表是逐组账（"已完成"= 有代码 + 有单测/验收 + 已接入根脚本）：
 
-**本轮新增的工程件**（不单列进 227 项账本，但都有可跑的验收）：自动执行器（`verify:auto-run`）、可插拔信息源 `source-hub`（`verify:source-hub`，见 [SOURCES.md](SOURCES.md)）、GitHub 全闭环（`verify:github-loop`）、配置治理（patch 模板 + 启动同步）。
+| 组 | 项数 | 状态 |
+|---|---|---|
+| A harness 白拿 | 73 | 随升级即得，只写配置 |
+| B superagent 移植 | 59 | B1 领域核心 8 + **B2–B7 本轮补齐**（插件入口 3 / 会话工具 19 / 视图 7 / 触发源 2 / 提示词与技能 6 组 16 文件 / 部署自检 4），见 [SUPERAGENT.md](SUPERAGENT.md) |
+| C1 兼容与契约 | 6 | ✅ 6/6（本轮补 C1-04 升级流水线、C1-05 import 纪律） |
+| C2 安全与鉴权 | 3 | ✅ 3/3（C2-01 管理面全走 Remote，无自建 `/orchestrator` 路由；C2-03 补 `safeStorage`/DPAPI 与明文凭据拒绝） |
+| C3 模型管理 | 5 | ✅ 5/5；模型库页不再只是 demo——Electron 静态服务提供本机 `/api/models/*`，走 `model-manager` 纯逻辑，Vite 开发时降级内置示例 |
+| C4 测试设施 | 7 | ✅ 7/7 |
+| C5 桌面壳 | 13 | ✅ 13/13（代码与配置；真实安装包需证书 / Electron ABI 实测） |
+| C6 发布 | 5 | 3 项已就绪（Windows NSIS / 更新通道与灰度 / 发布流水线与版本核对）；**macOS dmg+公证、Linux AppImage 按 PLAN §8.4「先只做 Windows x64」明确不做**，不算完成也不冒充完成；真实放量仍需证书与 feed |
+| C7 产品化 | 4 | ✅ 4/4（默认关闭、本地优先） |
+| C8 自建界面 | 26 | ✅ 26/26 |
+| C9 剧本与技能包 | 12 | ✅ 12/12 |
+| C10 记忆与进化 | 7 | ✅ 7/7 |
+| C11 命令与上下文 | 7 | ✅ 7/7 |
 
-**下一批（按依赖顺序）**：C8 界面其余项 → C11-03 压缩策略配置与 C11-04 压缩点标记 → C10-05 记忆进化 → P3c 剧本编辑器打磨（拖拽 / 撤销 / AI 局部重写 / 图 diff）。
-其余（B2–B7 的宿主装配、C3 模型管理、C5 壳、C6 发布）依赖前三批，不宜提前。
+**本轮额外工程件**（不单列进 227 项，都有可跑验收）：事件契约生成器与漂移校验（`gen:events` / `verify:events`，31 个转发事件）、自动执行器、可插拔信息源、GitHub 全闭环、配置治理、L1 故障注入假端点、L2 回放、L3 结构断言、L4 评分、L5 规格、CI 门禁矩阵。
+
+**剩下的不是代码，是外部验证与产品决策**：Windows 签名证书、干净机器上的 NSIS 安装→自更新→卸载、Electron 44 内置 Node / 原生模块 ABI 实测、发版前官方 BYOK 冒烟，以及 PLAN §16 的 6 个待定（界面 MVP 切分、密钥谁出、adapter 是否独立成包、MCP server 时机、账号体系、测试配额）。macOS 公证与 Linux AppImage 明确不在范围。
+
+## 0.2 本轮补齐清单与验收入口
+
+| 批次 | 项 | 主要落点 | 验收 |
+|---|---|---|---|
+| P3a/b 界面 | C8-03/06～17/19～26、C11-04 | `apps/desktop/src/{panels,workspace,runtime-panels,admin-panels,approval,theme,i18n,shortcuts,attachments,feedback,context-bar,superagent-panel}.ts` | `npm run test:panels`（49 用例）、`npm run verify:panels`（8 个真实端点） |
+| P3c 剧本打磨 | C9-05～08/10～12 | `packages/playbook/src/{diff,ai,simulate}.ts`、`packages/playbook-runtime` | `test:playbook-ai` / `test:script-runtime` / `verify:evolution` |
+| 记忆与上下文 | C10-05～07、C11-03/07 | `packages/evolution` + `ghostEvolution/*` / `ghostInit/*` / `ghostCompaction/*` Remote | `test:evolution`、`verify:evolution`、`verify:init`、`verify:compaction` |
+| 契约与升级 | C1-04/05、R1 事件面 | `harness-contract/{gen-events.mjs,events.json,matrix.json}`、`scripts/{upgrade-harness,check-port-discipline,verify-events}.mjs` | `verify:events`、`verify:port-discipline`、`upgrade:harness -- <v>`（dry-run） |
+| 模型与测试 | C2-03、C3、C4 | `packages/model-manager`、`packages/model-adapter-kit`、`scripts/{llm-mock-server,replay,verify-l3,verify-l5,verify-models,verify-gates}.mjs`、`.github/workflows/ci.yml` | `test:model`、`verify:mock-server`、`test:replay`、`verify:l3`、`verify:models`、`verify:gates` |
+| 壳与发布 | C5/C6/C7 | `apps/shell/**`、`build/**`、`.github/workflows/release.yml`、`docs/{RELEASE,PRIVACY,THIRD-PARTY,DIAGNOSTICS}.md` | `test:shell`（125 用例）、`verify:shell`、`check:shell` |
+| superagent 装配 | B2–B7、C2-01 | `packages/superagent/**`（tools / app/views / app/host / sources / infra / prompts / playbooks / scripts）、`docs/SUPERAGENT.md` | `test:superagent`（78 用例）、`verify:superagent-assets`（8 项静态验收） |
 
 ## 0. 总量
 

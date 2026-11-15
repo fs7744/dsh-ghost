@@ -1,0 +1,10 @@
+# @replies-flow v1
+# when 票跑完或要向人提问
+# goal 把正确用途的回复排到正确会话，且不重复发送
+# budget 工具<=4
+
+pick-purpose
+check-ready   : no -> wait
+queue-reply
+deliver
+wait

@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "source": "@deepseek-ai/dsh-api-remotes/lib/types/remote-events.js",
+  "harness": "0.2.2-rc.3",
+  "count": 31,
+  "events": [
+    {
+      "event": "agent-preset/selected",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "api-session/activity",
+      "mode": "emit",
+      "resources": [
+        "session"
+      ]
+    },
+    {
+      "event": "api-session/added",
+      "mode": "emit",
+      "resources": [
+        "session"
+      ]
+    },
+    {
+      "event": "api-session/error",
+      "mode": "emit",
+      "resources": [
+        "session"
+      ]
+    },
+    {
+      "event": "api-session/removed",
+      "mode": "emit",
+      "resources": [
+        "session"
+      ]
+    },
+    {
+      "event": "api-session/status",
+      "mode": "emit",
+      "resources": [
+        "session"
+      ]
+    },
+    {
+      "event": "approval/request",
+      "mode": "waterfall",
+      "resources": []
+    },
+    {
+      "event": "commands/change",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "cordis/dynamic-package",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "cordis/dynamic-retract",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "cordis/inspect-query",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "cordis/inspect-query-resolved",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "cordis/request-run",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "cordis/request-run-resolved",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "credentials/record-updated",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "credentials/reference-updated",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "deepseek-account/model-sign-in-required",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "deepseek-account/session-expired",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "goal/activation-changed",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "llm/adapters-updated",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "llm/models-updated",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "permission-presets/catalog-changed",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "plugin-manager/changed",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "plugin-manager/install-log",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "plugin-manager/install-state",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "plugin-manager/update-state",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "plugin-market/changed",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "schedule/changed",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "settings/document-updated",
+      "mode": "emit",
+      "resources": []
+    },
+    {
+      "event": "user-questions/request",
+      "mode": "waterfall",
+      "resources": []
+    },
+    {
+      "event": "web/providers-changed",
+      "mode": "emit",
+      "resources": []
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@dsh-ghost/evolution",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Evolution: memory/playbook proposals with a human gate, runs.jsonl metrics, compaction config and GHOST.md init draft. Pure, injectable.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "files": ["lib", "src"]
+}

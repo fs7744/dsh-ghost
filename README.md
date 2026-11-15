@@ -6,8 +6,16 @@
 
 ## 现在是什么状态
 
-地基与主链路已打通：**外部事件 → 可插拔信息源 → 票 → 自动执行（真模型）→ 报告 → 回写来源会话**。
-剧本页已可编辑（图 + 表单 + 源码，编辑即回写 `.flow`），P3 其余界面项按 [PLAN.md](PLAN.md) 推进中。
+**仓库内的工程件已按 [PLAN.md](PLAN.md) 全部落地。** 主链路是：**外部事件 → 可插拔信息源 → 票 → 自动执行（真模型）→ 报告 → 回写来源会话**。
+
+- 界面 26 项全自建：会话树 / 对话 / 工具卡片 / 审批 / 文件树 / 终端 / 后台任务 / 交付物与文档预览 / 计划 / 目标 / 子代理 / 团队 / 技能 / 设置 / 插件市场 / 命令面板 / 主题 / 中英 i18n / 附件 / 反馈统计 / Superagent 面板，全部走 Typert Remote。
+- 剧本 = skill：`.flow` 是唯一真相源，图 / 表单 / 源码三视图编辑即回写；另有图 diff、可注入的 AI 生成与局部重写（默认确定性实现，无需 key）、单步试跑、脚本运行时与分层 references。
+- 记忆与进化：文件式四层记忆、写入门槛、界面可看可删；返工三次生成约束提案，剧本/技能提案落盘待人工批准，`runs.jsonl` 记度量——**禁止运行时静默改自己**。
+- 契约面：131 项宿主探针 + 224 个 Remote 端点 + 31 个转发事件，全部从 harness 编译产物生成并做漂移校验。
+- 桌面壳：`apps/shell` 是 Electron 主进程（只 Windows x64），runtime 子进程 / 单实例 / 托盘 / 开机启动 / 崩溃恢复 / 首启向导 / `safeStorage`(DPAPI) / 诊断包脱敏 / NSIS 与更新通道配置齐全。
+- 测试分层：L0 单测、L1 确定性故障注入假端点、L2 JSONL 回放、L3 真模型**结构**断言、L4 离线评测、L5 Playwright 骨架、CI 门禁矩阵。
+
+> 仍需真实环境才能闭环的只有 P4 外部动作：代码签名证书、干净 Windows 上的 NSIS 安装→自更新→卸载、Electron 44 内置 Node 与原生模块 ABI 实测、发版前官方 BYOK 冒烟。详见 [PLAN.md §0](PLAN.md) 与 [docs/RELEASE.md](docs/RELEASE.md)。macOS / Linux 不在本期范围。
 
 | 已完成 | 说明 |
 |---|---|
@@ -30,7 +38,16 @@
 | **回退（C11-05）** | 每条用户消息可 `session/fork` 出新会话，精确 `atSeq` 前缀，原会话不变、可撤销 |
 | **记忆界面（C10-03）** | 分组查看 / 逐条编辑 / 删除 / 总开关，走 `ghostMemory/*` Remote；与模型工具共用同一存储与写入门槛 |
 | **剧本编辑器（C9-04）** | 图 + 表单 + 源码三视图；增删节点/条件边/人闸/回退上限、改名、调顺序，编辑即回写 `.flow`，实时校验 + 导出 |
-| `apps/desktop` | 会话树 + 对话 + 工具卡片 + 上下文条 + 票列表/详情 + 剧本流程图与编辑器（全走 Remote） |
+| `apps/desktop` | 26 项自建界面：会话树 + 对话 + 工具卡片 + 审批 + 文件树 + 终端 / 任务 / 计划 / 目标 / 子代理 / 团队 / 技能 / 设置 / 插件 + 主题 + 中英 i18n + 附件 + 反馈统计 + Superagent 面板 + 剧本编辑器（全走 Remote） |
+| **事件契约** | `gen-events.mjs` → `events.json`（31 个转发事件）+ `events.generated.ts`；`verify:events` 查漂移，升级流水线先重生成再跑探针 |
+| **剧本打磨（C9-05～12）** | 图 diff、可注入 AI 生成/局部重写、单步试跑、脚本运行时（白名单/超时/并发/幂等）、`{ok,code,fix,hint}` 输出协议、references 分层加载 |
+| **进化（C10-05～07）** | 三次返工 → 人闸提案 → L2 约束；剧本/技能提案只落盘不自动应用；`runs.jsonl` + before/after 度量 |
+| **上下文与项目记忆（C11-03/04/07）** | 压缩策略配置、占用条上的压缩点标记与可展开原文、`/init` 等价的 `GHOST.md` 草案（不覆盖既有文件） |
+| **superagent 装配（B2–B7）** | 三个插件入口、19 个会话工具描述符与处理器、7 个面板视图、GitHub / 飞书（默认关）触发源、16 个分级加载的提示词、部署脚本与自检，见 [docs/SUPERAGENT.md](docs/SUPERAGENT.md) |
+| **模型层（C3）** | `model-manager`（provider / 能力标注 / 角色路由 / 连通性自测 / Ollama·vLLM 预设 / 明文凭据拒绝）与 `model-adapter-kit`（Apache-2.0 的稳定三方法契约，第三方插件不碰 harness）；模型库页由 Electron 本机 `/api/models/*` 提供真数据，Vite 开发时降级 demo |
+| **升级与纪律（C1-04/05）** | `upgrade:harness` 8 步 dry-run 默认、绝不 push；`check-port-discipline` 禁绕过 port 层；`matrix.json` + [UPGRADE.md](docs/UPGRADE.md) |
+| **测试分层（C4）** | [TESTING.md](docs/TESTING.md)：L1 假端点 7 种故障、L2 规范化回放、L3 结构断言、L4 评分、L5 规格、CI 门禁 |
+| **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS / 更新通道 / 隐私与第三方声明 |
 
 ## 文档
 
@@ -45,6 +62,12 @@
 7. [docs/UI-STYLE.md](docs/UI-STYLE.md) — UI 与交互规范
 8. [docs/REVIEW.md](docs/REVIEW.md) — 评审：10 个风险与必改项
 9. [docs/LICENSING.md](docs/LICENSING.md) — 许可证与商标
+10. [docs/SUPERAGENT.md](docs/SUPERAGENT.md) — B2–B7 宿主装配、19 个工具、提示词分级
+11. [docs/UPGRADE.md](docs/UPGRADE.md) — harness 升级运行手册（8 步、失败改哪里）
+12. [docs/MODELS.md](docs/MODELS.md) — 模型管理面与对外 adapter 契约
+13. [docs/TESTING.md](docs/TESTING.md) — L0–L5 测试分层与门禁
+14. [docs/RELEASE.md](docs/RELEASE.md) — Windows 签名 / NSIS / 更新通道 / 发版前核对
+15. [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) · [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — 隐私、许可、诊断包
 
 ## 开发
 
@@ -52,17 +75,34 @@
 npm install                       # 根依赖（typescript / ws / @types/node）
 npm run verify:contract           # 契约探针，需要一份 harness 检出
 npm run gen:remotes               # 重新生成 224 个端点的类型表
+npm run gen:events                # 重新生成 31 个转发事件的清单与类型
+npm run verify:events             # 事件契约漂移校验（升级 harness 后第一步）
 npm run verify:port               # harness-port 验收：取数 + 事件
-npm run typecheck                 # tsc --noEmit
-npm run build                     # 编译各包到 lib/（纯 Node 可加载）
-npm test                          # 133 个用例（剧本/编辑器/命令面板/会话解析/导出/回退/记忆界面/记忆/插件/领域/持久化/GitHub 出入/信息源）
-npm run check:ui                  # 前端 tsc --noEmit（含 vite/client 类型）
+npm run typecheck                 # tsc --noEmit（全部包 + scripts）
+npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
+npm test                          # 471 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
+npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层
+npm run build:shell               # 编译 Electron 主进程到 apps/shell/dist
 npm run verify:playbook-editor    # 9 步编辑 → 文本回写 → 编译成 skill 包
 npm run verify:command-palette    # 真实宿主：命令清单 → 过滤 → 执行 → 不进模型消息
 npm run verify:session-export     # 真实宿主：session/page → Markdown / JSONL 落盘
 npm run verify:rewind             # 真实宿主：checkpoint → session/fork → 前缀新会话
 npm run verify:memory-ui          # 真实宿主：ghostMemory/* 读/写/删 + 总开关
+npm run verify:panels             # 真实宿主：界面 8 个端点的响应归一化
+npm run verify:evolution          # 真实宿主：三次返工 → 提案 → 批准/驳回 → runs.jsonl
+npm run verify:init               # /init 草案：不覆盖既有 GHOST.md
+npm run verify:compaction         # 压缩策略配置与 /compact 焦点参数
+npm run verify:models             # 模型管理面：route / 能力 / 角色 / 凭据（假端点）
+npm run verify:shell              # 桌面壳静态自检（不启 Electron、不联网）
+npm run verify:superagent-assets  # B2–B7 资产静态自检（8 项）
+npm run test:superagent           # 装配 / 19 工具 / 7 视图 / 触发源 / 提示词预算 / 看护（78 用例）
+npm run verify:gates              # 7 项门禁总表（PR 口径）
+npm run verify:all                # 一条命令跑完全部验收（-- --with-model 连真模型）
+npm run verify:l3                 # 真模型结构断言（无 key 自动 SKIP）
+npm run verify:l5                 # L5 Playwright 骨架（未装依赖自动 SKIP）
+npm run upgrade:harness -- 0.2.3  # 升级计划（默认 dry-run，--apply 才落盘，绝不 push）
 
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill              # 确认 harness 的 skills/list 里能看到它

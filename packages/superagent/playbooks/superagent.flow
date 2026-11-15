@@ -1,0 +1,18 @@
+# @superagent-flow v1
+# when 来源收到点名 agent 的请求（GitHub 评论 / 飞书群提及）
+# goal 产出可审阅结果并回写来源会话，或明确拒绝后沉默
+# budget 准入1 执行3轮 每轮工具<=40
+
+admit          : deny -> quiet
+open-ticket
+checkout
+dispatch
+work           : blocked -> escalate (max 3)
+verify         : fail -> work (max 2)
+?handoff
+deliver        : pr-ready -> open-pr
+open-pr
+reply
+close
+quiet
+escalate

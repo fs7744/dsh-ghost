@@ -8,7 +8,7 @@ export { login, createTransport } from '../packages/harness-port/src/index.ts'
 const REPO = join(import.meta.dirname, '..')
 const PATCH_TEMPLATE = join(import.meta.dirname, 'cordis.patch.template.yml')
 /** 会被宿主 profile 加载的 workspace 包。 */
-const HOST_PACKAGES = ['orchestrator-plugin', 'memory-plugin', 'memory', 'superagent', 'sink-github', 'source-github', 'source-hub']
+const HOST_PACKAGES = ['orchestrator-plugin', 'memory-plugin', 'memory', 'superagent', 'sink-github', 'source-github', 'source-hub', 'playbook', 'playbook-runtime', 'evolution']
 
 /**
  * 渲染标准 patch：模板是唯一真相源，只有凭据地址与模型名允许被环境变量覆盖。

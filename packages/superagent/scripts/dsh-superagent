@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+/**
+ * B7-01 服务脚本 / B7-03 SETUP / B7-04 看护的 CLI 入口。
+ *
+ * 运行：node --experimental-transform-types packages/superagent/scripts/dsh-superagent <命令>
+ *   start / stop / status / restart / help  起停与自检（status 退出码取自检结果）
+ *   setup                                  12 步问答 → 计划 → 执行
+ *   watch [--ticks=N]                      跑 N 轮小时级看护体检
+ *
+ * 执行器与 IO 全部来自 ../src/infra，可注入；这里只负责 CLI 的粘合。
+ */
+
+import { mkdirSync, readSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { parseArgs, runService, createFileExecutor, defaultIO } from '../src/infra/service.ts'
+import { runSetup } from '../src/infra/setup.ts'
+import { runWatchdog, DEFAULT_WATCHDOG_INTERVAL_MS } from '../src/infra/watchdog.ts'
+
+/** 同步读一行 stdin；非交互（EOF / EAGAIN）时返回空串，由 runSetup 采用默认值。 */
+function readLine() {
+  const buf = Buffer.alloc(1)
+  let line = ''
+  while (true) {
+    let count = 0
+    try { count = readSync(0, buf, 0, 1, null) } catch { return line }
+    if (count === 0) return line
+    const char = buf.toString('utf8', 0, 1)
+    if (char === '\n' || char === '\r') return line
+    line += char
+  }
+}
+
+/** SETUP 的可注入 IO：逐行问 12 步，空回答用默认值。 */
+function createCliSetupIO() {
+  return {
+    ask(question) {
+      process.stdout.write(`${question.prompt} [${question.defaultAnswer}]: `)
+      return readLine()
+    },
+    log(message) { process.stdout.write(`${message}\n`) },
+  }
+}
+
+async function main() {
+  const argv = process.argv.slice(2)
+  const raw = argv[0]
+
+  if (raw === 'setup') {
+    const io = createCliSetupIO()
+    const root = process.cwd()
+    const config = {}
+    const result = await runSetup(io, { apply: step => { config[step.id] = step.value } })
+    const outDir = join(root, '.ghost', 'superagent')
+    mkdirSync(outDir, { recursive: true })
+    writeFileSync(join(outDir, 'setup.json'), `${JSON.stringify(config, null, 2)}\n`)
+    defaultIO.log(`SETUP 完成：应用 ${result.applied} 步、跳过 ${result.skipped} 步，配置已写入 ${join(outDir, 'setup.json')}`)
+    return
+  }
+
+  if (raw === 'watch') {
+    const ticksArg = argv.find(item => item.startsWith('--ticks='))
+    const parsed = ticksArg === undefined ? 1 : Number(ticksArg.slice('--ticks='.length))
+    const maxTicks = Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+    const executor = createFileExecutor()
+    const waits = []
+    const ticks = runWatchdog({
+      check: () => executor.isRunning(),
+      restart: () => executor.start(),
+      sleep: ms => { waits.push(ms) },
+      log: message => defaultIO.log(message),
+    }, { maxTicks })
+    defaultIO.log(`看护体检 ${ticks.length} 轮（默认间隔 ${DEFAULT_WATCHDOG_INTERVAL_MS}ms），模拟等待 ${waits.length} 次`)
+    return
+  }
+
+  const code = runService(parseArgs(argv), { executor: createFileExecutor(), io: defaultIO })
+  process.exitCode = code
+}
+
+await main()

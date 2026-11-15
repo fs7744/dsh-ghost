@@ -1,0 +1,6 @@
+{"id":"evt-1","at":"2026-11-15T08:00:00.000Z","requestId":"req-1","sessionId":"s-1","durationMs":4,"kind":"session/created","payload":{"cwd":"d:/code/dsh-ghost","interactions":"answer"}}
+{"id":"evt-2","at":"2026-11-15T08:00:00.100Z","requestId":"req-2","tokens":0,"kind":"model/request","model":"mock-echo","messages":[{"role":"system","content":"you are dsh-ghost"},{"role":"user","content":"用 memory_write 记住约定"}]}
+{"id":"evt-3","at":"2026-11-15T08:00:01.000Z","requestId":"req-3","usage":{"total_tokens":12},"kind":"model/response","finishReason":"tool_calls","toolCalls":[{"name":"memory_write","arguments":{"name":"pnpm-convention","text":"一律用 pnpm"}}]}
+{"id":"evt-4","at":"2026-11-15T08:00:01.050Z","requestId":"req-4","durationMs":2,"kind":"tool/result","name":"memory_write","ok":true}
+{"id":"evt-5","at":"2026-11-15T08:00:01.200Z","requestId":"req-5","usage":{"total_tokens":256},"kind":"turn/end","state":"ended"}
+{"id":"evt-6","at":"2026-11-15T08:00:01.300Z","requestId":"req-6","kind":"ticket/ended","ticketId":"t-1","outcome":"ok"}

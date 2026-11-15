@@ -1,0 +1,24 @@
+{
+  "name": "@dsh-ghost/model-adapter-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "对外稳定的 ModelAdapter 契约（Apache-2.0），用户插件只依赖本包，不碰 harness。",
+  "license": "Apache-2.0",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test --experimental-transform-types tests/contract.test.ts"
+  },
+  "files": [
+    "lib",
+    "src",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ]
+}

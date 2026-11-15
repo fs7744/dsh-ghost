@@ -18,6 +18,15 @@ export default defineConfig({
     },
     fs: { allow: [REPO] },
   },
+  // 多页产物：主界面 + 模型管理页。Electron 静态服务会连 models.html 一起 serve。
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(import.meta.dirname, 'index.html'),
+        models: resolve(import.meta.dirname, 'models.html'),
+      },
+    },
+  },
   resolve: {
     alias: {
       '@dsh-ghost/harness-port': resolve(REPO, 'packages/harness-port/src/index.ts'),

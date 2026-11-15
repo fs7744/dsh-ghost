@@ -1,10 +1,23 @@
 :root {
   --surface-lowest:#141412; --surface-low:#1c1c1a; --surface-mid:#222220; --surface-high:#2c2c2a;
   --on-surface:#eceae4; --on-surface-variant:#b4b2a9; --outline:#45443f;
-  --accent:#5dcaa5; --accent-container:#0f3d31; --danger:#f09595;
+  --accent:#5dcaa5; --accent-hover:#9fe1cb; --accent-container:#0f3d31; --on-accent:#04342c;
+  --danger:#f09595; --warn:#fac775; --ok:#97c459;
   --font-ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
   --radius-md:8px; --radius-lg:12px;
 }
+/* C8-20 亮色主题：浅底深字，变量覆盖而非另写一套组件样式；持久化在 theme.ts。 */
+body.theme-light {
+  --surface-lowest:#fff; --surface-low:#f7f6f3; --surface-mid:#f1efe8; --surface-high:#eae7de;
+  --on-surface:#2c2c2a; --on-surface-variant:#5f5e5a; --outline:#888780;
+  --accent:#0f6e56; --accent-hover:#1d9e75; --accent-container:#e1f5ee; --on-accent:#fff;
+  --danger:#a32d2d; --warn:#854f0b; --ok:#3b6d11;
+}
+/* 少数历史硬编码色在亮色下单独校正（其余组件一律用变量）。 */
+body.theme-light #composer button,
+body.theme-light .flowbar button.primary,
+body.theme-light .approval-options button { color:#fff; }
+body.theme-light .tstage.person { background:#fdf0d5; color:#7a4f05; }
 * { box-sizing: border-box; }
 body { margin:0; font-family:var(--font-ui); font-size:14px; line-height:1.5;
   background:var(--surface-lowest); color:var(--on-surface); height:100vh; overflow:hidden; }
@@ -37,11 +50,20 @@ text.on { fill:var(--on-surface-variant); font-size:11px; }
 #detail dt { color:var(--on-surface-variant); font-size:12px; margin-top:10px; }
 #detail dd { margin:2px 0 0; font-size:13px; }
 .err { color:var(--danger); font-size:12px; padding:8px; white-space:pre-wrap; }
-/* 顶栏标签 */
-#tabs { display:flex; gap:4px; }
-#tabs button { background:transparent; border:0; color:var(--on-surface-variant); font:inherit; font-size:12px;
+/* 顶栏标签：数量较多时横向滚动，不挤掉右侧状态与入口 */
+#tabs { display:flex; gap:4px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:thin; }
+#tabs button { flex:none; background:transparent; border:0; color:var(--on-surface-variant); font:inherit; font-size:12px;
   padding:4px 10px; border-radius:var(--radius-md); cursor:pointer; }
 #tabs button.on { background:var(--surface-high); color:var(--on-surface); }
+.toolbar { display:flex; gap:4px; flex:none; }
+.toolbar button { background:var(--surface-high); color:var(--on-surface-variant);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:3px 9px; font:inherit; font-size:11px; cursor:pointer; }
+.toolbar button:hover, .toolbar .navlink:hover { border-color:var(--accent); color:var(--accent); }
+.toolbar .navlink { display:inline-flex; align-items:center; text-decoration:none;
+  background:var(--surface-high); color:var(--on-surface-variant);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:3px 9px; font-size:11px; }
 .pane { height:100%; display:flex; flex-direction:column; min-height:0; }
 .pane.hidden { display:none; }
 /* 消息流 */
@@ -187,3 +209,112 @@ details.tool pre { white-space:pre-wrap; background:var(--surface-mid); padding:
 .mcreate label input, .mcreate label textarea { margin-top:4px; }
 .mcreatetitle { font-size:12px; color:var(--on-surface); margin-bottom:10px; }
 .mbtns { display:flex; gap:6px; margin-top:8px; }
+
+/* ---- 通用面板骨架（C8 剩余项共用） ---- */
+.panelbar { display:flex; align-items:center; gap:8px; padding:8px 12px;
+  border-bottom:1px solid var(--outline); flex:none; }
+.panelbar button, .marketbar button { background:var(--surface-high); color:var(--on-surface);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:4px 10px; font:inherit; font-size:12px; cursor:pointer; }
+.panelbar button:hover, .marketbar button:hover { border-color:var(--accent); color:var(--accent); }
+.panelbar strong, .paneltitle { font-size:12px; font-weight:500; color:var(--on-surface-variant); }
+.panelspacer { flex:1; }
+.panelhint, .panelstatus { color:var(--on-surface-variant); font-size:11px; }
+.panelstatus { font-variant-numeric:tabular-nums; }
+.panellist, .adminbody { flex:1; overflow:auto; padding:8px 12px; min-height:0; }
+.adminbody section { margin-bottom:16px; }
+.adminbody h3 { font-size:12px; font-weight:500; color:var(--on-surface-variant); margin:8px 0; }
+.lrow { display:flex; align-items:baseline; gap:10px; padding:6px 8px;
+  border-radius:var(--radius-md); font-size:12px; }
+.lrow:hover { background:var(--surface-high); }
+.lname { color:var(--on-surface); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ldetail { color:var(--on-surface-variant); font-size:11px; }
+.lstate { flex:none; padding:1px 6px; border-radius:999px;
+  background:var(--surface-high); color:var(--on-surface-variant); font-size:11px; }
+.lstate.running { color:var(--accent); }
+.lstate.done { color:var(--ok); }
+.lstate.failed { color:var(--danger); }
+.lstate.idle { color:var(--on-surface-variant); }
+.lcheck { font-family:ui-monospace,monospace; color:var(--accent); }
+.lrow button { background:var(--surface-high); color:var(--on-surface);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:2px 8px; font:inherit; font-size:11px; cursor:pointer; }
+.lrow button:hover { border-color:var(--accent); color:var(--accent); }
+.lrow button:disabled { opacity:.45; cursor:default; }
+.grouphead { font-size:11px; color:var(--on-surface-variant); margin:10px 0 4px; }
+.marketbar { display:flex; gap:6px; margin-bottom:8px; }
+.marketbar input { flex:1; background:var(--surface-mid); color:var(--on-surface);
+  border:1px solid var(--outline); border-radius:var(--radius-md); padding:5px 8px; font:inherit; font-size:12px; }
+.panel-unavailable { padding:16px; text-align:center; }
+.pu-title { color:var(--on-surface-variant); font-size:13px; }
+.pu-detail { color:var(--on-surface-variant); font-size:11px; margin-top:6px; word-break:break-all; }
+
+/* ---- 工作区 / 文件树 / 预览（C8-06 / 09 / 10 / 24） ---- */
+.wsbody { flex:1; display:flex; min-height:0; }
+.wstree { width:280px; flex:none; overflow:auto; border-right:1px solid var(--outline); padding:6px 0; }
+.wspreview { flex:1; overflow:auto; padding:12px; min-width:0; }
+.wsrow { display:flex; gap:8px; align-items:baseline; padding:4px 8px;
+  font-size:12px; cursor:pointer; border-radius:var(--radius-md); }
+.wsrow:hover { background:var(--surface-high); }
+.wsicon { color:var(--on-surface-variant); font-family:ui-monospace,monospace; font-size:11px; }
+.wsfile .fpath { color:var(--on-surface-variant); font-size:11px; margin-bottom:8px; }
+.wsfile pre { background:var(--surface-mid); color:var(--on-surface);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:10px; font-size:12px; white-space:pre-wrap; word-break:break-word; }
+.ctxmenu { position:fixed; z-index:60; background:var(--surface-mid);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  box-shadow:0 10px 28px #0008; padding:4px; min-width:120px; }
+.ctxmenu.hidden { display:none; }
+.ctxmenu button { display:block; width:100%; text-align:left; background:transparent;
+  color:var(--on-surface); border:0; border-radius:var(--radius-md);
+  padding:6px 10px; font:inherit; font-size:12px; cursor:pointer; }
+.ctxmenu button:hover { background:var(--surface-high); }
+.ctxmenu button:disabled { color:var(--on-surface-variant); cursor:default; }
+
+/* ---- 审批弹窗（C8-03） ---- */
+.approval-mask { position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.45); }
+.approval-mask.hidden { display:none; }
+.approval-box { width:min(480px, calc(100% - 32px)); background:var(--surface-mid);
+  border:1px solid var(--outline); border-radius:var(--radius-lg); padding:20px;
+  box-shadow:0 16px 48px #0008; }
+.approval-title { font-size:16px; font-weight:500; color:var(--on-surface); }
+.approval-hint { font-size:12px; color:var(--on-surface-variant); margin-top:4px; }
+.approval-detail { font-size:13px; color:var(--on-surface); margin:12px 0; white-space:pre-wrap; }
+.approval-options { display:flex; gap:8px; flex-wrap:wrap; }
+.approval-options button, .approval-close { background:var(--accent); color:var(--on-accent);
+  border:0; border-radius:var(--radius-md); padding:8px 14px; font:inherit; font-size:12px; cursor:pointer; }
+.approval-close { background:var(--surface-high); color:var(--on-surface); margin-top:14px; }
+
+/* ---- 附件工具 / 反馈（C8-22 / 23 / 24） ---- */
+.attachtools { display:flex; align-items:center; gap:6px; padding:6px 16px; border-top:1px solid var(--outline); }
+.attachtools button { background:var(--surface-high); color:var(--on-surface);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:3px 9px; font:inherit; font-size:11px; cursor:pointer; }
+.attachtools button:hover { border-color:var(--accent); color:var(--accent); }
+.attachstatus { color:var(--on-surface-variant); font-size:11px; }
+.fback { display:flex; gap:6px; margin-top:6px; }
+.fback button { background:transparent; border:1px solid var(--outline);
+  color:var(--on-surface-variant); border-radius:999px; padding:0 8px;
+  font:inherit; font-size:11px; cursor:pointer; }
+.fback button:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ---- 上下文压缩点（C11-04） ---- */
+#f-ctx .track { position:relative; overflow:visible; }
+#f-ctx-marks { position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:2px; }
+.cmark { position:absolute; top:0; width:2px; height:100%; background:var(--warn); }
+#f-ctx-more { background:transparent; border:1px solid var(--outline);
+  color:var(--on-surface-variant); border-radius:999px; padding:0 7px;
+  font:inherit; font-size:11px; cursor:pointer; }
+#f-ctx-more:hover { border-color:var(--accent); color:var(--accent); }
+#ctx-popover { position:fixed; right:16px; bottom:30px; z-index:50; width:min(420px, calc(100% - 32px));
+  max-height:320px; overflow:auto; background:var(--surface-mid);
+  border:1px solid var(--outline); border-radius:var(--radius-lg); box-shadow:0 12px 32px #0008; padding:12px; }
+#ctx-popover.hidden { display:none; }
+.ctxpop-head { font-size:12px; font-weight:500; color:var(--on-surface-variant); margin-bottom:8px; }
+.cmitem { border-top:1px solid var(--outline); padding:8px 0; }
+.cmtitle { font-size:12px; color:var(--on-surface); }
+.cmitem details { margin-top:6px; font-size:11px; color:var(--on-surface-variant); }
+.cmitem pre { background:var(--surface-lowest); color:var(--on-surface);
+  border:1px solid var(--outline); border-radius:var(--radius-md);
+  padding:8px; white-space:pre-wrap; word-break:break-word; max-height:180px; overflow:auto; }

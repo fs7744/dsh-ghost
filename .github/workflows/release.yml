@@ -1,0 +1,66 @@
+# dsh-ghost 发布流水线（仅 Windows x64）。
+# 只写配置与代码，不真的发布：--publish never 只产出安装包，不上传更新元数据。
+# macOS dmg / 公证、Linux AppImage 不在本期范围，本流水线不构建它们。
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖（含发布期 electron / electron-builder）
+        run: npm ci
+
+      # 根脚本名 release:check：比较根 package.json / apps/shell/package.json /
+      # docs/RELEASE.md 的版本标记一致；不一致直接失败。
+      - name: 版本一致性核对 (release:check)
+        run: node --experimental-transform-types scripts/verify-shell.mjs --only=version
+
+      # 根脚本名 build:shell：主进程纯模块编译到 apps/shell/dist。
+      - name: 编译主进程 (build:shell)
+        run: npx tsc -p apps/shell/tsconfig.build.json
+
+      # 渲染层 Vite 产物，保证与安装包一致。
+      - name: 构建渲染层
+        run: npm run build:ui
+
+      # 根脚本名 verify:shell 的静态自检也在发布前跑一遍（含 CSP / 脱敏 / builder 目标）。
+      - name: 桌面壳静态自检 (verify:shell)
+        run: node --experimental-transform-types scripts/verify-shell.mjs
+
+      # 签名证书从 CI secret 注入，未配置时产出未签名包（不能作为正式发布物）。
+      # 更新 feed 占位 secret 仅供生成元数据，--publish never 不会真的上传。
+      - name: 打包 Windows x64 NSIS（不发布）
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          WIN_CERT_SUBJECT: ${{ secrets.WIN_CERT_SUBJECT }}
+          SHELL_UPDATE_FEED_STABLE: ${{ secrets.SHELL_UPDATE_FEED_STABLE }}
+          SHELL_ROLLOUT_PERCENT: ${{ secrets.SHELL_ROLLOUT_PERCENT || '0' }}
+        run: npx electron-builder --win --x64 --config build/electron-builder.yml --publish never
+
+      - name: 上传安装包到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/shell-release/*.exe
+            out/shell-release/*.exe.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

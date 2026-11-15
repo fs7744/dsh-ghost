@@ -1,0 +1,84 @@
+# CI 门禁矩阵（C4-06）。
+# 门禁步骤一律用 npm run <已注册命令名>，不写死脚本路径或未注册命令。
+# 注册清单:
+#   verify:port-discipline / test:model / test:replay / verify:mock-server /
+#   verify:l3 / verify:l5 / verify:models / verify:gates / upgrade:harness /
+#   verify:events / check:shell / gen:events / gen:remotes。
+#
+# 前提: 契约探针需要 harness **源码检出**（DSH_HARNESS_ROOT），事件漂移校验需要
+# **运行时安装**（DSH_DSH_MODULES，1.3GB，已 gitignore，不在 npm ci 里）。
+# 两者由仓库变量提供；缺失时对应步骤明确 SKIP，其余门禁照跑，不假装验过。
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # 每日 L3 / L5（UTC 02:00）
+    - cron: '0 2 * * *'
+
+jobs:
+  pr-gates:
+    if: github.event_name != 'schedule'
+    runs-on: windows-latest
+    env:
+      DSH_HARNESS_ROOT: ${{ vars.DSH_HARNESS_ROOT }}
+      DSH_DSH_MODULES: ${{ vars.DSH_DSH_MODULES }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      # 依赖安装（基础设施，非门禁命令）；下面每条都是 npm run 命令名。
+      - run: npm ci
+
+      - name: 契约探针
+        if: env.DSH_HARNESS_ROOT != ''
+        run: npm run verify:contract
+      - name: 契约探针（未提供 harness 源码检出）
+        if: env.DSH_HARNESS_ROOT == ''
+        run: echo "SKIP verify:contract - set repo variable DSH_HARNESS_ROOT to a harness source checkout"
+      - name: Remote / 事件契约漂移
+        if: env.DSH_DSH_MODULES != ''
+        run: npm run verify:events
+      - name: 事件契约（未提供 harness 运行时安装）
+        if: env.DSH_DSH_MODULES == ''
+        run: echo "SKIP verify:events - set repo variable DSH_DSH_MODULES to the @deepseek-ai runtime install"
+      - name: 桌面壳类型门禁
+        run: npm run check:shell
+      - name: L0 纯逻辑单测
+        run: npm run test
+      - name: L0 模型层单测
+        run: npm run test:model
+      - name: L1 适配与事件流（确定性故障注入）
+        run: npm run verify:mock-server
+      - name: L2 会话回放
+        run: npm run test:replay
+      - name: 类型面
+        run: npm run typecheck
+      - name: 界面类型门禁
+        run: npm run check:ui
+      - name: import 纪律
+        run: npm run verify:port-discipline
+      - name: 密钥扫描
+        run: npm run check:secrets
+
+  daily-l3:
+    if: github.event_name == 'schedule'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      # 缺 WB_BASE_URL / WB_KEY 时脚本明确 SKIP exit 0，不阻断每日门禁。
+      - name: L3 真模型结构断言
+        run: npm run verify:l3
+      # 未装 playwright / electron 时脚本明确 SKIP exit 0。
+      - name: L5 界面层骨架
+        run: npm run verify:l5

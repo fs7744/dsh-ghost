@@ -1,0 +1,10 @@
+# @dispatch-flow v1
+# when 一张票被接受，需要派给执行器
+# goal 起一个合法派活并把票标题交给驱动会话
+# budget 工具<=8
+
+pick-executor
+open-assignment
+followup
+?confirm-dispatch
+start

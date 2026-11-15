@@ -11,7 +11,10 @@
     }
   },
   "dependencies": {
-    "@dsh-ghost/memory": "0.0.0"
+    "@dsh-ghost/memory": "0.0.0",
+    "@dsh-ghost/evolution": "0.0.0",
+    "@dsh-ghost/playbook": "0.0.0",
+    "@dsh-ghost/playbook-runtime": "0.0.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.1.0",

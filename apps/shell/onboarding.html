@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>首次启动向导 - dsh-ghost</title>
+  <style>
+    :root {
+      --surface-lowest:#141412; --surface-low:#1c1c1a; --surface-mid:#222220;
+      --on-surface:#eceae4; --on-surface-variant:#b4b2a9;
+      --outline-variant:#45443f; --accent:#5dcaa5; --accent-press:#1d9e75;
+      --danger:#f09595; --radius-md:8px; --radius-lg:12px;
+      --font-ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; min-height:100vh; background:var(--surface-lowest); color:var(--on-surface);
+      font-family:var(--font-ui); font-size:14px; line-height:1.5;
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    main {
+      width:min(560px,100%); background:var(--surface-low); border:0.5px solid var(--outline-variant);
+      border-radius:var(--radius-lg); padding:24px;
+    }
+    h1 { font-size:20px; font-weight:500; margin:0 0 4px; }
+    #step-label { color:var(--accent); margin:0 0 20px; font-size:13px; }
+    #panel { min-height:160px; }
+    label { display:block; margin:0 0 16px; color:var(--on-surface-variant); }
+    select, input[type=text] {
+      display:block; width:100%; margin-top:6px; padding:8px 10px; height:32px;
+      background:var(--surface-mid); color:var(--on-surface);
+      border:1px solid var(--outline-variant); border-radius:var(--radius-md); font-family:inherit;
+    }
+    select:focus, input:focus { outline:2px solid var(--accent); outline-offset:2px; }
+    .check { display:flex; align-items:center; gap:8px; color:var(--on-surface); margin:0 0 10px; }
+    .check input { width:16px; height:16px; accent-color:var(--accent-press); }
+    #error { color:var(--danger); min-height:20px; font-size:13px; }
+    footer { display:flex; justify-content:space-between; gap:12px; margin-top:16px; }
+    button {
+      height:32px; padding:0 16px; border-radius:var(--radius-md); font-family:inherit; font-size:14px;
+      cursor:pointer; border:1px solid var(--outline-variant); background:transparent; color:var(--on-surface);
+    }
+    button.primary { background:var(--accent); color:#04342c; border-color:var(--accent); }
+    button:disabled { opacity:0.4; cursor:default; }
+    .muted { color:var(--on-surface-variant); font-size:13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>首次启动向导</h1>
+    <p id="step-label">欢迎</p>
+    <div id="panel"></div>
+    <div id="error"></div>
+    <footer>
+      <button id="back">上一步</button>
+      <button id="next" class="primary">下一步</button>
+    </footer>
+  </main>
+  <script>
+    // 步骤逻辑在主进程纯模块 onboarding.ts，本页只渲染与收集输入，经 preload 的最小 API 交互。
+    const api = window.shellApi
+    const labels = {
+      welcome: '步骤 1/6 欢迎',
+      modelSource: '步骤 2/6 模型来源',
+      workspace: '步骤 3/6 工作目录',
+      approval: '步骤 4/6 审批档位',
+      infoSources: '步骤 5/6 信息源开关',
+      done: '步骤 6/6 完成',
+    }
+    const panel = document.querySelector('#panel')
+    const stepLabel = document.querySelector('#step-label')
+    const errorBox = document.querySelector('#error')
+    const backBtn = document.querySelector('#back')
+    const nextBtn = document.querySelector('#next')
+    let step = 'welcome'
+
+    function formHtml(current) {
+      switch (current) {
+        case 'welcome':
+          return '<p>欢迎使用 dsh-ghost。接下来几步只做本地配置，数据不出本机。</p>' +
+            '<p class="muted">Built on DeepSeek Harness. Not affiliated with or endorsed by DeepSeek.</p>'
+        case 'modelSource':
+          return '<label>模型来源' +
+            '<select id="f">' +
+            '<option value="byok">自带密钥 (BYOK)</option>' +
+            '<option value="local">本地模型 (Ollama / vLLM)</option>' +
+            '<option value="deepseek-account">DeepSeek 账号</option>' +
+            '</select></label>'
+        case 'workspace':
+          return '<label>工作目录<input type="text" id="f" placeholder="例如 D:/work" /></label>' +
+            '<p class="muted">剧本、票与会话状态会落在该目录的本地 state 下。</p>'
+        case 'approval':
+          return '<label>审批档位' +
+            '<select id="f">' +
+            '<option value="workspace-write">工作区写入（保留人工审批）</option>' +
+            '<option value="danger-full-access">完全访问（无人值守）</option>' +
+            '<option value="read-only">只读</option>' +
+            '</select></label>'
+        case 'infoSources':
+          return '<label class="check"><input type="checkbox" id="github" checked /> GitHub</label>' +
+            '<label class="check"><input type="checkbox" id="webhook" /> 通用 Webhook</label>' +
+            '<label class="check"><input type="checkbox" id="local" checked /> 本地文件</label>'
+        case 'done':
+          return '<p>配置已就绪。点击完成后会写入本地 settings.json 并进入工作台。</p>' +
+            '<p class="muted">凭据永不写入明文；遥测与崩溃上报默认关闭，可在设置里开启。</p>'
+        default:
+          return ''
+      }
+    }
+
+    function collect(current) {
+      if (current === 'welcome' || current === 'done') return null
+      if (current === 'infoSources') {
+        return {
+          github: document.querySelector('#github').checked,
+          webhook: document.querySelector('#webhook').checked,
+          local: document.querySelector('#local').checked,
+        }
+      }
+      const field = document.querySelector('#f')
+      return field ? field.value : ''
+    }
+
+    function render(state) {
+      step = state.step
+      stepLabel.textContent = labels[step] || step
+      errorBox.textContent = (state.errors || []).join('；')
+      backBtn.disabled = step === 'welcome' || step === 'done'
+      nextBtn.textContent = step === 'done' ? '完成' : '下一步'
+      panel.innerHTML = formHtml(step)
+    }
+
+    async function refresh() {
+      render(await api.onboardingState())
+    }
+
+    nextBtn.addEventListener('click', async () => {
+      if (step === 'done') {
+        await api.onboardingFinish()
+        return
+      }
+      render(await api.onboardingAnswer(step, collect(step)))
+    })
+    backBtn.addEventListener('click', async () => {
+      render(await api.onboardingBack())
+    })
+
+    refresh()
+  </script>
+</body>
+</html>

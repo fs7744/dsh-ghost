@@ -272,3 +272,15 @@ verify : fail -> work (max 2)     @scripts/verify.mjs
 - 不做多人协同编辑。
 - 不把布局、主题、视口写进仓库。
 - 不允许图与文本各存一份（那必然不一致）。
+
+## 11. C9-05～12 已落地（2026-11-15）
+
+| ID | 落点 | 验收 |
+|---|---|---|
+| C9-05 图 diff | `packages/playbook/src/diff.ts`：节点 / 边 / 条件的增删改，文本 diff 为主 | `npm run test:playbook-ai` |
+| C9-06/07 AI 生成与局部重写 | `ai.ts`：**可注入生成器** + 确定性模板默认实现（无需模型/key）；产物一律过同一道 parse + validate；局部重写只改选中节点、保留其它 id 与顺序 | 同上；`npm run verify:evolution` 里连 Remote 一起冒烟 |
+| C9-08 单步试跑 | `simulate.ts`：按条件边走、回退上限、人闸停下、环与不可达检测，输出轨迹与停止原因 | 同上 |
+| C9-10/11 脚本运行时与输出协议 | `packages/playbook-runtime`：白名单命令、超时、并发上限、幂等键、输出字节上限；统一 `{ok,code,fix,hint}` + `--help` 一行摘要 | `npm run test:script-runtime` |
+| C9-12 references 分层 | 索引常驻、单文件按需、单文件大小上限与截断提示 | 同上 |
+
+脚本运行时的默认 runner 只跑包内 `node` 白名单脚本，禁止 shell 拼接；真要执行外部命令必须显式注入 runner。AI 生成器接口留着接真模型，但**默认实现不联网、不确定、不花钱**——这样回归测试永远可重放。

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "description": "已验证的 harness 版本矩阵。由 scripts/upgrade-harness.mjs --apply 追加，绝不自动 push。probe = 契约探针通过数，endpoints = remotes.json 的端点总数。",
+  "entries": [
+    {
+      "harness": "0.2.2-rc.3",
+      "date": "2026-11-15",
+      "cordis": "4.1.0",
+      "probe": { "total": 131, "passed": 131, "errors": 0 },
+      "endpoints": 224,
+      "result": "pass",
+      "note": "基线：契约探针 131/131、remotes 224 端点。见 harness-contract/contract.json 的 verified。"
+    }
+  ]
+}

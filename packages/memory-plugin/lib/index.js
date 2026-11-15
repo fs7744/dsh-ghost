@@ -54,6 +54,272 @@ const requireApi = () => {
         throw new Error('ghost-memory 未就绪');
     return memorySlot;
 };
+let evolutionModule;
+let playbookModule;
+let runtimeModule;
+const loadEvolution = async () => {
+    if (evolutionModule === undefined)
+        evolutionModule = await import('@dsh-ghost/evolution');
+    return evolutionModule;
+};
+const loadPlaybook = async () => {
+    if (playbookModule === undefined)
+        playbookModule = await import('@dsh-ghost/playbook');
+    return playbookModule;
+};
+const loadRuntime = async () => {
+    if (runtimeModule === undefined)
+        runtimeModule = await import('@dsh-ghost/playbook-runtime');
+    return runtimeModule;
+};
+// apply() 里写入的槽位：记忆 api、提案/脚本根、仓库根。
+let evolutionApiSlot;
+let evolutionRootSlot;
+let runtimeRootSlot;
+let repoRootSlot;
+let evolutionServicePromise;
+/** 惰性构造进化服务：纯模块第一次被用到时才加载。 */
+const getEvolutionService = () => {
+    if (evolutionServicePromise === undefined) {
+        evolutionServicePromise = (async () => {
+            const evo = await loadEvolution();
+            const api = evolutionApiSlot;
+            const writeMemory = api === undefined
+                ? undefined
+                : async (constraint) => {
+                    // L2 项目记忆走同一个 MemoryStore + gate；名字规整成 kebab-case，来源必填。
+                    const name = constraint.name.toLowerCase()
+                        .replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63) || 'constraint';
+                    const outcome = await api.write({
+                        name,
+                        ...(constraint.title === '' ? {} : { title: constraint.title }),
+                        text: constraint.text,
+                        source: constraint.source === '' ? 'evolution' : constraint.source,
+                    });
+                    if (!outcome.ok)
+                        throw new Error(`写入 L2 项目记忆失败：${outcome.reasons.join('；')}`);
+                };
+            return evo.createEvolutionService({
+                root: evolutionRootSlot ?? join(process.cwd(), '.ghost', 'memory', 'evolution'),
+                ...(writeMemory === undefined ? {} : { writeMemory }),
+            });
+        })();
+    }
+    return evolutionServicePromise;
+};
+/** C10-05/06/07：记忆与剧本进化提案 + 度量看板。 */
+let GhostEvolutionRemote = (() => {
+    let _classSuper = TypertRemoteService;
+    let _instanceExtraInitializers = [];
+    let _listProposals_decorators;
+    let _propose_decorators;
+    let _approve_decorators;
+    let _reject_decorators;
+    let _metrics_decorators;
+    return class GhostEvolutionRemote extends _classSuper {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _listProposals_decorators = [Remote('list')];
+            _propose_decorators = [Remote('propose')];
+            _approve_decorators = [Remote('approve')];
+            _reject_decorators = [Remote('reject')];
+            _metrics_decorators = [Remote('metrics')];
+            __esDecorate(this, null, _listProposals_decorators, { kind: "method", name: "listProposals", static: false, private: false, access: { has: obj => "listProposals" in obj, get: obj => obj.listProposals }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _propose_decorators, { kind: "method", name: "propose", static: false, private: false, access: { has: obj => "propose" in obj, get: obj => obj.propose }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _approve_decorators, { kind: "method", name: "approve", static: false, private: false, access: { has: obj => "approve" in obj, get: obj => obj.approve }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _reject_decorators, { kind: "method", name: "reject", static: false, private: false, access: { has: obj => "reject" in obj, get: obj => obj.reject }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _metrics_decorators, { kind: "method", name: "metrics", static: false, private: false, access: { has: obj => "metrics" in obj, get: obj => obj.metrics }, metadata: _metadata }, null, _instanceExtraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        constructor(ctx) {
+            super(ctx, 'ghostEvolution', { namespace: 'ghostEvolution' });
+            __runInitializers(this, _instanceExtraInitializers);
+        }
+        /** 列出全部提案（可查看）。 */
+        async listProposals() {
+            return { items: await (await getEvolutionService()).list() };
+        }
+        /** 记一次返工；同一 key 累计到 3 次才生成提案。 */
+        async propose(input) {
+            // typert 网关要求 Remote 参数是简单标识符、不能有默认值；缺省在这里兜。
+            return (await getEvolutionService()).propose(input ?? { key: 'unnamed' });
+        }
+        /** 人闸批准：memory 提案写入 L2 项目记忆。 */
+        async approve(input) {
+            return (await getEvolutionService()).approve(input);
+        }
+        /** 人闸驳回：绝不写任何记忆或剧本文件。 */
+        async reject(input) {
+            return (await getEvolutionService()).reject(input);
+        }
+        /** 记录一条 run 并返回 before/after 看板。 */
+        async metrics(input) {
+            return (await getEvolutionService()).metrics(input ?? {});
+        }
+    };
+})();
+export { GhostEvolutionRemote };
+/** C9-05/06/07/08/10：剧本 AI 生成/重写、diff、试跑与脚本执行。 */
+let GhostPlaybookRemote = (() => {
+    let _classSuper = TypertRemoteService;
+    let _instanceExtraInitializers = [];
+    let _generate_decorators;
+    let _rewrite_decorators;
+    let _tryRun_decorators;
+    let _diff_decorators;
+    let _runScript_decorators;
+    return class GhostPlaybookRemote extends _classSuper {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _generate_decorators = [Remote('generate')];
+            _rewrite_decorators = [Remote('rewrite')];
+            _tryRun_decorators = [Remote('tryRun')];
+            _diff_decorators = [Remote('diff')];
+            _runScript_decorators = [Remote('runScript')];
+            __esDecorate(this, null, _generate_decorators, { kind: "method", name: "generate", static: false, private: false, access: { has: obj => "generate" in obj, get: obj => obj.generate }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _rewrite_decorators, { kind: "method", name: "rewrite", static: false, private: false, access: { has: obj => "rewrite" in obj, get: obj => obj.rewrite }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _tryRun_decorators, { kind: "method", name: "tryRun", static: false, private: false, access: { has: obj => "tryRun" in obj, get: obj => obj.tryRun }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _diff_decorators, { kind: "method", name: "diff", static: false, private: false, access: { has: obj => "diff" in obj, get: obj => obj.diff }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _runScript_decorators, { kind: "method", name: "runScript", static: false, private: false, access: { has: obj => "runScript" in obj, get: obj => obj.runScript }, metadata: _metadata }, null, _instanceExtraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        constructor(ctx) {
+            super(ctx, 'ghostPlaybook', { namespace: 'ghostPlaybook' });
+            __runInitializers(this, _instanceExtraInitializers);
+        }
+        /** 一句话生成合法 .flow（产物过同一道校验，非法返回 ok:false）。 */
+        async generate(input) {
+            try {
+                const pb = await loadPlaybook();
+                const result = pb.generateFlow(input ?? { prompt: '' });
+                return { ok: true, text: result.text, id: result.flow.id };
+            }
+            catch (error) {
+                return { ok: false, error: String(error) };
+            }
+        }
+        /** 选中局部按一句指令重写，产物过同一道校验。 */
+        async rewrite(input) {
+            try {
+                const pb = await loadPlaybook();
+                const result = pb.rewriteFlow(input);
+                return { ok: true, text: result.text };
+            }
+            catch (error) {
+                return { ok: false, error: String(error) };
+            }
+        }
+        /** 单步试跑：从某节点推演，返回轨迹与停止原因。 */
+        async tryRun(input) {
+            try {
+                const pb = await loadPlaybook();
+                return { ok: true, result: pb.tryRunText(input.text, input) };
+            }
+            catch (error) {
+                return { ok: false, error: String(error) };
+            }
+        }
+        /** 两版 .flow 的结构化 + 文本 diff。 */
+        async diff(input) {
+            try {
+                const pb = await loadPlaybook();
+                return { ok: true, diff: pb.diffFlows(input.before, input.after) };
+            }
+            catch (error) {
+                return { ok: false, error: String(error) };
+            }
+        }
+        /** 执行编译出的 scripts/*（白名单/超时/并发/幂等/输出上限）。 */
+        async runScript(input) {
+            try {
+                const rt = await loadRuntime();
+                const outcome = await rt.runScript({
+                    script: input.script,
+                    ...(input.args === undefined ? {} : { args: input.args }),
+                    ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+                    ...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
+                }, { packageRoot: runtimeRootSlot ?? process.cwd() });
+                return { ok: true, outcome };
+            }
+            catch (error) {
+                return { ok: false, error: String(error) };
+            }
+        }
+    };
+})();
+export { GhostPlaybookRemote };
+/** C11-07：扫描仓库生成 GHOST.md 草案（只返回草案，不覆盖既有文件）。 */
+let GhostInitRemote = (() => {
+    let _classSuper = TypertRemoteService;
+    let _instanceExtraInitializers = [];
+    let _draft_decorators;
+    return class GhostInitRemote extends _classSuper {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _draft_decorators = [Remote('draft')];
+            __esDecorate(this, null, _draft_decorators, { kind: "method", name: "draft", static: false, private: false, access: { has: obj => "draft" in obj, get: obj => obj.draft }, metadata: _metadata }, null, _instanceExtraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        constructor(ctx) {
+            super(ctx, 'ghostInit', { namespace: 'ghostInit' });
+            __runInitializers(this, _instanceExtraInitializers);
+        }
+        async draft(input) {
+            try {
+                const evo = await loadEvolution();
+                const scan = await evo.scanRepo(input?.root ?? repoRootSlot ?? process.cwd());
+                const result = evo.draftGhostMd(scan);
+                return {
+                    ok: true,
+                    content: result.content,
+                    sources: result.sources,
+                    uncertainties: result.uncertainties,
+                    wouldWrite: result.wouldWrite,
+                };
+            }
+            catch (error) {
+                return { ok: false, error: String(error) };
+            }
+        }
+    };
+})();
+export { GhostInitRemote };
+/** C11-03：压缩策略配置的校验与序列化（settings 形态）。 */
+let GhostCompactionRemote = (() => {
+    let _classSuper = TypertRemoteService;
+    let _instanceExtraInitializers = [];
+    let _config_decorators;
+    return class GhostCompactionRemote extends _classSuper {
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            _config_decorators = [Remote('config')];
+            __esDecorate(this, null, _config_decorators, { kind: "method", name: "config", static: false, private: false, access: { has: obj => "config" in obj, get: obj => obj.config }, metadata: _metadata }, null, _instanceExtraInitializers);
+            if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+        }
+        constructor(ctx) {
+            super(ctx, 'ghostCompaction', { namespace: 'ghostCompaction' });
+            __runInitializers(this, _instanceExtraInitializers);
+        }
+        async config(input) {
+            try {
+                const evo = await loadEvolution();
+                if (input?.config === undefined) {
+                    const defaults = evo.DEFAULT_COMPACTION;
+                    return { ok: true, config: defaults, settings: evo.toSettingsJson(defaults) };
+                }
+                const verdict = evo.validateCompaction(input.config);
+                if (!verdict.ok)
+                    return { ok: false, errors: verdict.errors };
+                const config = evo.normalizeCompaction(input.config);
+                return { ok: true, config, settings: evo.toSettingsJson(config) };
+            }
+            catch (error) {
+                return { ok: false, errors: [String(error)] };
+            }
+        }
+    };
+})();
+export { GhostCompactionRemote };
 /** 记忆管理的 Remote 面：界面只读/写这里，不碰文件。 */
 let GhostMemoryRemote = (() => {
     let _classSuper = TypertRemoteService;
@@ -178,10 +444,20 @@ export function apply(ctx, config) {
         status: () => ({ enabled }),
         toggle: value => { enabled = value; saveEnabled(value); return { enabled }; },
     };
+    // 新 Remote 的槽位：无论是否真实宿主都备好，纯 Node 自检也能拿到一致配置。
+    evolutionApiSlot = api;
+    evolutionRootSlot = join(config.root, 'evolution');
+    runtimeRootSlot = join(config.root, 'scripts');
+    repoRootSlot = config.repoRoot ?? process.cwd();
     // 纯 Node 自检用的假 ctx 没有 ctx.reflect；真实宿主才注册 Remote 服务。
     const cordis = ctx;
-    if (cordis.reflect !== undefined)
+    if (cordis.reflect !== undefined) {
         new GhostMemoryRemote(ctx, api);
+        new GhostEvolutionRemote(ctx);
+        new GhostPlaybookRemote(ctx);
+        new GhostInitRemote(ctx);
+        new GhostCompactionRemote(ctx);
+    }
     // 自检文件：让"插件真的活着"可被外部观测（日志级别不可靠，文件不会骗人）。
     // 同时它是排障入口：谁在什么时候、以什么配置加载了哪些工具。
     try {

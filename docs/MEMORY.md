@@ -105,3 +105,15 @@
 - **一个总开关**：落盘到 `<root>/settings.json`，宿主重启后仍生效。关闭后**模型侧 `memory_write` 与界面侧 `ghostMemory/write` 都被拒**，已写的仍可读、可删——它是「别再记新的」，不是「把记忆藏起来」。
 - 验收：`npm run verify:memory-ui`（真实宿主）、`npm run test:memory-view`（5 用例）、
   `npm run test:plugin`（4 用例，含关闭后模型写不进去）。
+
+## 8. 三级进化与度量（C10-05～07 已落地）
+
+`packages/evolution` 是纯模块（零 DOM、零网络、依赖可注入），`memory-plugin` 只做一层薄 Remote：`ghostEvolution/list|propose|approve|reject|metrics`。
+
+- **记忆进化**：同一错误 / 返工第 3 次才生成「升为约束」提案；`list` 可查看、`approve` 才写进 L2 项目记忆、`reject` 不写任何文件。提案本身落盘为文件，可 `git revert`。
+- **剧本与技能进化**：返工归因到 `.flow` 节点 → 生成带 before/after 度量的修改提案；脚本连跑通 2 次 → 生成沉淀进 `scripts/` 的提案。**两者都只落盘，不自动改仓库**。
+- **度量**：`runs.jsonl` 记每次的完成率 / token / 工具数 / 返工与时间戳，`metrics` 汇总出 before/after 看板数据。
+
+验收：`npm run test:evolution`（19 用例，含「驳回不落盘」）、`npm run verify:evolution`（真实宿主 21 项：三次返工 → 提案 → 批准 → `ghostMemory/read` 读到 L2 正文 → 驳回分支 → `runs.jsonl` 落盘，并清理测试数据）、`npm run verify:init`（`/init` 生成的 `GHOST.md` 草案不覆盖既有文件）、`npm run verify:compaction`（压缩策略配置）。
+
+> 红线不变：**禁止运行时静默改写自己的提示词、剧本或技能**；每级都要人闸 + git + before/after 度量。

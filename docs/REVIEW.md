@@ -95,3 +95,22 @@
 ## 一句话结论
 
 **架构是对的，风险全在"界面自建"这四个字上。** 把它拆成"先验证地基（P0.5）、再分三段交付（P3a/b/c）、并且给界面补上测试门禁（L5）"，这个计划就站得住了。
+
+---
+
+## 收尾核对（2026-11-15）
+
+六处「必须改」全部落地，且都可跑命令验：
+
+| # | 改动 | 现在在哪验 |
+|---|---|---|
+| 1 | P0.5 spike | `npm run verify:port`（取数 4/4 + 事件 `api-session/added`） |
+| 2 | 契约清单扩到 Remote / 事件，自动生成 | `npm run gen:remotes`（224 端点）、`npm run gen:events`（31 事件）、`npm run verify:events`（漂移）、`npm run verify:contract`（131 项） |
+| 3 | P3 拆 P3a/b/c | 26 项界面分三批：最小闭环 → 其余面板 → 剧本打磨，见 FEATURES §0.2 |
+| 4 | L5 界面层 | `npm run verify:l5` + `tests/e2e/desktop-flow.spec.ts`（未装依赖时明确 SKIP） |
+| 5 | Windows 凭据改 `safeStorage` / DPAPI | `apps/shell/src/credentials.ts`、`electron-safe-storage.ts`；`npm run verify:shell` 验降级与脱敏 |
+| 6 | 界面拆细 + 文案词表 | `apps/desktop/src/i18n.ts`（中英词表 + 缺词回退）、每个面板 ≤3 人日粒度；`npm run test:panels` |
+
+R1 的后半段（事件名自动生成）曾长期挂账，本轮用 `API_REMOTE_FORWARDED_EVENTS` 单一真相源补上；R8 的 keychain 错误写法已全部改成 DPAPI。R6 的「一节点一行」由 `edit.test.ts` 与 `verify:playbook-editor` 的重放确定性守着。
+
+**仍未消除的是 §8.5 的两条 ABI 实测**（Electron 44 内置 Node ≥24.9、原生模块匹配）——它们需要真实 Electron 安装，不是文档能替代的。
