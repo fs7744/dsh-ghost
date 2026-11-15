@@ -114,6 +114,34 @@ export default function map({ headers, rawBody, body, event, options }) {
 宿主在第一次用到该来源时 `import()` 这个文件，改文件后重启宿主即可生效。
 完整可改的示例在 `packages/source-hub/examples/im.mjs`。
 
+## 2.5 API 拉取模式（不是 webhook 时用这个）
+
+前三种都是**别人推给你**。很多数据源只给查询接口（Jira 搜索、Issues 列表、内部工单），
+没人来推 webhook —— 这种用 `pull` 配置：
+
+```yaml
+- id: issues
+  kind: api
+  pull:
+    url: https://api.example.com/issues?state=open
+    method: GET
+    headers:
+      authorization: env:ISSUES_TOKEN      # 值写 env:NAME，不落明文
+    listPath: data.items                   # 数组在响应里的路径；省略则整段当一条
+    intervalMinutes: 5
+  mapping:
+    fields:
+      threadId: '{{id}}'
+      text: '{{title}}'
+```
+
+- 拉到的响应被包装成 `SourceRequest`，**走同一套 mapping 与鉴权**，产出同样的
+  `NormalizedEvent` → 开票；所以「怎么把一条数据变成票」只写一次。
+- 凭据只认 `env:NAME`（和配置块同一把尺子，明文密钥拒写）。
+- 插件按 `intervalMinutes`（或 `intervalSeconds`）轮询；失败只记日志，不影响其他来源。
+- 验收：`npm run test:hub`（pull 5 个）+ `npm run test:orchestrator`（真拉一次变成票）。
+- MCP 拉取暂不支持，理由见 [SKILLS-MCP.md §4.3](SKILLS-MCP.md)。
+
 ## 3. 签名与鉴权
 
 `auth` 三种，头名、算法、前缀全部可配：

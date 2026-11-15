@@ -28,7 +28,7 @@
     "test:rewind": "node --test --experimental-transform-types apps/desktop/tests/rewind.test.ts",
     "test:memory-view": "node --test --experimental-transform-types apps/desktop/tests/memory-view.test.ts",
     "test:memory": "node --test --experimental-transform-types packages/memory/tests/memory.test.ts",
-    "test": "npm run test:playbook && npm run test:edit && npm run test:palette && npm run test:session-log && npm run test:export && npm run test:rewind && npm run test:memory-view && npm run test:chat-context && npm run test:stats-cost && npm run test:memory && npm run test:economizer && npm run test:plugin && npm run test:core && npm run test:github && npm run test:sink && npm run test:hub && npm run test:panels && npm run test:playbook-ai && npm run test:script-runtime && npm run test:evolution && npm run test:model && npm run test:shell && npm run test:superagent",
+    "test": "npm run test:playbook && npm run test:edit && npm run test:palette && npm run test:session-log && npm run test:export && npm run test:rewind && npm run test:memory-view && npm run test:chat-context && npm run test:stats-cost && npm run test:skills-market && npm run test:memory && npm run test:economizer && npm run test:plugin && npm run test:core && npm run test:github && npm run test:sink && npm run test:hub && npm run test:orchestrator && npm run test:panels && npm run test:playbook-ai && npm run test:script-runtime && npm run test:evolution && npm run test:model && npm run test:shell && npm run test:superagent",
     "test:plugin": "tsc -p packages/memory-plugin/tsconfig.build.json && node --test --experimental-transform-types packages/memory-plugin/tests/plugin.test.ts",
     "build": "tsc -p packages/memory/tsconfig.build.json && tsc -p packages/economizer/tsconfig.build.json && tsc -p packages/superagent/tsconfig.build.json && tsc -p packages/source-github/tsconfig.build.json && tsc -p packages/source-hub/tsconfig.build.json && tsc -p packages/sink-github/tsconfig.build.json && tsc -p packages/playbook/tsconfig.build.json && tsc -p packages/playbook-runtime/tsconfig.build.json && tsc -p packages/evolution/tsconfig.build.json && tsc -p packages/model-adapter-kit/tsconfig.build.json && tsc -p packages/model-manager/tsconfig.build.json && tsc -p packages/memory-plugin/tsconfig.build.json && tsc -p packages/orchestrator-plugin/tsconfig.build.json",
     "smoke:plugin": "node scripts/smoke-built-plugin.mjs",
@@ -48,7 +48,7 @@
     "test:sink": "node --test --experimental-transform-types packages/sink-github/tests/sink.test.ts",
     "verify:outbox": "node --experimental-transform-types scripts/verify-github-outbox.mjs",
     "verify:auto-run": "node --experimental-transform-types scripts/verify-auto-run.mjs",
-    "test:hub": "node --test --experimental-transform-types packages/source-hub/tests/hub.test.ts",
+    "test:hub": "node --test --experimental-transform-types packages/source-hub/tests/hub.test.ts packages/source-hub/tests/pull.test.ts",
     "verify:source-hub": "node --experimental-transform-types scripts/verify-source-hub.mjs",
     "verify:github-loop": "node --experimental-transform-types scripts/verify-github-loop.mjs",
     "verify:playbook-editor": "node --experimental-transform-types scripts/verify-playbook-editor.mjs",
@@ -92,7 +92,9 @@
     "test:chat-context": "node --test --experimental-transform-types apps/desktop/tests/chat-context.test.ts",
     "verify:ai-config": "node scripts/verify-ai-config.mjs",
     "test:stats-cost": "node --test --experimental-transform-types apps/desktop/tests/stats-cost.test.ts",
-    "measure:tokens": "node scripts/measure-token-baseline.mjs"
+    "measure:tokens": "node scripts/measure-token-baseline.mjs",
+    "test:orchestrator": "tsc -p packages/source-hub/tsconfig.build.json && tsc -p packages/orchestrator-plugin/tsconfig.build.json && node --test --experimental-transform-types packages/orchestrator-plugin/tests/plugin.test.ts",
+    "test:skills-market": "node --test --experimental-transform-types apps/desktop/tests/skills-market.test.ts"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3",

@@ -67,10 +67,33 @@ export function normalizeTerminals(raw: unknown): GenericRow[] {
 }
 
 export interface SkillRow extends GenericRow {
+  /** 技能文件路径（宿主给的是绝对路径）。 */
+  path: string
+  /** 模型能否直接调用（宿主 skills/list 的 modelInvocable）。 */
+  modelInvocable: boolean
+  /** 技能说明。 */
   description: string
 }
+
 export function normalizeSkills(raw: unknown): SkillRow[] {
-  return genericRows(raw).map(row => ({ ...row, description: row.detail }))
+  const values = asList(raw)
+  const list = values.length > 0 ? values : [record(raw).skills ?? raw]
+  const out: SkillRow[] = []
+  for (const value of list) {
+    const item = record(value)
+    const name = pickStr(item, ['name', 'title', 'id'])
+    if (name === '') continue
+    out.push({
+      id: name,
+      name,
+      state: item.modelInvocable === true ? 'model' : '',
+      detail: pickStr(item, ['description', 'summary']),
+      description: pickStr(item, ['description', 'summary']),
+      path: pickStr(item, ['path']),
+      modelInvocable: item.modelInvocable === true,
+    })
+  }
+  return sortSkills(out)
 }
 export function sortSkills(rows: readonly SkillRow[]): SkillRow[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name))
@@ -294,6 +317,7 @@ export function mountSkillsPanel(host: HTMLElement, services: PanelServices): Pa
     normalize: rows => sortSkills(normalizeSkills(rows)),
     rowHtml: (row, s) => `<div class="lrow">
       <span class="lname">${escapeHtml(row.name || row.id)}</span>
-      <span class="ldetail">${escapeHtml(row.description || s.t('common.empty'))}</span></div>`,
+      <span class="ldetail">${escapeHtml(row.description || s.t('common.empty'))}</span>
+      ${row.modelInvocable ? `<span class="lstate done">${escapeHtml(s.t('skills.modelInvocable'))}</span>` : ''}</div>`,
   })
 }

@@ -92,6 +92,8 @@ export function adapterFor(kind: SourceSpec['kind']): SourceAdapter {
   switch (kind) {
     case 'github': return githubAdapter
     case 'generic': return genericAdapter
+    // api 模式的归一化规则与 generic 一样；差别只在「谁来拉」。
+    case 'api': return genericAdapter
     case 'custom': return customAdapter
     case 'passthrough': return passthroughAdapter
   }

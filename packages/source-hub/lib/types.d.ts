@@ -61,6 +61,7 @@ export interface GenericMapping {
         };
     };
 }
+import type { ApiPullConfig } from './pull.ts';
 /** 签名与鉴权：HMAC / 静态 token / 不校验，头名和前缀都可配。 */
 export type SourceAuth = {
     type: 'hmac';
@@ -77,10 +78,10 @@ export type SourceAuth = {
 } | {
     type: 'none';
 };
-/** 一个来源的配置。三类自定义方式：github（内置）、generic（声明式）、custom（用户 mapper）。 */
+/** 一个来源的配置。github（内置）、generic（声明式）、api（拉取式）、custom（用户 mapper）。 */
 export interface SourceSpec {
     id: string;
-    kind: 'github' | 'generic' | 'passthrough' | 'custom';
+    kind: 'github' | 'generic' | 'api' | 'passthrough' | 'custom';
     description?: string;
     auth?: SourceAuth;
     /** 传给适配器的自由参数（botLogin、mentionAliases、mapper 自己的参数…）。 */
@@ -89,6 +90,8 @@ export interface SourceSpec {
     mapping?: GenericMapping;
     /** custom 专用：用户 .mjs 文件的绝对路径。 */
     mapper?: string;
+    /** 拉取型配置：定时打这个接口（api 模式，或任何来源附带轮询）。 */
+    pull?: ApiPullConfig;
 }
 /** 自定义 mapper 的输入。 */
 export interface MapperInput {

@@ -195,7 +195,9 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
         return rows.length === 0 ? `<div class="empty">${escapeHtml(s.t('common.empty'))}</div>`
           : rows.map(row => `<div class="lrow"><span class="lname">${escapeHtml(row.name)}</span>
               <span class="lstate">${escapeHtml(row.state)}</span>
-              <span class="ldetail">${row.tools} tools</span></div>`).join('')
+              <span class="ldetail">${row.tools} tools</span>
+              <button data-act="mcp-probe" data-value="${escapeHtml(row.name)}" data-t="admin.mcp.probe"></button>
+              <button data-act="mcp-restart" data-value="${escapeHtml(row.name)}" data-t="admin.mcp.restart"></button></div>`).join('')
       },
     },
     {
@@ -225,8 +227,20 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     statusEl.textContent = `${okCount} / ${jobs.length}`
   }
   host.addEventListener('click', event => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-act="refresh"]')
-    if (button !== null) void load()
+    const target = event.target as HTMLElement
+    const button = target.closest<HTMLButtonElement>('button[data-act]')
+    if (button === null) return
+    const action = button.dataset.act ?? ''
+    if (action === 'refresh') { void load(); return }
+    // MCP 服务：探测连通性 / 重启连接。
+    if (action === 'mcp-probe' || action === 'mcp-restart') {
+      const name = button.dataset.value ?? ''
+      const endpoint = action === 'mcp-probe' ? 'mcpManager/probe' : 'mcpManager/restart'
+      void safeCall(() => services.transport.call(endpoint as never, { name } as never)).then(result => {
+        services.notice(result.ok ? services.t('common.done') : result.reason)
+        void load()
+      })
+    }
   })
   return { refresh: load }
 }
@@ -244,6 +258,8 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
       <section><h3 data-t="admin.market"></h3>
         <div class="marketbar"><input data-role="query" placeholder="搜索插件市场" />
           <button data-act="search" data-t="common.preview"></button></div>
+        <div class="marketbar"><input data-role="index" placeholder="市场索引 URL" />
+          <button data-act="add-index" data-t="admin.market.addIndex"></button></div>
         <div data-sec="market"></div></section>
     </div>`
   const statusEl = host.querySelector<HTMLElement>('.panelstatus')!
@@ -256,6 +272,13 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
       <span class="lstate ${row.enabled ? 'done' : 'idle'}">${escapeHtml(s.t(row.enabled ? 'common.enabled' : 'common.disabled'))}</span>
       <button data-act="toggle-bundle" data-value="${escapeHtml(row.id)}" data-enabled="${row.enabled}" ${canToggleBundle(row) ? '' : 'disabled'} data-t="admin.toggle"></button>
     </div>`).join('')
+  }
+  const renderMarket = (raw: unknown, s: PanelServices): string => {
+    const rows = normalizeMarket(raw)
+    return rows.length === 0 ? `<div class="empty">${escapeHtml(s.t('common.empty'))}</div>`
+      : rows.map(row => `<div class="lrow"><span class="lname">${escapeHtml(row.name)}</span>
+          <span class="ldetail">${escapeHtml(row.description)}</span>
+          <button data-act="install" data-value="${escapeHtml(row.url || row.name)}" data-t="admin.install"></button></div>`).join('')
   }
   const renderPlugins = (raw: unknown, s: PanelServices): string => {
     const rows = normalizePlugins(raw)
@@ -281,7 +304,22 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
         : unavailableHtml(services.t('common.unavailable'), pluginResult.reason)
     }
     const marketBox = host.querySelector<HTMLElement>('[data-sec="market"]')
-    if (marketBox !== null) marketBox.innerHTML = `<div class="empty">${escapeHtml(services.t('common.empty'))}</div>`
+    if (marketBox !== null) {
+      // 市场索引可能没配（宿主默认不带），没索引就明说，别显示空白。
+      const indexes = await safeCall(() => services.transport.call('pluginMarket/listIndexes' as never, {} as never))
+      const url = indexes.ok ? pickStr(record(indexes.value), ['current', 'default'])
+        || (asList(indexes.value).map(item => pickStr(record(item), ['url'])).find(text => text !== '') ?? '') : ''
+      const indexInput = host.querySelector<HTMLInputElement>('input[data-role="index"]')
+      if (indexInput !== null && indexInput.value.trim() === '' && url !== '') indexInput.value = url
+      if (url === '') {
+        marketBox.innerHTML = `<div class="empty">${escapeHtml(services.t('admin.market.noIndex'))}</div>`
+      } else {
+        const found = await safeCall(() => services.transport.call('pluginMarket/search' as never, { url, query: '' } as never))
+        marketBox.innerHTML = !found.ok
+          ? unavailableHtml(services.t('common.unavailable'), found.reason)
+          : renderMarket(found.value, services)
+      }
+    }
     statusEl.textContent = services.t('common.refresh')
     paintText(host, services)
   }
@@ -312,14 +350,21 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
         const found = await safeCall(() => services.transport.call('pluginMarket/search' as never, { url, query } as never))
         if (marketBox === null) return
         if (!found.ok) { marketBox.innerHTML = unavailableHtml(services.t('common.unavailable'), found.reason); return }
-        const rows = normalizeMarket(found.value)
-        marketBox.innerHTML = rows.length === 0
-          ? `<div class="empty">${escapeHtml(services.t('common.empty'))}</div>`
-          : rows.map(row => `<div class="lrow"><span class="lname">${escapeHtml(row.name)}</span>
-              <span class="ldetail">${escapeHtml(row.description)}</span>
-              <button data-act="install" data-value="${escapeHtml(row.url || row.name)}" data-t="admin.install"></button></div>`).join('')
+        marketBox.innerHTML = renderMarket(found.value, services)
         paintText(host, services)
       })()
+      return
+    }
+    if (action === 'add-index') {
+      const url = host.querySelector<HTMLInputElement>('input[data-role="index"]')?.value.trim() ?? ''
+      if (url === '') {
+        services.notice(services.t('admin.market.noIndex'))
+        return
+      }
+      void safeCall(() => services.transport.call('pluginMarket/setIndexes' as never, { urls: [url] } as never)).then(result => {
+        services.notice(result.ok ? services.t('common.done') : result.reason)
+        void load()
+      })
       return
     }
     if (action === 'install') {

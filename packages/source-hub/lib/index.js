@@ -3,3 +3,4 @@ export { createRegistry } from './registry.js';
 export { verifyAuth } from './signature.js';
 export { getPath, render, matches, applyMapping } from './mapping.js';
 export { adapterFor, importMapper, isNormalizedEvent, githubAdapter, genericAdapter, passthroughAdapter, customAdapter } from './adapters.js';
+export { pullFromApi, resolveHeaderValue } from './pull.js';

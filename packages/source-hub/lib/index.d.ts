@@ -3,4 +3,5 @@ export { createRegistry, type SourceRegistry } from './registry.ts';
 export { verifyAuth } from './signature.ts';
 export { getPath, render, matches, applyMapping } from './mapping.ts';
 export { adapterFor, importMapper, isNormalizedEvent, githubAdapter, genericAdapter, passthroughAdapter, customAdapter } from './adapters.ts';
+export { pullFromApi, resolveHeaderValue, type ApiPullConfig, type PullResult } from './pull.ts';
 export type { SourceRequest, SourceSpec, SourceAuth, SourceSummary, SourceAdapter, AdapterContext, NormalizedEvent, NormalizeResult, VerifyResult, GenericMapping, EventChannel, MapperInput, MapperFunction, } from './types.ts';

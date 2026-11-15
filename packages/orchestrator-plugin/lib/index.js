@@ -51,7 +51,7 @@ import { dirname, join } from 'node:path';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { createGithubSink } from '@dsh-ghost/sink-github';
 import { beginBoot, buildSessionBrief, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, pruneUnusedTools, recordToolCall, } from '@dsh-ghost/economizer';
-import { createRegistry, importMapper } from '@dsh-ghost/source-hub';
+import { createRegistry, importMapper, pullFromApi } from '@dsh-ghost/source-hub';
 import { Engine, MemoryRepositories, persisting, ticketStage } from '@dsh-ghost/superagent';
 import { SettingsStore, TOOL_DESCRIPTORS } from '@dsh-ghost/superagent/tools';
 import { buildDeployView, buildOverviewView, buildRecordsView, buildSettingsView, buildSourcesView, buildThreadsView, buildTicketsView, renderViewText, } from '@dsh-ghost/superagent/views';
@@ -592,6 +592,40 @@ export function apply(ctx, config = {}) {
     };
     detailSlot = detail;
     ctx.logger?.info('ghost-orchestrator: %d 张历史票已恢复', listTickets().length);
+    // 拉取型信息源：定时打 API，把响应喂回**同一条**归一化管线（映射与鉴权都复用）。
+    for (const spec of sources) {
+        const pull = spec.pull;
+        if (pull === undefined)
+            continue;
+        const intervalMs = pull.intervalSeconds !== undefined
+            ? Math.max(1, pull.intervalSeconds) * 1000
+            : Math.max(1, pull.intervalMinutes ?? 5) * 60_000;
+        const run = async () => {
+            const result = await pullFromApi(pull);
+            if (!result.ok) {
+                ctx.logger?.warn('ghost-orchestrator: 拉取来源 %s 失败：%s', spec.id, result.reason ?? '未知原因');
+                return;
+            }
+            for (const request of result.requests) {
+                const normalized = await registry.normalize(spec.id, request);
+                if (!normalized.ok)
+                    continue;
+                for (const event of normalized.events) {
+                    try {
+                        accept(event);
+                    }
+                    catch (error) {
+                        ctx.logger?.warn('ghost-orchestrator: 拉取事件未能开票：%s', String(error).slice(0, 120));
+                    }
+                }
+            }
+        };
+        ctx.effect(() => {
+            const timer = setInterval(() => { void run(); }, intervalMs);
+            timer.unref();
+            return () => clearInterval(timer);
+        }, `ghost-orchestrator: pull ${spec.id}`);
+    }
     ctx.effect(() => ctx.tools.register({
         name: 'ghost_ticket',
         description: '为一件需要持续推进的事开一张票（ticket），返回票号。用于"这件事要做但不在当前回合完成"的场景。',
