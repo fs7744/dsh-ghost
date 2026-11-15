@@ -25,7 +25,7 @@ const GROUPS = {
     'check:secrets', 'verify:events', 'verify:port-discipline', 'verify:contract',
     'verify:mock-server', 'verify:models', 'verify:init', 'verify:compaction',
     'verify:playbook-editor', 'verify:shell', 'release:check', 'verify:l5',
-    'verify:superagent-assets', 'verify:automation', 'verify:gates',
+    'verify:superagent-assets', 'verify:automation', 'verify:peers', 'verify:gates',
   ],
   host: [
     'verify:port', 'verify:skill', 'verify:plugin-boot', 'verify:tool-visibility',

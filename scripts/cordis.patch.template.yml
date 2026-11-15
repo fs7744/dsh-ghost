@@ -23,6 +23,12 @@
         stateDir: '{{REPO}}/.ghost'
         workspaceDir: '{{REPO}}'
 
+    # 外部 agent（同事）：Claude/Codex/豆包… 以 CLI / HTTP / A2A 接进来。
+    - id: ghost-peers
+      name: '@dsh-ghost/peer-agent-plugin'
+      config:
+        stateDir: '{{REPO}}/.ghost'
+
     - id: ghost-orchestrator
       name: '@dsh-ghost/orchestrator-plugin'
       config:

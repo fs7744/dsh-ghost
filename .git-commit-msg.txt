@@ -1,11 +1,12 @@
-feat(extension): 扩展驱动当前标签页（页面桥）
+feat(peers): 外部 agent 协作（A2A）——把 Claude/Codex 等当同事
 
-- 补上「扩展不自动带页面内容」的缺口：扩展用 chrome.debugger 驱动**用户当前标签页**，
-  与宿主之间加一条命令通道（模型排队 → 扩展轮询取 → CDP 执行 → 回传唤醒模型）。
-- 新模型工具：page_read（标题/网址/可见文本）、page_click（可见文字或 CSS 选择器）、
-  page_fill、page_screenshot（base64 回传后宿主落盘到工作区）。
-- 扩展在发消息前自动刷新页面快照并上报，模型因此知道「当前页面」是什么。
-- 队列改为 pending + inflight 两段：命令被取走仍在途，回传才能唤醒等待方。
-- 安全：走 CDP 而非注入脚本（页面看不见我们），但保留浏览器「正在被调试」提示条；
-  只在用户发消息时采集页面内容；只作用于当前活动标签页。
-- 验证：626 用例、local 21/21、7/7 门禁、插件宿主验收通过；docs/EXTENSION.md 补 §1.5。
+- 新增 packages/peer-agent：三种接法适配——cli（命令 + args 模板，{prompt} 占位或 stdin）、
+  http（JSON 服务）、a2a（Agent2Agent 的 message/send，解析 artifacts / status.message）。
+- 新增 packages/peer-agent-plugin：模型工具 agent_peers（列出同事）与 agent_delegate（派活并取回产出），
+  Remote ghostPeers/list|save，配置落在 .ghost/peers.json。
+- 设置页新增「外部 agent（同事）」分区：登记 / 删除 / 列出。
+- 边界：同事产出只是参考材料，由主 agent 判断；不自动执行同事建议的动作；
+  不内置厂商端点与参数模板；当前是一问一答，多轮 A2A 任务生命周期未实现。
+- 验收：verify:peers 5 项全过（登记、读取、模型侧看到两个工具、真跑 peer 拿到产出）；test:peer-agent 8 个用例。
+- 文档：新增 docs/PEER-AGENTS.md。
+- 验证：690 用例、local 22/22、7/7 门禁。

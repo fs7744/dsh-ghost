@@ -1,0 +1,17 @@
+{
+  "name": "@dsh-ghost/peer-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent-to-agent: run external agent programs (CLI / HTTP / A2A) as peers.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test --experimental-transform-types tests/*.test.ts"
+  },
+  "files": ["lib", "src"]
+}

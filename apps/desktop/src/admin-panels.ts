@@ -181,6 +181,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       <section><h3 data-t="settings.proxy"></h3><div data-sec="proxy"></div></section>
       <section><h3 data-t="settings.skin"></h3><div data-sec="skin"></div></section>
       <section><h3 data-t="settings.extension"></h3><div data-sec="extension"></div></section>
+      <section><h3 data-t="settings.peers"></h3><div data-sec="peers"></div></section>
       <section><h3 data-t="ui.extensions"></h3><div data-sec="slots"></div></section>
       <section><h3 data-t="admin.settings"></h3><div data-sec="settings"></div></section>
     </div>`
@@ -235,6 +236,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     await renderProxySection(host, services)
     await renderSkinSection(host, services)
     await renderExtensionSection(host, services)
+    await renderPeersSection(host, services)
     await renderExtensionSlots(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length}`
   }
@@ -269,6 +271,14 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
         services.notice(result.ok ? services.t('settings.skin.copied') : result.reason)
         void load()
       })
+      return
+    }
+    if (action === 'add-peer') {
+      void addPeer(host, services)
+      return
+    }
+    if (action === 'remove-peer') {
+      void removePeer(host, services, button.dataset.value ?? '')
       return
     }
     if (action === 'generate-pairing') {
@@ -429,6 +439,96 @@ async function renderSkinSection(host: HTMLElement, services: PanelServices): Pr
     + (vars.length === 0 ? '' : `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
         <span class="ldetail">${escapeHtml(vars.join('、'))}</span></div>`)
     + `<div class="lrow"><button data-act="reload-skin" data-t="settings.skin.reload"></button></div>`
+}
+
+/** 外部 agent（同事）区：列出已登记的 peer，并提供登记/删除。 */
+async function renderPeersSection(host: HTMLElement, services: PanelServices): Promise<void> {
+  const box = host.querySelector<HTMLElement>('[data-sec="peers"]')
+  if (box === null) return
+  const result = await safeCall(() => services.transport.call('ghostPeers/list' as never, {} as never))
+  if (!result.ok) {
+    box.innerHTML = unavailableHtml(services.t('common.unavailable'), result.reason)
+    return
+  }
+  const peers = asList(record(result.value).peers).map(item => record(item))
+  const errors = asList(record(result.value).errors).map(item => String(item))
+  const rows = peers.map(peer => `<div class="lrow">
+      <span class="lname">${escapeHtml(pickStr(peer, ['label']))}</span>
+      <span class="lstate">${escapeHtml(pickStr(peer, ['kind']))}</span>
+      <span class="ldetail">${escapeHtml(`${pickStr(peer, ['id'])} · ${pickStr(peer, ['description'])}`)}</span>
+      <button data-act="remove-peer" data-value="${escapeHtml(pickStr(peer, ['id']))}" data-t="settings.peers.remove"></button>
+    </div>`).join('')
+  box.innerHTML = (rows === '' ? `<div class="empty">${escapeHtml(services.t('settings.peers.empty'))}</div>` : rows)
+    + (errors.length === 0 ? '' : `<div class="empty">${escapeHtml(errors.join('；'))}</div>`)
+    + `<div class="lrow">
+        <input data-peer="id" placeholder="id（kebab-case）" />
+        <input data-peer="label" placeholder="显示名" />
+        <select data-peer="kind">
+          <option value="cli">cli（命令行程序）</option>
+          <option value="http">http（JSON 服务）</option>
+          <option value="a2a">a2a（Agent2Agent）</option>
+        </select>
+        <input data-peer="target" placeholder="command（cli）或 URL（http/a2a）" />
+        <input data-peer="args" placeholder="args（JSON 数组，可选）" />
+        <input data-peer="description" placeholder="擅长什么（一句话）" />
+        <button data-act="add-peer" data-t="settings.peers.add"></button></div>`
+    + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.peers.hint'))}</span></div>`
+}
+
+/** 登记一个 peer。 */
+async function addPeer(host: HTMLElement, services: PanelServices): Promise<void> {
+  const read = (key: string): string => host.querySelector<HTMLInputElement>(`[data-peer="${key}"]`)?.value.trim() ?? ''
+  const id = read('id')
+  const label = read('label')
+  const kind = read('kind')
+  const target = read('target')
+  if (id === '' || label === '' || target === '') {
+    services.notice(services.t('settings.peers.incomplete'))
+    return
+  }
+  let args: string[] = []
+  const rawArgs = read('args')
+  if (rawArgs !== '') {
+    try {
+      const parsed = JSON.parse(rawArgs) as unknown
+      if (!Array.isArray(parsed)) throw new Error('not array')
+      args = parsed.map(item => String(item))
+    } catch {
+      services.notice(services.t('settings.peers.badArgs'))
+      return
+    }
+  }
+  const peer: Record<string, unknown> = { id, label, kind }
+  if (kind === 'cli') {
+    peer['command'] = target
+    if (args.length > 0) peer['args'] = args
+  } else {
+    peer['url'] = target
+  }
+  const description = read('description')
+  if (description !== '') peer['description'] = description
+  const current = await safeCall(() => services.transport.call('ghostPeers/list' as never, {} as never))
+  const peers = current.ok ? asList(record(current.value).peers).map(item => record(item)) : []
+  peers.push(peer)
+  const saved = await safeCall(() => services.transport.call('ghostPeers/save' as never, { input: { peers } } as never))
+  if (!saved.ok) {
+    services.notice(saved.reason)
+    return
+  }
+  services.notice(services.t('settings.peers.added'))
+  void renderPeersSection(host, services)
+}
+
+/** 删除一个 peer。 */
+async function removePeer(host: HTMLElement, services: PanelServices, id: string): Promise<void> {
+  if (id === '') return
+  const current = await safeCall(() => services.transport.call('ghostPeers/list' as never, {} as never))
+  const peers = current.ok
+    ? asList(record(current.value).peers).map(item => record(item)).filter(item => pickStr(item, ['id']) !== id)
+    : []
+  const saved = await safeCall(() => services.transport.call('ghostPeers/save' as never, { input: { peers } } as never))
+  services.notice(saved.ok ? services.t('settings.peers.removed') : saved.reason)
+  void renderPeersSection(host, services)
 }
 
 /** 浏览器扩展区：给出应用地址与一次性配对码。 */

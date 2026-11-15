@@ -48,6 +48,7 @@
 | **升级与纪律（C1-04/05）** | `upgrade:harness` 8 步 dry-run 默认、绝不 push；`check-port-discipline` 禁绕过 port 层；`matrix.json` + [UPGRADE.md](docs/UPGRADE.md) |
 | **测试分层（C4）** | [TESTING.md](docs/TESTING.md)：L1 假端点 7 种故障、L2 规范化回放、L3 结构断言、L4 评分、L5 规格、CI 门禁 |
 | **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS+dmg+AppImage / 更新通道 / 隐私与第三方声明 |
+| **外部 agent 协作（A2A）** | [PEER-AGENTS.md](docs/PEER-AGENTS.md)：CLI / HTTP / Agent2Agent 三种接法登记「同事」，模型用 agent_peers / agent_delegate 把活派出去 |
 | **浏览器扩展** | [EXTENSION.md](docs/EXTENSION.md)：Chrome/Edge MV3 侧栏扩展，设备码式配对（token 不进扩展）；扩展还能驱动**当前标签页**（chrome.debugger），模型可用 page_read/page_click/page_fill/page_screenshot 操作你正在看的页面 |
 | **浏览器自动化 / 电脑操控** | [AUTOMATION.md](docs/AUTOMATION.md)：Playwright 驱动系统浏览器（CDP 兜底）、Windows UI Automation + 截图 + 输入；默认关、界面开关、真机验收 |
 | **宿主能力台账** | [HOST-CAPABILITIES.md](docs/HOST-CAPABILITIES.md)：Agent 预设切换、电脑操控状态与开关（白名单插件）、未接能力逐条说明 |
@@ -84,6 +85,7 @@
 21. [docs/HOST-CAPABILITIES.md](docs/HOST-CAPABILITIES.md) — 宿主能力台账：接了什么、没接什么、为什么
 22. [docs/AUTOMATION.md](docs/AUTOMATION.md) — 浏览器自动化（Playwright 优先，CDP 兜底）与 Windows 电脑操控（UIA 元素级操作）
 23. [docs/EXTENSION.md](docs/EXTENSION.md) — 浏览器扩展：配对后在任意页面侧栏里和本机 agent 对话
+24. [docs/PEER-AGENTS.md](docs/PEER-AGENTS.md) — 外部 agent 协作（A2A）：把 Claude/Codex/豆包等当同事来用
 15. [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) · [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — 隐私、许可、诊断包
 
 ## 开发
@@ -97,7 +99,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 626 个用例 / 33 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 690 个用例 / 34 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

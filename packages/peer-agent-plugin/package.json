@@ -1,0 +1,21 @@
+{
+  "name": "@dsh-ghost/peer-agent-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Host plugin: agent-to-agent collaboration with external agent programs (CLI / HTTP / A2A).",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "dependencies": {
+    "@dsh-ghost/peer-agent": "0.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3"
+  },
+  "files": ["lib", "src"]
+}
