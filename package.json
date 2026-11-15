@@ -30,7 +30,9 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "verify:commands": "node --experimental-transform-types scripts/verify-commands.mjs",
     "dev:ui": "node --experimental-transform-types scripts/dev-ui.mjs",
-    "ticket": "node --experimental-transform-types scripts/run-ticket.mjs"
+    "ticket": "node --experimental-transform-types scripts/run-ticket.mjs",
+    "verify:orchestrator": "node scripts/verify-orchestrator.mjs",
+    "verify:ticket-tool": "node --experimental-transform-types scripts/verify-ticket-tool.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

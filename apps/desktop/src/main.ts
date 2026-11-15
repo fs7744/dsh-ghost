@@ -186,7 +186,7 @@ function renderTickets(payload: unknown): void {
   const tickets = (payload as { tickets?: Array<{ id: string; title: string; stage: { stage: string; action?: string } }> })?.tickets ?? []
   const box = el('tickets')
   if (tickets.length === 0) {
-    box.innerHTML = '<div class="id">还没有票。让 agent 调用 ghost_ticket 开一张。</div>'
+    box.innerHTML = '<div class="id">还没有票。让 agent 调用 ghost_ticket 开一张。<br>（票在引擎内存里，宿主重启即清空）</div>'
     return
   }
   box.innerHTML = tickets.map(ticket => {
