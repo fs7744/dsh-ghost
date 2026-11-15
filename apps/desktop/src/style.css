@@ -1,0 +1,39 @@
+:root {
+  --surface-lowest:#141412; --surface-low:#1c1c1a; --surface-mid:#222220; --surface-high:#2c2c2a;
+  --on-surface:#eceae4; --on-surface-variant:#b4b2a9; --outline:#45443f;
+  --accent:#5dcaa5; --accent-container:#0f3d31; --danger:#f09595;
+  --font-ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --radius-md:8px; --radius-lg:12px;
+}
+* { box-sizing: border-box; }
+body { margin:0; font-family:var(--font-ui); font-size:14px; line-height:1.5;
+  background:var(--surface-lowest); color:var(--on-surface); height:100vh; overflow:hidden; }
+#app { display:grid; grid-template-columns:260px 1fr 320px; grid-template-rows:44px 1fr 24px; height:100vh; }
+header { grid-column:1/4; display:flex; align-items:center; gap:10px; padding:0 14px;
+  background:var(--surface-mid); border-bottom:1px solid var(--outline); }
+header .brand { font-weight:500; }
+header .status { color:var(--on-surface-variant); font-size:12px; }
+aside, main, #detail { background:var(--surface-low); }
+aside { border-right:1px solid var(--outline); overflow:auto; padding:8px; }
+main { position:relative; overflow:auto; }
+#detail { border-left:1px solid var(--outline); padding:12px; overflow:auto; }
+footer { grid-column:1/4; display:flex; align-items:center; gap:16px; padding:0 14px;
+  background:var(--surface-mid); border-top:1px solid var(--outline);
+  color:var(--on-surface-variant); font-size:12px; font-variant-numeric:tabular-nums; }
+h2 { font-size:12px; font-weight:500; color:var(--on-surface-variant); margin:8px 6px; text-transform:none; }
+.row { padding:6px 8px; border-radius:var(--radius-md); cursor:pointer; display:flex; gap:8px; align-items:baseline; }
+.row:hover { background:var(--surface-high); }
+.row.active { background:var(--accent-container); }
+.row .id { color:var(--on-surface-variant); font-size:12px; }
+svg { display:block; }
+rect.node { fill:var(--surface-high); stroke:var(--outline); stroke-width:1; }
+rect.node.gate { stroke:var(--accent); stroke-dasharray:4 3; }
+rect.node.sel { stroke:var(--accent); stroke-width:2; }
+text.label { fill:var(--on-surface); font-size:13px; }
+text.meta { fill:var(--on-surface-variant); font-size:11px; }
+path.edge { fill:none; stroke:var(--outline); stroke-width:1.5; }
+path.edge.back { stroke:var(--danger); stroke-dasharray:5 4; }
+text.on { fill:var(--on-surface-variant); font-size:11px; }
+#detail dt { color:var(--on-surface-variant); font-size:12px; margin-top:10px; }
+#detail dd { margin:2px 0 0; font-size:13px; }
+.err { color:var(--danger); font-size:12px; padding:8px; white-space:pre-wrap; }

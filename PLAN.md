@@ -99,7 +99,7 @@ dsh-ghost/
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
 ├── apps/
-│   └── desktop/                   # P3：Electron 壳（Windows）
+│   └── desktop/                   # P3：Electron 壳（Windows）；现先用 Vite 在浏览器跑第一屏
 │       ├── main/                  #   主进程：runtime 子进程 / 单实例 / 托盘 / 更新
 │       └── renderer/              #   我们自己的界面（聊天 / 面板 / 剧本编辑器）
 ├── packages/

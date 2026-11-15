@@ -28,11 +28,13 @@
     "verify:real-model": "node --experimental-transform-types scripts/verify-real-model.mjs",
     "verify:auth": "node --experimental-transform-types scripts/verify-auth.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "verify:commands": "node --experimental-transform-types scripts/verify-commands.mjs"
+    "verify:commands": "node --experimental-transform-types scripts/verify-commands.mjs",
+    "dev:ui": "node --experimental-transform-types scripts/dev-ui.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
+    "vite": "^8.3.8",
     "ws": "^8.23.0"
   },
   "dependencies": {

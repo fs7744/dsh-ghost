@@ -1,0 +1,11 @@
+{
+  "name": "@dsh-ghost/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "dsh-ghost 桌面端渲染层（先用 Vite 在浏览器里跑，Electron 壳后接）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  }
+}

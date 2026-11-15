@@ -34,7 +34,13 @@ export interface Session {
 }
 
 /** 传输层依赖。 */
-export interface TransportOptions extends Session {
+export interface TransportOptions {
+  /** API 主机，如 `http://127.0.0.1:3917`。浏览器同源代理时可留空字符串。 */
+  origin: string
+  /** API Cookie；浏览器同源场景留空，靠 `credentials` 让浏览器自动带。 */
+  cookie?: string
+  /** 浏览器里用 `same-origin`；Node 里用默认（靠显式 cookie）。 */
+  credentials?: RequestCredentials
   /** 订阅事件时必需；不订阅可以不给。 */
   createWebSocket?: (url: string, headers: Record<string, string>) => SocketLike
   /** 事件流上的错误回调；默认打到 console。 */
@@ -81,7 +87,7 @@ export async function login(entryUrl: string, interactions: 'none' | 'answer' = 
  * @param options - 登录结果 + 可选的 WebSocket 工厂
  */
 export function createTransport(options: TransportOptions): RemoteTransport {
-  const { origin, cookie, createWebSocket, onError } = options
+  const { origin, cookie = '', credentials, createWebSocket, onError } = options
 
   return {
     async call(endpoint, args) {
@@ -89,7 +95,8 @@ export function createTransport(options: TransportOptions): RemoteTransport {
       const rpcId = `ghost-${counter}`
       const response = await fetch(`${origin}/api/${endpoint}`, {
         method: 'POST',
-        headers: { cookie, 'content-type': 'application/json' },
+        // 浏览器同源时 cookie 由浏览器带；Node 里显式传（空则不传）。
+        ...(credentials === undefined ? { headers: { cookie, 'content-type': 'application/json' } } : { credentials, headers: { 'content-type': 'application/json' } }),
         body: JSON.stringify({ type: 'client-request', rpcId, method: endpoint, payload: { args } }),
       })
       const text = await response.text()
