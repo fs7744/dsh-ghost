@@ -15,7 +15,8 @@
 | 事件流 | `/api/remote.mux` + `$events` → `api-session/added` |
 | 端点生成 | 39 个包 / **224 个 Remote 端点** → 类型化调用表 |
 | `harness-port` | 传输层（调用 + 事件），零 `@deepseek-ai` 依赖 |
-| `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包（10 个测试全绿） |
+| `playbook` | `.flow` 解析 / 校验 / 编译成 skill 包 / 图模型往返（15 个测试全绿） |
+| `memory` | 文件式记忆：索引常驻 + 条目按需 + 写入闸门（7 个测试全绿） |
 
 ## 文档
 
@@ -39,7 +40,7 @@ npm run gen:remotes               # 重新生成 224 个端点的类型表
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit
 
-npm run test:playbook               # 剧本解析/编译的 10 个用例
+npm test                            # 剧本 15 + 记忆 7 个用例
 npm run deploy:skill -- packages/playbook/examples/ticket-flow.flow
 npm run verify:skill                # 确认 harness 的 skills/list 里能看到它
 ```

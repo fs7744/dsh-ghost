@@ -16,7 +16,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "deploy:skill": "node --experimental-strip-types scripts/deploy-skill.mjs",
     "verify:skill": "node --experimental-strip-types scripts/verify-skill.mjs",
-    "test:playbook": "node --test --experimental-strip-types packages/playbook/tests/playbook.test.ts"
+    "test:playbook": "node --test --experimental-strip-types packages/playbook/tests/playbook.test.ts",
+    "test:memory": "node --test --experimental-strip-types packages/memory/tests/memory.test.ts",
+    "test": "npm run test:playbook && npm run test:memory"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

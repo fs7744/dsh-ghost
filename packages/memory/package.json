@@ -1,0 +1,13 @@
+{
+  "name": "@dsh-ghost/memory",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "File-based layered memory: indexed project entries + a tiny resident user block, with a write gate.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test --experimental-strip-types tests/memory.test.ts"
+  }
+}
