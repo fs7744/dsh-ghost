@@ -349,6 +349,9 @@ async function main(): Promise<void> {
       env: {
         WB_BASE_URL: process.env['WB_BASE_URL'] ?? '',
         WB_MODEL: process.env['WB_MODEL'] ?? '',
+        // 权限档位：宿主的 sandbox-policy 与 user-approval 策略在加载 patch 时读它。
+        // 引导页问过用户，却一直没传过去——这里补上，用户的选择才真正生效。
+        DSH_PERMISSION_MODE: config.approvalPreset,
         // 用户在界面里登记的代理：宿主 dsh-http-proxy 读这些 env。
         ...readProxyEnv(config.workspaceDir !== '' ? config.workspaceDir : join(paths.userData, 'workspace')),
       },

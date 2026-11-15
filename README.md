@@ -51,6 +51,8 @@
 | **外部 agent 协作（A2A）** | [PEER-AGENTS.md](docs/PEER-AGENTS.md)：CLI / HTTP / Agent2Agent 三种接法登记「同事」，模型用 agent_peers / agent_delegate 把活派出去 |
 | **浏览器扩展** | [EXTENSION.md](docs/EXTENSION.md)：Chrome/Edge MV3 侧栏扩展，设备码式配对（token 不进扩展）；扩展还能驱动**当前标签页**（chrome.debugger），模型可用 page_read/page_click/page_fill/page_screenshot 操作你正在看的页面 |
 | **浏览器自动化 / 电脑操控** | [AUTOMATION.md](docs/AUTOMATION.md)：Playwright 驱动系统浏览器（CDP 兜底）、Windows UI Automation + 截图 + 输入；默认关、界面开关、真机验收 |
+| **多 agent** | 宿主的多 agent 本就默认开启（模型有团队/子 agent 工具）；我们补上界面层：「多 agent」页签（团队开关、任务、子 agent 目录、权限档位）+ 权限档位真正传给宿主（`DSH_PERMISSION_MODE`） |
+| **多 agent** | 宿主的多 agent 本就默认开启（模型有团队/子 agent 工具）；我们补上界面层：「多 agent」页签（团队开关、任务、子 agent 目录、权限档位）+ 权限档位真正传给宿主（`DSH_PERMISSION_MODE`） |
 | **宿主能力台账** | [HOST-CAPABILITIES.md](docs/HOST-CAPABILITIES.md)：Agent 预设切换、电脑操控状态与开关（白名单插件）、未接能力逐条说明 |
 | **代码 / 差异 / 合并** | [CODE-GIT.md](docs/CODE-GIT.md)：工作区代码视图（多标签·高亮·行号）、新增「变更」页看 diff、冲突一键用我方/用对方（壳侧 execFile 调 git，无 shell） |
 | **皮肤与代理** | [THEME-PROXY.md](docs/THEME-PROXY.md)：暗/亮/跟随系统三态、内置**赛博朋克**预设 + 自定义 CSS 换肤、界面里登记网络代理（宿主 dsh-http-proxy）；预览见 [cyberpunk.html](docs/preview/cyberpunk.html) |
@@ -99,7 +101,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 690 个用例 / 34 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 696 个用例 / 35 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

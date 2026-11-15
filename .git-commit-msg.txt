@@ -1,12 +1,9 @@
-feat(peers): 外部 agent 协作（A2A）——把 Claude/Codex 等当同事
+feat(team): 补上宿主多 agent 的界面层，并让权限档位真正生效
 
-- 新增 packages/peer-agent：三种接法适配——cli（命令 + args 模板，{prompt} 占位或 stdin）、
-  http（JSON 服务）、a2a（Agent2Agent 的 message/send，解析 artifacts / status.message）。
-- 新增 packages/peer-agent-plugin：模型工具 agent_peers（列出同事）与 agent_delegate（派活并取回产出），
-  Remote ghostPeers/list|save，配置落在 .ghost/peers.json。
-- 设置页新增「外部 agent（同事）」分区：登记 / 删除 / 列出。
-- 边界：同事产出只是参考材料，由主 agent 判断；不自动执行同事建议的动作；
-  不内置厂商端点与参数模板；当前是一问一答，多轮 A2A 任务生命周期未实现。
-- 验收：verify:peers 5 项全过（登记、读取、模型侧看到两个工具、真跑 peer 拿到产出）；test:peer-agent 8 个用例。
-- 文档：新增 docs/PEER-AGENTS.md。
-- 验证：690 用例、local 22/22、7/7 门禁。
+- 新增「多 agent」页签：团队模式开关（agentTeams/setEnabled）、团队任务列表、
+  子 agent 目录与当前子 agent 状态、权限档位显示（均读 session/projections）。
+- 修一个真问题：approvalPreset 在引导页问过用户，却从没传给宿主——壳启动宿主时
+  补 DSH_PERMISSION_MODE，用户的权限选择才真正影响宿主沙箱与审批策略。
+- 设置页新增「权限档位」区：列出宿主档位、标出当前生效项、可切换（重启宿主生效）。
+- 文档：docs/HOST-CAPABILITIES.md 重写——加「更正与补记」与「仍未接的宿主能力」如实清单。
+- 验收：verify:team 7 项全过（开关/投影/字段）；696 用例、local 23/23、7/7 门禁。

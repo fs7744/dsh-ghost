@@ -182,6 +182,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       <section><h3 data-t="settings.skin"></h3><div data-sec="skin"></div></section>
       <section><h3 data-t="settings.extension"></h3><div data-sec="extension"></div></section>
       <section><h3 data-t="settings.peers"></h3><div data-sec="peers"></div></section>
+      <section><h3 data-t="settings.permission"></h3><div data-sec="permission"></div></section>
       <section><h3 data-t="ui.extensions"></h3><div data-sec="slots"></div></section>
       <section><h3 data-t="admin.settings"></h3><div data-sec="settings"></div></section>
     </div>`
@@ -237,6 +238,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     await renderSkinSection(host, services)
     await renderExtensionSection(host, services)
     await renderPeersSection(host, services)
+    await renderPermissionSection(host, services)
     await renderExtensionSlots(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length}`
   }
@@ -271,6 +273,10 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
         services.notice(result.ok ? services.t('settings.skin.copied') : result.reason)
         void load()
       })
+      return
+    }
+    if (action === 'set-permission') {
+      void setPermission(host, services, button.dataset.value ?? '')
       return
     }
     if (action === 'add-peer') {
@@ -439,6 +445,52 @@ async function renderSkinSection(host: HTMLElement, services: PanelServices): Pr
     + (vars.length === 0 ? '' : `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
         <span class="ldetail">${escapeHtml(vars.join('、'))}</span></div>`)
     + `<div class="lrow"><button data-act="reload-skin" data-t="settings.skin.reload"></button></div>`
+}
+
+/** 权限档位区：列出宿主给的档位，标出当前生效的档位（改完要重启宿主）。 */
+async function renderPermissionSection(host: HTMLElement, services: PanelServices): Promise<void> {
+  const box = host.querySelector<HTMLElement>('[data-sec="permission"]')
+  if (box === null) return
+  const catalog = await safeCall(() => services.transport.call('permissionPresets/catalog' as never, {} as never))
+  const sessionId = services.agentId() ?? ''
+  const proj = await safeCall(() => services.transport.call('session/projections' as never, {
+    request: { sessionId },
+  } as never))
+  const current = proj.ok
+    ? pickStr(record(record(record(proj.value).values).permissions), ['currentValue'])
+    : ''
+  const options = catalog.ok ? asList(record(catalog.value).options).map(item => record(item)) : []
+  if (options.length === 0) {
+    box.innerHTML = `<div class="empty">${escapeHtml(catalog.ok ? services.t('common.empty') : catalog.reason)}</div>`
+    return
+  }
+  const shell = (globalThis as unknown as {
+    shellApi?: { setConfig?: (patch: Record<string, unknown>) => Promise<unknown> }
+  }).shellApi
+  const rows = options.map(option => {
+    const value = pickStr(option, ['value'])
+    const name = pickStr(option, ['name'])
+    return `<div class="lrow"><span class="lname">${escapeHtml(name || value)}</span>
+        ${value === current ? `<span class="lstate done">${escapeHtml(services.t('settings.permission.current'))}</span>` : ''}
+        <button data-act="set-permission" data-value="${escapeHtml(value)}"
+          ${value === current || shell?.setConfig === undefined ? 'disabled' : ''} data-t="settings.permission.set"></button></div>`
+  }).join('')
+  box.innerHTML = rows + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.permission.hint'))}</span></div>`
+}
+
+/** 改权限档位（写进壳配置，下次启动宿主生效）。 */
+async function setPermission(host: HTMLElement, services: PanelServices, value: string): Promise<void> {
+  if (value === '') return
+  const shell = (globalThis as unknown as {
+    shellApi?: { setConfig?: (patch: Record<string, unknown>) => Promise<unknown> }
+  }).shellApi
+  if (shell?.setConfig === undefined) {
+    services.notice(services.t('settings.extension.needShell'))
+    return
+  }
+  await shell.setConfig({ approvalPreset: value })
+  services.notice(services.t('settings.permission.saved'))
+  void renderPermissionSection(host, services)
 }
 
 /** 外部 agent（同事）区：列出已登记的 peer，并提供登记/删除。 */
