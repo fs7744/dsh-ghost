@@ -17,6 +17,8 @@ export interface PostResult {
     error?: string;
     /** GitHub 返回的评论 id。 */
     commentId?: string;
+    /** 429 时服务端要求的等待毫秒数（来自 Retry-After）。 */
+    retryAfterMs?: number;
 }
 /** 出口配置。 */
 export interface GithubSinkOptions {
@@ -36,6 +38,8 @@ export interface GithubSinkOptions {
     maxAttempts?: number;
     /** 单条评论正文上限，默认 60_000 字符（GitHub 上限 65536；留出截断说明的余量）。 */
     maxBodyChars?: number;
+    /** 时钟，测试可注入；用于 429 Retry-After。 */
+    now?: () => number;
 }
 /** 一条消息的去向。 */
 interface Entry {
@@ -44,6 +48,8 @@ interface Entry {
     error?: string;
     commentId?: string;
     attempts: number;
+    /** 429 后到这个时间点才允许再试。 */
+    retryAt?: number;
 }
 /**
  * 创建 GitHub 评论出口。

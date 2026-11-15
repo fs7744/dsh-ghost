@@ -18,6 +18,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-tools'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { createGithubSink } from '@dsh-ghost/sink-github'
+import {
+  beginBoot, buildSessionBrief, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, LoopGuard, pruneUnusedTools,
+  recordToolCall, truncateToolResult, type ToolLedger,
+} from '@dsh-ghost/economizer'
 import { createRegistry, importMapper, type SourceSpec, type SourceSummary } from '@dsh-ghost/source-hub'
 import { Engine, MemoryRepositories, persisting, ticketStage, type Ticket, type Trigger } from '@dsh-ghost/superagent'
 import { SettingsStore, TOOL_DESCRIPTORS } from '@dsh-ghost/superagent/tools'
@@ -52,6 +56,16 @@ export interface Config {
   stateFile?: string
   /** 工具配置（settings/policy/prompts）落地文件；缺省与 stateFile 同目录。 */
   settingsFile?: string
+  /** 会话前置记忆索引；缺省 `<stateFile 目录>/memory/MEMORY.md`。 */
+  briefFile?: string
+  /** 关闭自动工具剪枝（默认开启：连续 5 次启动未用的可选工具才剪）。 */
+  toolPrune?: boolean
+  /** 永不剪的工具名。 */
+  keepTools?: string[]
+  /** 单次工具结果上限，默认 12000 字符。 */
+  maxToolResultChars?: number
+  /** 关闭失败循环提示。 */
+  loopGuard?: boolean
   /** 本地触发源名，出现在票的来源里。 */
   source?: string
   /**
@@ -231,6 +245,10 @@ const OUTPUT_SCHEMA = {
 export function apply(ctx: Context, config: Config = {}): void {
   const stateFile = config.stateFile ?? join(process.cwd(), '.ghost', 'tickets.json')
   const settingsFile = config.settingsFile ?? join(dirname(stateFile), 'orchestrator-settings.json')
+  const usageFile = join(dirname(stateFile), 'tool-usage.json')
+  const briefFile = config.briefFile ?? join(dirname(stateFile), 'memory', 'MEMORY.md')
+  /** 只有这些“锦上添花”的工具允许被自动剪；核心票据/报告/读取永不剪。 */
+  const OPTIONAL_TOOLS = DEFAULT_OPTIONAL_TOOLS
   const source = config.source ?? 'local'
   // 引擎状态持久化到 `<stateFile>.snapshot.json`：宿主重启后票还在
   const repo = persisting(new MemoryRepositories(), `${stateFile}.snapshot.json`)
@@ -372,7 +390,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       agent.followup({
         id: randomUUID(),
         role: 'user',
-        content: [{ type: 'text', text: ticket.title }],
+        content: [{ type: 'text', text: sessionBrief(ticket.title) }],
         source: { kind: 'user' },
       })
     } catch (error) {
@@ -467,7 +485,50 @@ export function apply(ctx: Context, config: Config = {}): void {
       },
     },
   }
+  // ——— TokenEconomizer 经验：工具剪枝 + 失败循环提示 + 结果截断 ———
+  let usageLedger: ToolLedger = emptyLedger()
+  try {
+    if (existsSync(usageFile)) {
+      const parsed = JSON.parse(readFileSync(usageFile, 'utf8')) as Partial<ToolLedger>
+      if (parsed.version === 1 && typeof parsed.boots === 'number' && typeof parsed.tools === 'object' && parsed.tools !== null) {
+        usageLedger = parsed as ToolLedger
+      }
+    }
+  } catch { /* 坏账本按空账本起，不影响工具可用 */ }
+  usageLedger = beginBoot(usageLedger, TOOL_DESCRIPTORS.map(descriptor => descriptor.name))
+  const persistUsage = (): void => {
+    try {
+      mkdirSync(dirname(usageFile), { recursive: true })
+      const temporary = `${usageFile}.tmp`
+      writeFileSync(temporary, `${JSON.stringify(usageLedger, null, 2)}\n`)
+      renameSync(temporary, usageFile)
+    } catch { /* 账本写不了不影响工具调用 */ }
+  }
+  persistUsage()
+
+  const computedPruned = config.toolPrune === false
+    ? []
+    : pruneUnusedTools(usageLedger, OPTIONAL_TOOLS, { minBoots: 5, ...(config.keepTools === undefined ? {} : { keep: config.keepTools }) })
+  const pruned = [...new Set([...computedPruned, ...(usageLedger.disabled ?? [])])]
+  if (pruned.length > 0) {
+    const chars = estimateToolChars(TOOL_DESCRIPTORS, pruned)
+    ctx.logger?.info('ghost-orchestrator: 剪掉 %d 个长期未用工具（省约 %d 字符定义）：%s', pruned.length, chars, pruned.join(', '))
+  }
+  const prunedSet = new Set(pruned)
+  const loopGuard = config.loopGuard === false ? undefined : new LoopGuard()
+  const maxResultChars = Math.max(500, config.maxToolResultChars ?? 12_000)
+
+  /** 开局带一小段记忆索引，省掉「先 list 再逐条 read」的重复发现。 */
+  const sessionBrief = (title: string): string => {
+    try {
+      return buildSessionBrief(title, readFileSync(briefFile, 'utf8'))
+    } catch {
+      return buildSessionBrief(title, '')
+    }
+  }
+
   for (const descriptor of TOOL_DESCRIPTORS) {
+    if (prunedSet.has(descriptor.name)) continue
     ctx.effect(() => ctx.tools.register({
       name: descriptor.name,
       description: descriptor.description,
@@ -482,10 +543,17 @@ export function apply(ctx: Context, config: Config = {}): void {
           if (descriptor.name === 'orchestrator_settings_save'
             || descriptor.name === 'orchestrator_policy_sync'
             || descriptor.name === 'orchestrator_prompts_save') persistToolConfig()
-          return { text }
+          loopGuard?.success(descriptor.name)
+          usageLedger = recordToolCall(usageLedger, descriptor.name, true)
+          persistUsage()
+          return { text: truncateToolResult(text, maxResultChars) }
         } catch (error) {
           // 领域拒绝（UserError）原样给人话，让模型据此改参数自愈。
-          return { text: `未执行：${String(error)}` }
+          const base = `未执行：${String(error)}`
+          const hint = loopGuard?.failure(descriptor.name, String(error))
+          usageLedger = recordToolCall(usageLedger, descriptor.name, false)
+          persistUsage()
+          return { text: truncateToolResult(hint === undefined ? base : `${base}\n${hint}`, maxResultChars) }
         }
       },
     }), `ghost-orchestrator: ${descriptor.name}`)

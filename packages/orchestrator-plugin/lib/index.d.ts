@@ -24,6 +24,16 @@ export interface Config {
     stateFile?: string;
     /** 工具配置（settings/policy/prompts）落地文件；缺省与 stateFile 同目录。 */
     settingsFile?: string;
+    /** 会话前置记忆索引；缺省 `<stateFile 目录>/memory/MEMORY.md`。 */
+    briefFile?: string;
+    /** 关闭自动工具剪枝（默认开启：连续 5 次启动未用的可选工具才剪）。 */
+    toolPrune?: boolean;
+    /** 永不剪的工具名。 */
+    keepTools?: string[];
+    /** 单次工具结果上限，默认 12000 字符。 */
+    maxToolResultChars?: number;
+    /** 关闭失败循环提示。 */
+    loopGuard?: boolean;
     /** 本地触发源名，出现在票的来源里。 */
     source?: string;
     /**

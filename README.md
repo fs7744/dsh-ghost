@@ -47,7 +47,8 @@
 | **模型层（C3）** | `model-manager`（provider / 能力标注 / 角色路由 / 连通性自测 / Ollama·vLLM 预设 / 明文凭据拒绝）与 `model-adapter-kit`（Apache-2.0 的稳定三方法契约，第三方插件不碰 harness）；模型库页由 Electron 本机 `/api/models/*` 提供真数据，Vite 开发时降级 demo |
 | **升级与纪律（C1-04/05）** | `upgrade:harness` 8 步 dry-run 默认、绝不 push；`check-port-discipline` 禁绕过 port 层；`matrix.json` + [UPGRADE.md](docs/UPGRADE.md) |
 | **测试分层（C4）** | [TESTING.md](docs/TESTING.md)：L1 假端点 7 种故障、L2 规范化回放、L3 结构断言、L4 评分、L5 规格、CI 门禁 |
-| **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS / 更新通道 / 隐私与第三方声明 |
+| **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS+dmg+AppImage / 更新通道 / 隐私与第三方声明 |
+| **Token 节省（借鉴 TokenEconomizer）** | [ECONOMIZER.md](docs/ECONOMIZER.md)：记忆索引前置、可选工具剪枝、失败循环短提示、工具结果截断；全部可逆、不引额外模型调用 |
 
 ## 文档
 
@@ -66,7 +67,8 @@
 11. [docs/UPGRADE.md](docs/UPGRADE.md) — harness 升级运行手册（8 步、失败改哪里）
 12. [docs/MODELS.md](docs/MODELS.md) — 模型管理面与对外 adapter 契约
 13. [docs/TESTING.md](docs/TESTING.md) — L0–L5 测试分层与门禁
-14. [docs/RELEASE.md](docs/RELEASE.md) — Windows 签名 / NSIS / 更新通道 / 发版前核对
+14. [docs/RELEASE.md](docs/RELEASE.md) — 三平台打包 / 签名与公证 / 更新通道 / 发版前核对
+15. [docs/ECONOMIZER.md](docs/ECONOMIZER.md) — Token 节省：简报、工具剪枝、循环提示、结果截断
 15. [docs/PRIVACY.md](docs/PRIVACY.md) · [docs/THIRD-PARTY.md](docs/THIRD-PARTY.md) · [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) — 隐私、许可、诊断包
 
 ## 开发
@@ -80,7 +82,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 494 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 503 个用例 / 20 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

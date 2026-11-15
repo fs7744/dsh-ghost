@@ -1,0 +1,17 @@
+{
+  "name": "@dsh-ghost/economizer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Token-saving primitives inspired by Microsoft TokenEconomizer: tool pruning, session briefs, loop guard and result truncation.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./lib/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test --experimental-transform-types tests/*.test.ts"
+  },
+  "files": ["lib", "src"]
+}
