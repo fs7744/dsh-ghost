@@ -29,7 +29,8 @@
     "verify:auth": "node --experimental-transform-types scripts/verify-auth.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "verify:commands": "node --experimental-transform-types scripts/verify-commands.mjs",
-    "dev:ui": "node --experimental-transform-types scripts/dev-ui.mjs"
+    "dev:ui": "node --experimental-transform-types scripts/dev-ui.mjs",
+    "ticket": "node --experimental-transform-types scripts/run-ticket.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

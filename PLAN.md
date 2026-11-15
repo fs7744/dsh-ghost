@@ -336,6 +336,8 @@ P1 与 P3 可以并行（桌面壳只依赖"能启动的 profile"，不依赖 su
 
 **已验通（端到端）**：`.flow` → 编译 → 投放 `.dsh/skills/ticket-flow/SKILL.md` → harness `skills/list` 能看到它（`scripts/verify-skill.mjs`）。常驻 37 + 正文 48 token；带节点详情时正文 56（多 8 token 换"按需可查"）。
 
+**引擎已跑通真实闭环**（`npm run ticket`）：触发 → 准入 → 评估 → 建票 → 派活（真实模型回合）→ 报告 ready → 票 ended。这是 Engine 第一次被非测试代码驱动，执行器真的往 harness 发 prompt 并等回合结束。
+
 **领域核心已迁入并加测试**：`packages/superagent/src/core` 15 文件、零 harness 依赖、tsc 零错误；25 个用例：收单去重 / scope 过滤 / 时间规范化 / 评估排队与交接 / **决策建票 / 派活 / 报告 / 叫停**。
 
 顺带钉住一条容易误解的领域规则：**`ready` 报告在没有 follow 项（如 PR 未合并）时直接结束票**——面板的"待人处理"只显示还需要人动手的票。
