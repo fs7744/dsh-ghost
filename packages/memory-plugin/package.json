@@ -18,7 +18,7 @@
     "@deepseek-ai/dsh-tools": "0.2.2-rc.3"
   },
   "scripts": {
-    "test": "node --test --experimental-strip-types tests/plugin.test.ts"
+    "test": "node --test --experimental-transform-types tests/plugin.test.ts"
   },
   "files": [
     "lib",
