@@ -20,3 +20,9 @@ export { generateFlow, rewriteFlow, templateGenerator, templateRewriter } from '
 export type { FlowGenerator, FlowRewriter, GenerateRequest, Generated, RewriteRequest, RewriteSelection } from './ai.ts'
 export { tryRun, tryRunText } from './simulate.ts'
 export type { StopReason, TraceStep, TryRunOptions, TryRunResult } from './simulate.ts'
+
+/** 剧本 × 定时：计划声明的解析、宿主 timing 构造、任务列表归一化。 */
+export {
+  buildCreateRequest, buildPrompt, buildTiming, normalizeScheduleTasks, normalizeTime, parseScheduleLine,
+  type FlowSchedule, type ScheduleKind, type ScheduleTaskRow,
+} from './schedule.ts'

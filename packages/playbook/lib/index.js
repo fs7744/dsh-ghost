@@ -13,3 +13,5 @@ export { NODE_NAME, applyEdit, applyEdits, editText, editTextAll, stringifyFlow 
 export { diffFlows, diffFlowTexts, formatDiff } from './diff.js';
 export { generateFlow, rewriteFlow, templateGenerator, templateRewriter } from './ai.js';
 export { tryRun, tryRunText } from './simulate.js';
+/** 剧本 × 定时：计划声明的解析、宿主 timing 构造、任务列表归一化。 */
+export { buildCreateRequest, buildPrompt, buildTiming, normalizeScheduleTasks, normalizeTime, parseScheduleLine, } from './schedule.js';

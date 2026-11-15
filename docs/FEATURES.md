@@ -3,6 +3,8 @@
 > 配套 [PLAN.md](../PLAN.md)。这里回答一个问题：**总共要做多少东西，各是什么，谁负责，什么阶段做。**
 >
 > 计数口径：「一项」= 一个用户可感知的能力，或一个必须交付的工程件。粒度有意碾平——不是为了精确，是为了不漏项。
+>
+> **2026-11-16 补登**：原 227 项之外新增 **C12 用户扩展与自动化 16 项**（见 §C12），现共 **243 项**。
 
 ## 0.1 进度快照（2026-11-15 收尾）
 
@@ -15,7 +17,7 @@
 | C1 兼容与契约 | 6 | ✅ 6/6（本轮补 C1-04 升级流水线、C1-05 import 纪律） |
 | C2 安全与鉴权 | 3 | C2-01/03 完成；C2-02 的 4 条边界已固化，**Peer 角色级隔离仍依赖 harness 尚未启用的访问控制**，不算完成 |
 | C3 模型管理 | 5 | ✅ 5/5；模型库页不再只是 demo——Electron 静态服务提供本机 `/api/models/*`，走 `model-manager` 纯逻辑，Vite 开发时降级内置示例 |
-| C4 测试设施 | 7 | L0–L4 已落地；**L5 只是可运行规格 + 截图基线骨架，未装 Playwright 时 SKIP**，不算通过 |
+| C4 测试设施 | 7 | ✅ 7/7；**L5 现在真跑**：@playwright/test 已进开发依赖，5 条规格跑真实界面 + 截图基线（含赛博朋克皮肤基线），`npm run verify:l5` |
 | C5 桌面壳 | 13 | ✅ 13/13（代码与配置；真实安装包需证书 / Electron ABI 实测） |
 | C6 发布 | 5 | 5 项配置已落地（Windows NSIS / macOS dmg+zip / Linux AppImage+deb / 更新通道与灰度 / 多平台发布流水线与版本核对）；**mac/linux 产物需在对应 runner 实测**，签名/公证与真实 feed 仍需外部条件 |
 | C7 产品化 | 4 | ✅ 4/4（默认关闭、本地优先） |
@@ -23,8 +25,9 @@
 | C9 剧本与技能包 | 12 | ✅ 12/12 |
 | C10 记忆与进化 | 7 | ✅ 7/7 |
 | C11 命令与上下文 | 7 | ✅ 7/7 |
+| **C12 用户扩展与自动化** | 16 | ✅ 16/16（2026-11-16 补登，见下） |
 
-**本轮额外工程件**（不单列进 227 项，都有可跑验收）：事件契约生成器与漂移校验（`gen:events` / `verify:events`，31 个转发事件）、自动执行器、可插拔信息源、GitHub 全闭环、配置治理、L1 故障注入假端点、L2 回放、L3 结构断言、L4 评分、L5 规格、CI 门禁矩阵。
+**本轮额外工程件**（不单列进 227 项，都有可跑验收）：事件契约生成器与漂移校验（`gen:events` / `verify:events`，31 个转发事件）、自动执行器、可插拔信息源、GitHub 全闭环、配置治理、L1 故障注入假端点、L2 回放、L3 结构断言、L4 评分、**L5 界面层真跑（Playwright + 截图基线）**、CI 门禁矩阵。
 
 **剩下的不是代码，是外部验证与产品决策**：Windows 签名证书、macOS 公证、各平台干净机器上的安装→自更新→卸载、发版前官方 BYOK 冒烟，以及 PLAN §16 的 6 个待定（界面 MVP 切分、密钥谁出、adapter 是否独立成包、MCP server 时机、账号体系、测试配额）。
 
@@ -392,6 +395,35 @@ Windows NSIS / macOS dmg + 公证 / Linux AppImage / 更新通道与灰度 / 发
 | C11-07 | `/init` 等价物 | 扫描仓库生成 `GHOST.md` 草案（项目记忆种子） | P3 |
 
 详见 [COMMANDS.md](COMMANDS.md)。
+
+---
+
+## C. 用户扩展与自动化（16 项，2026-11-16 补登）
+
+> 这组是「宿主能力之外我们自己做的」：让用户不改我们的代码就能扩展界面与模型，
+> 并把宿主已有的能力（多 agent、定时）接上界面。逐项都有可跑验收。
+
+| ID | 交付件 | 说明 | 阶段 |
+|---|---|---|---|
+| C12-01 | 用户扩展：面板（加页签） | `.ghost/ui/panels/*.json` → 桌面端多出一个页签，数据来自插件声明的宿主端点 | ✅ 已完成 |
+| C12-02 | 用户扩展：插槽（注入已有界面） | `chat.toolbar` / `settings.sections` / `stats.extra` 三个插槽 | ✅ 已完成 |
+| C12-03 | 用户扩展：登记 LLM 服务 | `.ghost/ui/providers.json` → 渲染进 profile 的 `llm-pi-ai.providers`，重启宿主生效 | ✅ 已完成 |
+| C12-04 | 皮肤三态（暗 / 亮 / 跟随系统） | 顶栏主题按钮循环；选择持久化在 localStorage | ✅ 已完成 |
+| C12-05 | 自定义皮肤 + 赛博朋克预设 | `.ghost/ui/custom.css` 覆盖 CSS 变量；内置赛博朋克预设可一键复制成可编辑皮肤 | ✅ 已完成 |
+| C12-06 | 网络代理 | 设置页登记 → 启动宿主时注入 `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`（宿主 `dsh-http-proxy`） | ✅ 已完成 |
+| C12-07 | 代码视图 | 工作区多标签 + 语法高亮 + 行号 + 超长保护 + 冲突横幅 | ✅ 已完成 |
+| C12-08 | git 差异视图 | 新增「变更」页：状态徽标、增删行数、逐行 diff 着色 | ✅ 已完成 |
+| C12-09 | 合并冲突处理 | 冲突文件一键「用我方 / 用对方」，写回后自动 `git add` | ✅ 已完成 |
+| C12-10 | 浏览器自动化 | Playwright 驱动系统 Chrome/Edge（CDP 直连兜底）；默认关、站点白名单 | ✅ 已完成 |
+| C12-11 | Windows 电脑操控 | UI Automation 元素级动作（InvokePattern / ValuePattern），**按控件名操作，不用截图也不用坐标** | ✅ 已完成 |
+| C12-12 | 浏览器扩展 + 当前标签页 | MV3 扩展、设备码配对（token 不进扩展）、`chrome.debugger` 驱动当前页（`page_read/click/fill/screenshot`） | ✅ 已完成 |
+| C12-13 | 外部 agent 协作（A2A） | CLI / HTTP / Agent2Agent 三种接法登记「同事」，`agent_peers` / `agent_delegate` | ✅ 已完成 |
+| C12-14 | 剧本 × 定时 | 剧本 `# schedule daily 09:00:00 Asia/Shanghai` → 宿主 schedule 持久化、时区、投递 | ✅ 已完成 |
+| C12-15 | 多 agent 界面层 | 「多 agent」页签：团队开关、团队任务、子 agent 目录、权限档位 | ✅ 已完成 |
+| C12-16 | 权限档位真正生效 | 引导页问的 `approvalPreset` 以前**没传给宿主**；现在启动时注入 `DSH_PERMISSION_MODE` | ✅ 已完成 |
+
+验收入口：`verify:ui-extensions`（7）、`verify:automation`（12）、`verify:automation-plugin`（5）、
+`verify:team`（7）、`verify:peers`（5）、`verify:schedule`（9）、`verify:l5`（5 条真实界面规格 + 截图基线）。
 
 ---
 

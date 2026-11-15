@@ -7,6 +7,7 @@
  *   # when 触发条件（一行）
  *   # goal 验收目标（一行）
  *   # budget 可选配额（一行）
+ *   # schedule 可选计划（一行，如 daily 09:00:00 Asia/Shanghai）
  *
  *   admit      : deny -> quiet       ← 条件跳转
  *   open-ticket                      ← 顺序步骤
@@ -18,7 +19,7 @@
  * 规则：顺序即边；一行一节点；名字即 id；`#` 开头是头/注释；空行忽略。
  */
 const HEADER = /^#\s*@([A-Za-z0-9_-]+)(?:\s+v(\S+))?\s*$/;
-const META = /^#\s*(when|goal|budget)\s+(.+)$/;
+const META = /^#\s*(when|goal|budget|schedule)\s+(.+)$/;
 const SCRIPT = /\s+@(\S+)\s*$/;
 const EDGE_LIST = /\s*:\s*(.+)$/;
 const EDGE = /^(.+?)\s*->\s*([A-Za-z0-9_-]+)\s*(?:\(\s*max\s+(\d+)\s*\))?$/;

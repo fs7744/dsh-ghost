@@ -58,7 +58,6 @@ app.innerHTML = `
   <main id="main">
     <div id="chat" class="pane">
       <div id="chat-slots" class="panelslot"></div>
-      <div id="chat-slots" class="panelslot"></div>
       <div id="stream"></div>
       <div id="questions" class="hidden"></div>
       <div id="composer">

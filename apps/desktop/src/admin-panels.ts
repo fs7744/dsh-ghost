@@ -9,6 +9,7 @@ import {
   type PanelInstance, type PanelServices,
 } from './panels.ts'
 import { applyCustomSkin, invokeSlot, slotSection } from './extensions.ts'
+import { createSchedule, renderSchedulesSection, scheduleAction } from './schedules-section.ts'
 import { activePresetId, applyPreset, SKIN_PRESETS } from './themes.ts'
 
 export function sortByName<T extends { name: string }>(rows: readonly T[]): T[] {
@@ -183,6 +184,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       <section><h3 data-t="settings.extension"></h3><div data-sec="extension"></div></section>
       <section><h3 data-t="settings.peers"></h3><div data-sec="peers"></div></section>
       <section><h3 data-t="settings.permission"></h3><div data-sec="permission"></div></section>
+      <section><h3 data-t="settings.schedules"></h3><div data-sec="schedules"></div></section>
       <section><h3 data-t="ui.extensions"></h3><div data-sec="slots"></div></section>
       <section><h3 data-t="admin.settings"></h3><div data-sec="settings"></div></section>
     </div>`
@@ -239,6 +241,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     await renderExtensionSection(host, services)
     await renderPeersSection(host, services)
     await renderPermissionSection(host, services)
+    await renderSchedulesSection(host, services)
     await renderExtensionSlots(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length}`
   }
@@ -273,6 +276,22 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
         services.notice(result.ok ? services.t('settings.skin.copied') : result.reason)
         void load()
       })
+      return
+    }
+    if (action === 'run-schedule') {
+      void scheduleAction(host, services, button.dataset.value ?? '', 'run')
+      return
+    }
+    if (action === 'toggle-schedule') {
+      void scheduleAction(host, services, button.dataset.value ?? '', 'toggle')
+      return
+    }
+    if (action === 'delete-schedule') {
+      void scheduleAction(host, services, button.dataset.value ?? '', 'delete')
+      return
+    }
+    if (action === 'create-schedule') {
+      void createSchedule(host, services)
       return
     }
     if (action === 'set-permission') {

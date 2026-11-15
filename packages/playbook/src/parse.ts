@@ -7,6 +7,7 @@
  *   # when 触发条件（一行）
  *   # goal 验收目标（一行）
  *   # budget 可选配额（一行）
+ *   # schedule 可选计划（一行，如 daily 09:00:00 Asia/Shanghai）
  *
  *   admit      : deny -> quiet       ← 条件跳转
  *   open-ticket                      ← 顺序步骤
@@ -50,6 +51,8 @@ export interface Flow {
   when?: string
   goal?: string
   budget?: string
+  /** 计划声明（定时交给宿主 schedule 执行；见 schedule.ts）。 */
+  schedule?: string
   nodes: FlowNode[]
 }
 
@@ -60,7 +63,7 @@ export interface ParseResult {
 }
 
 const HEADER = /^#\s*@([A-Za-z0-9_-]+)(?:\s+v(\S+))?\s*$/
-const META = /^#\s*(when|goal|budget)\s+(.+)$/
+const META = /^#\s*(when|goal|budget|schedule)\s+(.+)$/
 const SCRIPT = /\s+@(\S+)\s*$/
 const EDGE_LIST = /\s*:\s*(.+)$/
 const EDGE = /^(.+?)\s*->\s*([A-Za-z0-9_-]+)\s*(?:\(\s*max\s+(\d+)\s*\))?$/
@@ -91,7 +94,7 @@ export function parseFlow(text: string): ParseResult {
       }
       const meta = META.exec(line)
       if (meta !== null) {
-        const key = meta[1] as 'when' | 'goal' | 'budget'
+        const key = meta[1] as 'when' | 'goal' | 'budget' | 'schedule'
         const value = meta[2]?.trim()
         if (value !== undefined && value !== '') flow[key] = value
         return

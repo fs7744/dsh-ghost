@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "deploy:skill": "node --experimental-transform-types scripts/deploy-skill.mjs",
     "verify:skill": "node --experimental-transform-types scripts/verify-skill.mjs",
-    "test:playbook": "node --test --experimental-transform-types packages/playbook/tests/playbook.test.ts",
+    "test:playbook": "node --test --experimental-transform-types packages/playbook/tests/playbook.test.ts packages/playbook/tests/schedule.test.ts",
     "test:edit": "node --test --experimental-transform-types packages/playbook/tests/edit.test.ts",
     "test:palette": "node --test --experimental-transform-types apps/desktop/tests/palette.test.ts",
     "test:session-log": "node --test --experimental-transform-types apps/desktop/tests/session-log.test.ts",
@@ -28,7 +28,7 @@
     "test:rewind": "node --test --experimental-transform-types apps/desktop/tests/rewind.test.ts",
     "test:memory-view": "node --test --experimental-transform-types apps/desktop/tests/memory-view.test.ts",
     "test:memory": "node --test --experimental-transform-types packages/memory/tests/memory.test.ts",
-    "test": "npm run test:playbook && npm run test:edit && npm run test:palette && npm run test:session-log && npm run test:export && npm run test:rewind && npm run test:memory-view && npm run test:chat-context && npm run test:stats-cost && npm run test:skills-market && npm run test:extensions && npm run test:themes && npm run test:code-view && npm run test:capabilities && npm run test:team-panel && npm run test:code-view && npm run test:capabilities && npm run test:team-panel && npm run test:memory && npm run test:economizer && npm run test:ui-extensions && npm run test:ui-plugin && npm run test:git-view && npm run test:automation && npm run test:automation-plugin && npm run test:peer-agent && npm run test:peer-agent && npm run test:automation && npm run test:automation-plugin && npm run test:peer-agent && npm run test:peer-agent && npm run test:git-view && npm run test:automation && npm run test:automation-plugin && npm run test:peer-agent && npm run test:peer-agent && npm run test:automation && npm run test:automation-plugin && npm run test:peer-agent && npm run test:peer-agent && npm run test:plugin && npm run test:core && npm run test:github && npm run test:sink && npm run test:hub && npm run test:orchestrator && npm run test:panels && npm run test:playbook-ai && npm run test:script-runtime && npm run test:evolution && npm run test:model && npm run test:shell && npm run test:superagent",
+    "test": "npm run test:playbook && npm run test:edit && npm run test:palette && npm run test:session-log && npm run test:export && npm run test:rewind && npm run test:memory-view && npm run test:chat-context && npm run test:stats-cost && npm run test:skills-market && npm run test:extensions && npm run test:themes && npm run test:code-view && npm run test:capabilities && npm run test:team-panel && npm run test:memory && npm run test:economizer && npm run test:ui-extensions && npm run test:ui-plugin && npm run test:git-view && npm run test:automation && npm run test:automation-plugin && npm run test:peer-agent && npm run test:plugin && npm run test:core && npm run test:github && npm run test:sink && npm run test:hub && npm run test:orchestrator && npm run test:panels && npm run test:playbook-ai && npm run test:script-runtime && npm run test:evolution && npm run test:model && npm run test:shell && npm run test:superagent",
     "test:plugin": "tsc -p packages/memory-plugin/tsconfig.build.json && node --test --experimental-transform-types packages/memory-plugin/tests/plugin.test.ts",
     "build": "tsc -p packages/memory/tsconfig.build.json && tsc -p packages/economizer/tsconfig.build.json && tsc -p packages/automation/tsconfig.build.json && tsc -p packages/peer-agent/tsconfig.build.json && tsc -p packages/peer-agent-plugin/tsconfig.build.json && tsc -p packages/peer-agent/tsconfig.build.json && tsc -p packages/peer-agent-plugin/tsconfig.build.json && tsc -p packages/automation-plugin/tsconfig.build.json && tsc -p packages/ui-extensions/tsconfig.build.json && tsc -p packages/git-view/tsconfig.build.json && tsc -p packages/ui-plugin/tsconfig.build.json && tsc -p packages/superagent/tsconfig.build.json && tsc -p packages/source-github/tsconfig.build.json && tsc -p packages/source-hub/tsconfig.build.json && tsc -p packages/sink-github/tsconfig.build.json && tsc -p packages/playbook/tsconfig.build.json && tsc -p packages/playbook-runtime/tsconfig.build.json && tsc -p packages/evolution/tsconfig.build.json && tsc -p packages/model-adapter-kit/tsconfig.build.json && tsc -p packages/model-manager/tsconfig.build.json && tsc -p packages/memory-plugin/tsconfig.build.json && tsc -p packages/orchestrator-plugin/tsconfig.build.json",
     "smoke:plugin": "node scripts/smoke-built-plugin.mjs",
@@ -110,10 +110,12 @@
     "test:peer-agent": "node --test --experimental-transform-types packages/peer-agent/tests/*.test.ts",
     "verify:peers": "node scripts/verify-peers.mjs",
     "test:team-panel": "node --test --experimental-transform-types apps/desktop/tests/team-panel.test.ts",
-    "verify:team": "node scripts/verify-team.mjs"
+    "verify:team": "node scripts/verify-team.mjs",
+    "verify:schedule": "node scripts/verify-schedule.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
     "electron": "44.7.0",
     "esbuild": "^0.28.2",

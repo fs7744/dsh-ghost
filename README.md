@@ -101,7 +101,7 @@ npm run verify:events             # 事件契约漂移校验（升级 harness �
 npm run verify:port               # harness-port 验收：取数 + 事件
 npm run typecheck                 # tsc --noEmit（全部包 + scripts）
 npm run build                     # 编译 12 个包到 lib/（纯 Node 可加载）
-npm test                          # 696 个用例 / 35 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
+npm test                          # 586 个用例 / 36 套件（界面/剧本/进化/模型/壳/装配/领域/持久化/信息源…）
 npm run check:ui                  # 渲染层 tsc --noEmit（含 vite/client 类型）
 npm run check:shell               # Electron 主进程 tsc --noEmit
 npm run build:ui                  # Vite 构建桌面渲染层

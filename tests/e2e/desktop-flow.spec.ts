@@ -1,99 +1,58 @@
 /**
- * L5 界面层规格骨架（C4-07）：Playwright + Electron 关键路径 + 截图基线。
+ * L5 界面层规格（C4-07）：Playwright + 真实界面 + 截图基线。
  *
- * 只进每日、不进 PR。依赖 @playwright/test 与 electron 未安装时，
- * scripts/verify-l5.mjs 会 SKIP exit 0，不会加载本文件。
- * Electron 主进程入口由 DSH_ELECTRON_MAIN 指定，桌面壳落地后填真实路径。
- * 截图基线放 tests/e2e/__screenshots__/，首次运行用 --update-snapshots 生成。
+ * 跑的是**生产那一份界面代码**（Vite 开发服务），断言的是真实选择器
+ * （#tabs / #composer / #input / #send / .wsbody …），不是虚构的 data-role。
+ * 不需要宿主、不需要模型、不需要 key —— 界面骨架与交互随时可验。
+ *
+ * 截图基线：tests/e2e/__screenshots__/（首次运行自动生成；
+ * 界面有意改动时用 `npx playwright test --update-snapshots` 更新）。
  */
-import { test, expect } from '@playwright/test'
-import { _electron as electron } from 'playwright'
-import { resolve } from 'node:path'
+import { test, expect, type Page } from '@playwright/test'
 
-const MAIN = resolve(process.env.DSH_ELECTRON_MAIN ?? 'apps/desktop/electron-main.cjs')
-
-/** 每条规格独立启动一次 Electron；真实落地后可改成共用 fixture。 */
-async function openApp() {
-  const app = await electron.launch({ args: [MAIN] })
-  const page = await app.firstWindow()
-  await page.waitForLoadState('domcontentloaded')
-  return { app, page }
+/** 等界面挂载完（页签出现即算就绪）。 */
+async function ready(page: Page): Promise<void> {
+  await page.goto('/')
+  await expect(page.locator('#tabs button').first()).toBeVisible()
 }
 
-test('启动 -> 首屏：会话树 / 输入区 / 顶栏可见', async () => {
-  const { app, page } = await openApp()
-  try {
-    await expect(page.locator('#app')).toBeVisible()
-    await expect(page.locator('[data-role="session-tree"]')).toBeVisible()
-    await expect(page.locator('[data-role="composer"]')).toBeVisible()
-    await expect(page).toHaveScreenshot('first-screen.png')
-  } finally {
-    await app.close()
-  }
+test('首屏：顶栏 / 页签 / 输入区可见，页签数量合理', async ({ page }) => {
+  await ready(page)
+  await expect(page.locator('header')).toBeVisible()
+  const tabs = page.locator('#tabs button')
+  expect(await tabs.count()).toBeGreaterThanOrEqual(10)
+  await expect(page.locator('#composer')).toBeVisible()
+  await expect(page.locator('#input')).toBeVisible()
+  await expect(page.locator('#send')).toBeVisible()
 })
 
-test('会话：新建会话并投递一条消息', async () => {
-  const { app, page } = await openApp()
-  try {
-    await page.locator('[data-act="new-session"]').click()
-    await page.locator('[data-role="composer"]').fill('ping')
-    await page.locator('[data-act="send"]').click()
-    await expect(page.locator('[data-role="bubble"]').last()).toBeVisible()
-    await expect(page).toHaveScreenshot('session-message.png')
-  } finally {
-    await app.close()
-  }
+test('页签切换：工作区与设置页真的渲染出来', async ({ page }) => {
+  await ready(page)
+  await page.locator('#tabs button', { hasText: '工作区' }).first().click()
+  await expect(page.locator('.wsbody')).toBeVisible()
+  await page.locator('#tabs button', { hasText: '设置' }).first().click()
+  await expect(page.locator('#panel-settings')).toBeVisible()
 })
 
-test('命令面板：输入 / 浮出候选并可键盘选择', async () => {
-  const { app, page } = await openApp()
-  try {
-    await page.locator('[data-role="composer"]').fill('/')
-    await expect(page.locator('[data-role="command-palette"]')).toBeVisible()
-    await page.keyboard.press('ArrowDown')
-    await expect(page).toHaveScreenshot('command-palette.png')
-  } finally {
-    await app.close()
-  }
+test('主题按钮：暗 → 亮 → 跟随系统循环', async ({ page }) => {
+  await ready(page)
+  const button = page.locator('#btn-theme')
+  await button.click()
+  await expect(page.locator('body.theme-light')).toBeVisible()
+  await button.click()
+  await button.click()
+  await expect(page.locator('body.theme-light')).toHaveCount(0)
 })
 
-test('剧本页：编辑器与源码视图可见', async () => {
-  const { app, page } = await openApp()
-  try {
-    await page.locator('[data-tab="playbook"]').click()
-    await expect(page.locator('[data-role="flow-editor"]')).toBeVisible()
-    await expect(page.locator('[data-role="flow-source"]')).toBeVisible()
-    await expect(page).toHaveScreenshot('playbook-page.png')
-  } finally {
-    await app.close()
-  }
+test('截图基线：默认界面', async ({ page }) => {
+  await ready(page)
+  await expect(page).toHaveScreenshot('first-screen.png', { animations: 'disabled' })
 })
 
-test('记忆页：分组列表与总开关可见', async () => {
-  const { app, page } = await openApp()
-  try {
-    await page.locator('[data-tab="memory"]').click()
-    await expect(page.locator('#mem-list')).toBeVisible()
-    await expect(page.locator('#mem-toggle')).toBeVisible()
-    await expect(page).toHaveScreenshot('memory-page.png')
-  } finally {
-    await app.close()
-  }
-})
-
-test('关键路径串跑：启动 -> 会话 -> 命令面板 -> 剧本页 -> 记忆页', async () => {
-  const { app, page } = await openApp()
-  try {
-    await expect(page.locator('#app')).toBeVisible()
-    await page.locator('[data-act="new-session"]').click()
-    await page.locator('[data-role="composer"]').fill('/')
-    await expect(page.locator('[data-role="command-palette"]')).toBeVisible()
-    await page.keyboard.press('Escape')
-    await page.locator('[data-tab="playbook"]').click()
-    await expect(page.locator('[data-role="flow-editor"]')).toBeVisible()
-    await page.locator('[data-tab="memory"]').click()
-    await expect(page.locator('#mem-list')).toBeVisible()
-  } finally {
-    await app.close()
-  }
+test('截图基线：赛博朋克皮肤', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('dsh-ghost.skin', 'cyberpunk')
+  })
+  await ready(page)
+  await expect(page).toHaveScreenshot('cyberpunk.png', { animations: 'disabled' })
 })

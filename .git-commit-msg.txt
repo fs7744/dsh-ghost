@@ -1,9 +1,11 @@
-feat(team): 补上宿主多 agent 的界面层，并让权限档位真正生效
+feat(playbook): 剧本 × 定时；销账 FEATURES 台账并让 L5 真跑
 
-- 新增「多 agent」页签：团队模式开关（agentTeams/setEnabled）、团队任务列表、
-  子 agent 目录与当前子 agent 状态、权限档位显示（均读 session/projections）。
-- 修一个真问题：approvalPreset 在引导页问过用户，却从没传给宿主——壳启动宿主时
-  补 DSH_PERMISSION_MODE，用户的权限选择才真正影响宿主沙箱与审批策略。
-- 设置页新增「权限档位」区：列出宿主档位、标出当前生效项、可切换（重启宿主生效）。
-- 文档：docs/HOST-CAPABILITIES.md 重写——加「更正与补记」与「仍未接的宿主能力」如实清单。
-- 验收：verify:team 7 项全过（开关/投影/字段）；696 用例、local 23/23、7/7 门禁。
+- 剧本可声明计划（# schedule daily 09:00:00 Asia/Shanghai / weekly / cron / every），
+  复用宿主的 schedule 持久化、时区与投递；到点宿主把提示词投到目标会话，agent 按剧本执行。
+- 新增 packages/playbook/src/schedule.ts：计划解析 → 宿主 timing → create request；
+  设置页新增「定时任务」区（列表、立即运行、暂停/恢复/删除、按剧本建计划）。
+- L5 从「只有规格 + SKIP」变成真跑：装 @playwright/test + chromium，重写 e2e 规格为真实选择器，
+  新增 playwright.config.ts（起真实 Vite 服务），生成截图基线（含赛博朋克皮肤基线）。
+- FEATURES.md 补登 C12 用户扩展与自动化 16 项（含本轮 12 项 + 剧本定时 + 权限档位），总计 243 项。
+- 清理根 test 链重复项（53→36 步），真实用例数 586。
+- 验证：586 用例、local 25/25（含 verify:schedule 9 项、verify:l5 5 条真实界面规格）、7/7 门禁。

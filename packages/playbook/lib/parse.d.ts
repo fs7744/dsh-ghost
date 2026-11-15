@@ -7,6 +7,7 @@
  *   # when 触发条件（一行）
  *   # goal 验收目标（一行）
  *   # budget 可选配额（一行）
+ *   # schedule 可选计划（一行，如 daily 09:00:00 Asia/Shanghai）
  *
  *   admit      : deny -> quiet       ← 条件跳转
  *   open-ticket                      ← 顺序步骤
@@ -47,6 +48,8 @@ export interface Flow {
     when?: string;
     goal?: string;
     budget?: string;
+    /** 计划声明（定时交给宿主 schedule 执行；见 schedule.ts）。 */
+    schedule?: string;
     nodes: FlowNode[];
 }
 /** 解析结果。 */
