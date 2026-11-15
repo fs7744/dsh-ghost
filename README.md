@@ -52,6 +52,7 @@ npm run verify:plugin-boot          # 把插件挂进 profile 真启动一次
 npm run verify:tool-visibility      # 假模型端点跑一轮：工具→模型→调用→结果回传
 npm run verify:real-model           # 真模型端到端（需要 .env 里的 WB_BASE_URL / WB_KEY）
 npm run verify:auth                 # 安全边界：401 / 伪造 Cookie / 非本机 Host / 事件权限
+npm run verify:commands             # 斜杠命令：commands/list + commands/execute
 npm run check:secrets               # 扫描受版本控制的文件里有没有密钥
 ```
 

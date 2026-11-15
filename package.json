@@ -27,7 +27,8 @@
     "test:core": "node --test --experimental-transform-types packages/superagent/tests/stage.test.ts packages/superagent/tests/engine.test.ts",
     "verify:real-model": "node --experimental-transform-types scripts/verify-real-model.mjs",
     "verify:auth": "node --experimental-transform-types scripts/verify-auth.mjs",
-    "check:secrets": "node scripts/check-secrets.mjs"
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "verify:commands": "node --experimental-transform-types scripts/verify-commands.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
