@@ -43,6 +43,15 @@ export declare function saveProxy(root: string, config: ProxyConfig): {
     ok: boolean;
     errors: string[];
 };
+/** 自定义皮肤 CSS 的大小上限（64KB，够用且防手滑贴整个文件进来）。 */
+export declare const CUSTOM_CSS_LIMIT: number;
+/**
+ * 写用户自定义皮肤 CSS（纯函数）：只接受文本，超过上限拒写。
+ */
+export declare function saveCustomCss(root: string, css: string): {
+    ok: boolean;
+    errors: string[];
+};
 /** 读用户自定义皮肤 CSS（纯函数）。没有文件就返回空串。 */
 export declare function readCustomCss(root: string): string;
 /** 读面板清单（纯函数，测试直接用）。 */
@@ -122,6 +131,14 @@ export declare class GhostUiRemote extends TypertRemoteService {
         root?: string;
     }): {
         css: string;
+    };
+    /** 保存用户自定义皮肤 CSS（超过 64KB 拒写）。 */
+    customCssSave(input: {
+        css: string;
+        root?: string;
+    }): {
+        ok: boolean;
+        errors: string[];
     };
     /**
      * 登记 LLM 服务：先过校验，再原子写盘。

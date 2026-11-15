@@ -129,6 +129,29 @@ export function saveProxy(root, config) {
         return { ok: false, errors: [String(error)] };
     }
 }
+/** 自定义皮肤 CSS 的大小上限（64KB，够用且防手滑贴整个文件进来）。 */
+export const CUSTOM_CSS_LIMIT = 64 * 1024;
+/**
+ * 写用户自定义皮肤 CSS（纯函数）：只接受文本，超过上限拒写。
+ */
+export function saveCustomCss(root, css) {
+    if (typeof css !== 'string')
+        return { ok: false, errors: ['皮肤内容必须是文本'] };
+    if (Buffer.byteLength(css, 'utf8') > CUSTOM_CSS_LIMIT) {
+        return { ok: false, errors: [`皮肤过大（上限 ${CUSTOM_CSS_LIMIT} 字节）`] };
+    }
+    try {
+        mkdirSync(root, { recursive: true });
+        const target = join(root, CUSTOM_CSS_FILE);
+        const temporary = `${target}.tmp`;
+        writeFileSync(temporary, css);
+        renameSync(temporary, target);
+        return { ok: true, errors: [] };
+    }
+    catch (error) {
+        return { ok: false, errors: [String(error)] };
+    }
+}
 /** 读用户自定义皮肤 CSS（纯函数）。没有文件就返回空串。 */
 export function readCustomCss(root) {
     const target = join(root, CUSTOM_CSS_FILE);
@@ -193,6 +216,7 @@ let GhostUiRemote = (() => {
     let _proxy_decorators;
     let _proxySave_decorators;
     let _customCss_decorators;
+    let _customCssSave_decorators;
     let _providersSave_decorators;
     return class GhostUiRemote extends _classSuper {
         static {
@@ -203,6 +227,7 @@ let GhostUiRemote = (() => {
             _proxy_decorators = [Remote('proxy')];
             _proxySave_decorators = [Remote('proxySave')];
             _customCss_decorators = [Remote('customCss')];
+            _customCssSave_decorators = [Remote('customCssSave')];
             _providersSave_decorators = [Remote('providersSave')];
             __esDecorate(this, null, _panels_decorators, { kind: "method", name: "panels", static: false, private: false, access: { has: obj => "panels" in obj, get: obj => obj.panels }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _slots_decorators, { kind: "method", name: "slots", static: false, private: false, access: { has: obj => "slots" in obj, get: obj => obj.slots }, metadata: _metadata }, null, _instanceExtraInitializers);
@@ -210,6 +235,7 @@ let GhostUiRemote = (() => {
             __esDecorate(this, null, _proxy_decorators, { kind: "method", name: "proxy", static: false, private: false, access: { has: obj => "proxy" in obj, get: obj => obj.proxy }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _proxySave_decorators, { kind: "method", name: "proxySave", static: false, private: false, access: { has: obj => "proxySave" in obj, get: obj => obj.proxySave }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _customCss_decorators, { kind: "method", name: "customCss", static: false, private: false, access: { has: obj => "customCss" in obj, get: obj => obj.customCss }, metadata: _metadata }, null, _instanceExtraInitializers);
+            __esDecorate(this, null, _customCssSave_decorators, { kind: "method", name: "customCssSave", static: false, private: false, access: { has: obj => "customCssSave" in obj, get: obj => obj.customCssSave }, metadata: _metadata }, null, _instanceExtraInitializers);
             __esDecorate(this, null, _providersSave_decorators, { kind: "method", name: "providersSave", static: false, private: false, access: { has: obj => "providersSave" in obj, get: obj => obj.providersSave }, metadata: _metadata }, null, _instanceExtraInitializers);
             if (_metadata) Object.defineProperty(this, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
         }
@@ -242,6 +268,10 @@ let GhostUiRemote = (() => {
         /** 用户自定义皮肤 CSS（覆盖 CSS 变量即可换肤）。 */
         customCss(input) {
             return { css: readCustomCss(input?.root ?? currentRoot) };
+        }
+        /** 保存用户自定义皮肤 CSS（超过 64KB 拒写）。 */
+        customCssSave(input) {
+            return saveCustomCss(input?.root ?? currentRoot, input?.css ?? '');
         }
         /**
          * 登记 LLM 服务：先过校验，再原子写盘。

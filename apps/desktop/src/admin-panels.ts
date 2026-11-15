@@ -9,6 +9,7 @@ import {
   type PanelInstance, type PanelServices,
 } from './panels.ts'
 import { applyCustomSkin, invokeSlot, slotSection } from './extensions.ts'
+import { activePresetId, applyPreset, SKIN_PRESETS } from './themes.ts'
 
 export function sortByName<T extends { name: string }>(rows: readonly T[]): T[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name))
@@ -249,6 +250,25 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       void submitProxy(host, services)
       return
     }
+    if (action === 'apply-preset') {
+      const id = button.dataset.value ?? ''
+      applyPreset(id)
+      services.notice(services.t('settings.skin.applied'))
+      void load()
+      return
+    }
+    if (action === 'copy-preset') {
+      const id = button.dataset.value ?? ''
+      const preset = SKIN_PRESETS.find(item => item.id === id)
+      if (preset === undefined) return
+      void safeCall(() => services.transport.call('ghostUI/customCssSave' as never, {
+        input: { css: preset.css },
+      } as never)).then(result => {
+        services.notice(result.ok ? services.t('settings.skin.copied') : result.reason)
+        void load()
+      })
+      return
+    }
     if (action === 'reload-skin') {
       void applyCustomSkin(services).then(applied => {
         services.notice(applied ? services.t('settings.skin.applied') : services.t('settings.skin.empty'))
@@ -383,14 +403,23 @@ async function submitProxy(host: HTMLElement, services: PanelServices): Promise<
   services.notice(services.t('settings.proxy.saved'))
 }
 
-/** 自定义皮肤区：告诉用户放哪、怎么改，以及重新加载。 */
+/** 自定义皮肤区：内置预设 + 自定义 CSS（放哪、覆盖了哪些变量、如何改）。 */
 async function renderSkinSection(host: HTMLElement, services: PanelServices): Promise<void> {
   const box = host.querySelector<HTMLElement>('[data-sec="skin"]')
   if (box === null) return
   const result = await safeCall(() => services.transport.call('ghostUI/customCss' as never, {} as never))
   const css = result.ok ? String(record(result.value).css ?? '') : ''
   const vars = [...css.matchAll(/(--[a-z-]+)\s*:/g)].map(match => match[1] ?? '').filter(name => name !== '')
-  box.innerHTML = `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.skin.hint'))}</span></div>`
+  const active = activePresetId()
+  const presets = SKIN_PRESETS.map(preset => `<div class="lrow">
+      <span class="lname">${escapeHtml(preset.label)}</span>
+      <span class="ldetail">${escapeHtml(preset.description)}</span>
+      <button data-act="apply-preset" data-value="${escapeHtml(preset.id)}"
+        ${preset.id === active ? 'disabled' : ''} data-t="settings.skin.apply"></button>
+      ${preset.css === '' ? '' : `<button data-act="copy-preset" data-value="${escapeHtml(preset.id)}" data-t="settings.skin.copy"></button>`}
+    </div>`).join('')
+  box.innerHTML = presets
+    + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.skin.hint'))}</span></div>`
     + (vars.length === 0 ? '' : `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
         <span class="ldetail">${escapeHtml(vars.join('、'))}</span></div>`)
     + `<div class="lrow"><button data-act="reload-skin" data-t="settings.skin.reload"></button></div>`

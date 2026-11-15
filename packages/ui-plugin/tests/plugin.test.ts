@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 // src 里有装饰器语法，先编译再测。
-import { readCustomCss, readPanels, readProxy, readSlots, saveProviders, saveProxy } from '../lib/index.js'
+import { readCustomCss, readPanels, readProxy, readSlots, saveCustomCss, saveProviders, saveProxy } from '../lib/index.js'
 
 const tempRoot = () => mkdtemp(join(tmpdir(), 'ghost-ui-'))
 
@@ -73,4 +73,14 @@ test('自定义皮肤：读 .ghost/ui/custom.css，没有就是空', async () =>
   assert.equal(readCustomCss(root), '')
   await writeFile(join(root, 'custom.css'), ':root{--accent:#ff0000;}')
   assert.match(readCustomCss(root), /--accent:#ff0000/)
+})
+
+test('自定义皮肤：能保存，超大内容拒写', async () => {
+  const root = await tempRoot()
+  const saved = saveCustomCss(root, ':root{--accent:#7aa2f7;}')
+  assert.equal(saved.ok, true)
+  assert.match(readCustomCss(root), /--accent:#7aa2f7/)
+  const tooBig = saveCustomCss(root, 'x'.repeat(70 * 1024))
+  assert.equal(tooBig.ok, false)
+  assert.match(tooBig.errors.join(''), /过大/)
 })

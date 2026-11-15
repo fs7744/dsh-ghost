@@ -123,6 +123,29 @@ export function saveProxy(root: string, config: ProxyConfig): { ok: boolean; err
   }
 }
 
+/** 自定义皮肤 CSS 的大小上限（64KB，够用且防手滑贴整个文件进来）。 */
+export const CUSTOM_CSS_LIMIT = 64 * 1024
+
+/**
+ * 写用户自定义皮肤 CSS（纯函数）：只接受文本，超过上限拒写。
+ */
+export function saveCustomCss(root: string, css: string): { ok: boolean; errors: string[] } {
+  if (typeof css !== 'string') return { ok: false, errors: ['皮肤内容必须是文本'] }
+  if (Buffer.byteLength(css, 'utf8') > CUSTOM_CSS_LIMIT) {
+    return { ok: false, errors: [`皮肤过大（上限 ${CUSTOM_CSS_LIMIT} 字节）`] }
+  }
+  try {
+    mkdirSync(root, { recursive: true })
+    const target = join(root, CUSTOM_CSS_FILE)
+    const temporary = `${target}.tmp`
+    writeFileSync(temporary, css)
+    renameSync(temporary, target)
+    return { ok: true, errors: [] }
+  } catch (error) {
+    return { ok: false, errors: [String(error)] }
+  }
+}
+
 /** 读用户自定义皮肤 CSS（纯函数）。没有文件就返回空串。 */
 export function readCustomCss(root: string): string {
   const target = join(root, CUSTOM_CSS_FILE)
@@ -218,6 +241,12 @@ export class GhostUiRemote extends TypertRemoteService {
   @Remote('customCss')
   customCss(input: { root?: string }): { css: string } {
     return { css: readCustomCss(input?.root ?? currentRoot) }
+  }
+
+  /** 保存用户自定义皮肤 CSS（超过 64KB 拒写）。 */
+  @Remote('customCssSave')
+  customCssSave(input: { css: string; root?: string }): { ok: boolean; errors: string[] } {
+    return saveCustomCss(input?.root ?? currentRoot, input?.css ?? '')
   }
 
   /**
