@@ -12,38 +12,6 @@
  *  - 在该提醒的时候提醒（界面提示，而不是重复触发一次要花钱的压缩）；
  *  - 兜底：拿不到投影时，用启发式估算给个粗略值。
  */
-/**
- * 估算 token：CJK 约 1 字 1 token，其余约 4 字符 1 token。
- * 只是量级判断，不追求与真实分词器一致。
- */
-export function estimateTokens(text) {
-    let cjk = 0;
-    let other = 0;
-    for (const char of text) {
-        const code = char.codePointAt(0) ?? 0;
-        if (code > 0x2e80)
-            cjk += 1;
-        else
-            other += 1;
-    }
-    return Math.ceil(cjk + other / 4);
-}
-/**
- * 判断当前上下文是否该压缩。
- */
-export function planCompaction(messages, options = {}) {
-    const maxTokens = options.maxTokens ?? 12_000;
-    const minMessages = options.minMessages ?? 8;
-    const estimatedTokens = messages.reduce((sum, message) => sum + estimateTokens(message.text), 0);
-    const messageCount = messages.length;
-    const overflowTokens = Math.max(0, estimatedTokens - maxTokens);
-    return {
-        compress: estimatedTokens > maxTokens && messageCount >= minMessages,
-        estimatedTokens,
-        messageCount,
-        overflowTokens,
-    };
-}
 function num(value) {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }

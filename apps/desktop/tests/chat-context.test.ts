@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { RemoteTransport } from '@dsh-ghost/harness-port'
 import {
-  composeChatMessage, contextTokens, evaluateContext, recordsToMessages,
+  composeChatMessage, evaluateContext,
 } from '../src/chat-context.ts'
 
 /** 造一个只会回固定答案的假传输。 */
@@ -21,22 +21,9 @@ function fakeTransport(handlers: Record<string, (args: unknown) => unknown>): { 
   return { transport, calls }
 }
 
-const RECORDS = [
-  { type: 'event', event: { type: 'user/message', seq: 1, data: { content: [{ type: 'text', text: '你好' }] } } },
-  { type: 'event', event: { type: 'assistant/message', seq: 2, data: { message: { content: [{ type: 'text', text: '在的' }] } } } },
-]
-
 test('记忆块拼在用户原话后面', () => {
   assert.equal(composeChatMessage('做这件事', ''), '做这件事')
   assert.equal(composeChatMessage('做这件事', '<project-memory>…</project-memory>'), '做这件事\n\n<project-memory>…</project-memory>')
-})
-
-test('会话记录能转成可估算的消息', () => {
-  const messages = recordsToMessages(RECORDS)
-  assert.equal(messages.length, 2)
-  assert.equal(messages[0].role, 'user')
-  assert.equal(messages[1].role, 'assistant')
-  assert.ok(contextTokens(RECORDS) > 0)
 })
 
 test('上下文用量读宿主的真实投影，不自己瞎估', async () => {

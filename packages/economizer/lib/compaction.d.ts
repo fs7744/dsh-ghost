@@ -12,36 +12,6 @@
  *  - 在该提醒的时候提醒（界面提示，而不是重复触发一次要花钱的压缩）；
  *  - 兜底：拿不到投影时，用启发式估算给个粗略值。
  */
-/** 会话里的一条消息（够用即可，不追求还原宿主事件结构）。 */
-export interface ChatMessage {
-    role: 'user' | 'assistant' | 'tool' | 'note';
-    text: string;
-}
-export interface CompactionPlanOptions {
-    /** 上下文预算（估算 token），默认 12000。 */
-    maxTokens?: number;
-    /** 少于多少条消息不触发，默认 8。 */
-    minMessages?: number;
-}
-export interface CompactionPlan {
-    /** 是否该压缩。 */
-    compress: boolean;
-    /** 当前上下文估算 token。 */
-    estimatedTokens: number;
-    /** 消息条数。 */
-    messageCount: number;
-    /** 超过预算多少（估算 token）。 */
-    overflowTokens: number;
-}
-/**
- * 估算 token：CJK 约 1 字 1 token，其余约 4 字符 1 token。
- * 只是量级判断，不追求与真实分词器一致。
- */
-export declare function estimateTokens(text: string): number;
-/**
- * 判断当前上下文是否该压缩。
- */
-export declare function planCompaction(messages: readonly ChatMessage[], options?: CompactionPlanOptions): CompactionPlan;
 /** 宿主给出的真实用量（`session/projections` → `values`）。 */
 export interface HarnessUsage {
     /** 未命中缓存的输入 token。 */

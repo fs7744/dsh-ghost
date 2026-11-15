@@ -89,7 +89,8 @@
     "test:economizer": "node --test --experimental-transform-types packages/economizer/tests/*.test.ts",
     "economizer": "node --experimental-transform-types scripts/economizer.mjs",
     "economizer:status": "node --experimental-transform-types scripts/economizer.mjs status",
-    "test:chat-context": "node --test --experimental-transform-types apps/desktop/tests/chat-context.test.ts"
+    "test:chat-context": "node --test --experimental-transform-types apps/desktop/tests/chat-context.test.ts",
+    "verify:ai-config": "node scripts/verify-ai-config.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.3",

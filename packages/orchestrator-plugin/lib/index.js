@@ -50,7 +50,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, join } from 'node:path';
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import { createGithubSink } from '@dsh-ghost/sink-github';
-import { beginBoot, buildSessionBrief, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, LoopGuard, pruneUnusedTools, recordToolCall, truncateToolResult, } from '@dsh-ghost/economizer';
+import { beginBoot, buildSessionBrief, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, pruneUnusedTools, recordToolCall, } from '@dsh-ghost/economizer';
 import { createRegistry, importMapper } from '@dsh-ghost/source-hub';
 import { Engine, MemoryRepositories, persisting, ticketStage } from '@dsh-ghost/superagent';
 import { SettingsStore, TOOL_DESCRIPTORS } from '@dsh-ghost/superagent/tools';
@@ -479,11 +479,6 @@ export function apply(ctx, config = {}) {
         ctx.logger?.info('ghost-orchestrator: 剪掉 %d 个长期未用工具（省约 %d 字符定义）：%s', pruned.length, chars, pruned.join(', '));
     }
     const prunedSet = new Set(pruned);
-    const loopGuard = config.loopGuard === false ? undefined : new LoopGuard();
-    // 默认 0 = 不裁剪：宿主 dsh-compaction-tool-result-pruner 已经按 8192/4096/1024
-    // 裁过工具结果，我们再裁一遍只会更粗、还抢在宿主前面。只有宿主不可用时才手动配。
-    const maxResultChars = config.maxToolResultChars ?? 0;
-    const clip = (text) => maxResultChars > 0 ? truncateToolResult(text, maxResultChars) : text;
     /** 开局带一小段记忆索引，省掉「先 list 再逐条 read」的重复发现。 */
     const sessionBrief = (title) => {
         try {
@@ -511,18 +506,16 @@ export function apply(ctx, config = {}) {
                         || descriptor.name === 'orchestrator_policy_sync'
                         || descriptor.name === 'orchestrator_prompts_save')
                         persistToolConfig();
-                    loopGuard?.success(descriptor.name);
                     usageLedger = recordToolCall(usageLedger, descriptor.name, true);
                     persistUsage();
-                    return { text: clip(text) };
+                    // 原样返回：超长结果由宿主 dsh-compaction-tool-result-pruner 裁剪。
+                    return { text };
                 }
                 catch (error) {
                     // 领域拒绝（UserError）原样给人话，让模型据此改参数自愈。
-                    const base = `未执行：${String(error)}`;
-                    const hint = loopGuard?.failure(descriptor.name, String(error));
                     usageLedger = recordToolCall(usageLedger, descriptor.name, false);
                     persistUsage();
-                    return { text: clip(hint === undefined ? base : `${base}\n${hint}`) };
+                    return { text: `未执行：${String(error)}` };
                 }
             },
         }), `ghost-orchestrator: ${descriptor.name}`);

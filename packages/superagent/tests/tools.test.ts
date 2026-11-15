@@ -133,3 +133,19 @@ test('SettingsStore 快照/恢复：settings、policy、prompts 能活过重启'
   restored.restore({ blocks: 'not-an-object', prompts: ['nope'] })
   assert.deepEqual(restored.read('policy'), { paused: true })
 })
+
+test('配置拒写明文密钥：只能指向环境变量', () => {
+  const store = new SettingsStore({ now: () => '2026-02-01T00:00:00.000Z' })
+  assert.throws(
+    () => store.save('accounts', { github: { token: 'ghp_abcdef123456' } }),
+    (error: unknown) => {
+      assert.ok(error instanceof UserError)
+      assert.equal(error.code, 'plainSecret')
+      assert.match(error.message, /tokenEnv/)
+      return true
+    },
+  )
+  // 指向环境变量的写法允许。
+  store.save('accounts', { github: { tokenEnv: 'GITHUB_TOKEN' } })
+  assert.equal(store.read('accounts')?.['github'] !== undefined, true)
+})

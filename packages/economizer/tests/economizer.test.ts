@@ -1,11 +1,10 @@
-/** TokenEconomizer 三条主线的纯逻辑测试：剪枝、简报、循环提示、截断。 */
+/** 我们独有的那部分：工具剪枝、记忆简报、宿主真实用量、成本换算、凭据脱敏。 */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   beginBoot, buildMemoryBlock, buildSessionBrief, countMemoryEntries, emptyLedger,
-  estimateTokens, estimateToolChars, LoopGuard, normalizeFailure, planCompaction,
-  readHarnessUsage, shouldSuggestCompaction, estimateCost, EMPTY_PRICING,
-  pruneUnusedTools, recordToolCall, restoreTool, truncateToolResult,
+  estimateCost, EMPTY_PRICING, estimateToolChars, findPlainSecret, redactText,
+  pruneUnusedTools, readHarnessUsage, recordToolCall, restoreTool, shouldSuggestCompaction,
 } from '../src/index.ts'
 
 const OPTIONAL = ['orchestrator_settings_save', 'orchestrator_eval']
@@ -66,27 +65,6 @@ test('会话简报：超预算按行截断，不切半个条目', () => {
   assert.equal(brief.includes('`c`'), false)
 })
 
-test('失败循环：第二次相同错误才提示，成功清零', () => {
-  let clock = 0
-  const guard = new LoopGuard({ now: () => clock, windowMs: 1000, threshold: 2 })
-  assert.equal(guard.failure('read', 'ENOENT: a.txt'), undefined)
-  assert.match(guard.failure('read', 'ENOENT: b.txt') ?? '', /已连续出现 2 次/)
-  guard.success('read')
-  assert.equal(guard.failure('read', 'ENOENT: c.txt'), undefined)
-  clock = 5000
-  assert.equal(guard.failure('read', 'ENOENT: d.txt'), undefined)
-  assert.equal(normalizeFailure('ENOENT: a.txt'), normalizeFailure('ENOENT: b.txt'))
-  assert.match(normalizeFailure('id 123e4567-e89b-12d3'), /^id #/)
-})
-
-test('工具结果超长只留头部并说明原文长度', () => {
-  const text = 'x'.repeat(100)
-  assert.equal(truncateToolResult(text, 200), text)
-  const clipped = truncateToolResult(text, 60)
-  assert.ok(clipped.length <= 60)
-  assert.match(clipped, /已截断，原文 100 字/)
-})
-
 test('工具剪枝：观察期不足不剪，满 7 天才剪', () => {
   let ledger = emptyLedger()
   for (let i = 0; i < 5; i += 1) ledger = beginBoot(ledger, OPTIONAL, '2026-01-01T00:00:00.000Z')
@@ -113,31 +91,6 @@ test('记忆块可以单独给普通聊天用', () => {
   assert.match(block, /^<project-memory>/)
   assert.equal(buildMemoryBlock('- `a` — one\n'), '', '不足 3 条不注入')
   assert.equal(buildSessionBrief('任务', MEMORY).startsWith('任务'), true)
-})
-
-test('token 估算对中英文量级区分', () => {
-  assert.equal(estimateTokens('abcd'), 1)
-  assert.equal(estimateTokens('你好'), 2)
-  assert.equal(estimateTokens('a'.repeat(400)), 100)
-})
-
-test('上下文触发计划：超预算且消息够多才压缩', () => {
-  const small = Array.from({ length: 12 }, (_, index) => ({ role: 'user' as const, text: `问题 ${index}` }))
-  const noPlan = planCompaction(small, { maxTokens: 100_000 })
-  assert.equal(noPlan.compress, false)
-  assert.equal(noPlan.messageCount, 12)
-
-  const big = Array.from({ length: 20 }, (_, index) => ({
-    role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
-    text: 'x'.repeat(2000),
-  }))
-  const plan = planCompaction(big, { maxTokens: 1000 })
-  assert.equal(plan.compress, true)
-  assert.ok(plan.overflowTokens > 0)
-  assert.equal(plan.estimatedTokens, plan.messageCount * 500)
-
-  const few = Array.from({ length: 3 }, () => ({ role: 'user' as const, text: 'x'.repeat(4000) }))
-  assert.equal(planCompaction(few, { maxTokens: 1000 }).compress, false, '消息太少不触发')
 })
 
 test('宿主真实用量：缓存读也算输入，比例按上下文窗口算', () => {
@@ -182,4 +135,14 @@ test('成本按缓存计价：缓存读便宜，命中率也算出来', () => {
   assert.equal(cost.total, cost.input + cost.cacheRead + cost.cacheWrite + cost.output)
   assert.equal(cost.cacheHitRate, 0.9)
   assert.equal(estimateCost(usage, EMPTY_PRICING).total, 0, '没给价格就不编')
+})
+
+test('明文密钥：配置里拒写、显示前洗成 ***', () => {
+  const secret = findPlainSecret({ accounts: { github: { token: 'ghp_abcdef123456' } } })
+  assert.equal(secret, 'accounts.github.token')
+  assert.equal(findPlainSecret({ accounts: { github: { tokenEnv: 'GITHUB_TOKEN' } } }), undefined)
+  assert.equal(findPlainSecret({ models: { provider: 'deepseek' } }), undefined)
+  assert.match(redactText('token=ghp_abcdef123456'), /token=\*{3}/)
+  assert.match(redactText('{"apiKey": "sk-1234567890"}'), /apiKey": "\*{3}"/)
+  assert.equal(redactText('project=dsh-ghost'), 'project=dsh-ghost')
 })

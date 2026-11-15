@@ -30,10 +30,6 @@ export interface Config {
     toolPrune?: boolean;
     /** 永不剪的工具名。 */
     keepTools?: string[];
-    /** 单次工具结果上限，默认 12000 字符。 */
-    maxToolResultChars?: number;
-    /** 关闭失败循环提示。 */
-    loopGuard?: boolean;
     /** 本地触发源名，出现在票的来源里。 */
     source?: string;
     /**

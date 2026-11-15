@@ -38,10 +38,10 @@
 
 | 我们原来的实现 | 宿主已有 | 现在的取舍 |
 |---|---|---|
-| 工具结果截断（12000 字符） | `tool-result-pruner`（8192/4096/1024） | **默认关闭自造**，交给宿主；配置项保留，只在宿主不可用时开 |
+| 工具结果截断（12000 字符） | `tool-result-pruner`（8192/4096/1024） | **已删除自造实现**，只留宿主 |
 | 自动触发 `/compact` | `compaction-basic` 已在 80% 自动压 | **不再自动触发**，改读真实压力，90% 才提醒（重复触发 = 多花一次模型调用） |
 | 启发式 `estimateTokens` | `token-meter` 给真实 token | **改用真实投影**，估算只做兜底 |
-| 失败循环提示 `LoopGuard` | `repeat-tool-reminder` 覆盖重复调用 | 保留：我们盯的是**重复失败**，与宿主的**重复调用**互补 |
+| 失败循环提示 `LoopGuard` | `repeat-tool-reminder` 覆盖重复调用 | **已删除自造实现**，统一走宿主 |
 
 ## 仍然是我们独有的（宿主没有）
 
@@ -49,8 +49,7 @@
    （5 次启动 + 7 天观察 + 0 调用才剪，`npm run economizer -- prune` 可查可恢复）。
 2. **动态记忆索引前置**：宿主 `dsh-agent-instructions` 只读静态 `AGENTS.md` / `CLAUDE.md`；
    我们按会话把动态的 `MEMORY.md` 索引压成小段前置（`ghostMemory/brief`）。
-3. **重复失败提示**：宿主提醒重复调用，我们提醒重复失败。
-4. **缓存感知成本换算**：`estimateCost(usage, pricing)` 把宿主的 `cacheReadTokens` /
+3. **缓存感知成本换算**：`estimateCost(usage, pricing)` 把宿主的 `cacheReadTokens` /
    `cacheWriteTokens` 换算成钱；价格由调用方给，**不猜**（没给价格就显示 token 不显示钱）。
 
 ## 明确不做
@@ -60,6 +59,9 @@
 - 不自研 token 计量：宿主 `token-meter` 已经是真实值。
 - 不默认打开 `fs-observation-policy`：它会改变读写行为（读后再写、版本守卫），
   需要单独评估，不该顺手塞进省 token 改动里。
+
+4. **凭据护栏**：配置拒写明文密钥 + 视图/审批卡统一脱敏（宿主有 `dsh-client-ui-secret-mask`，
+   但那管的是它自己的凭据，管不到我们插件的配置块）。
 
 ## 仍然缺失（下一步候选）
 

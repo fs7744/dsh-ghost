@@ -109,3 +109,13 @@ test('Deploy 视图把自检失败项标成 needsPerson 并汇总', () => {
   assert.equal(failedRow?.needsPerson, true)
   assert.match(renderViewText(view), /\[deploy\]/)
 })
+
+test('视图文本对敏感值脱敏：密钥不进模型上下文', () => {
+  const view = VIEW_BUILDERS.settings(full, {
+    ...extra,
+    settings: { accounts: { github: { token: 'ghp_secret_value_123' } } },
+  })
+  const text = renderViewText(view)
+  assert.equal(text.includes('ghp_secret_value_123'), false, '明文密钥不能出现在视图文本里')
+  assert.match(text, /\*\*\*/)
+})

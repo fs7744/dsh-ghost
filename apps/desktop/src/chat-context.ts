@@ -9,9 +9,8 @@
  */
 import type { RemoteTransport } from '@dsh-ghost/harness-port'
 import {
-  estimateTokens, readHarnessUsage, shouldSuggestCompaction, type ChatMessage, type HarnessUsage,
+  readHarnessUsage, shouldSuggestCompaction, type HarnessUsage,
 } from '@dsh-ghost/economizer'
-import { toBubbles, type LogRecord } from './session-log.ts'
 
 /** 提醒阈值（本地覆盖键）；默认 0.9，宿主在 0.8 已经自动压。 */
 const THRESHOLD_KEY = 'dsh-ghost.compactHintRatio'
@@ -35,23 +34,6 @@ export function composeChatMessage(text: string, brief: string): string {
   if (block === '') return body
   if (body === '') return block
   return `${body}\n\n${block}`
-}
-
-/** 会话记录 → 便于估算的消息列表（没有投影数据时的兜底）。 */
-export function recordsToMessages(records: readonly LogRecord[]): ChatMessage[] {
-  const messages: ChatMessage[] = []
-  for (const bubble of toBubbles(records)) {
-    if (bubble.kind === 'user') messages.push({ role: 'user', text: bubble.text })
-    else if (bubble.kind === 'assistant') messages.push({ role: 'assistant', text: bubble.text })
-    else if (bubble.kind === 'tool' || bubble.kind === 'toolcall') messages.push({ role: 'tool', text: bubble.text })
-    else messages.push({ role: 'note', text: bubble.text })
-  }
-  return messages.filter(message => message.text.trim() !== '')
-}
-
-/** 兜底估算（拿不到投影时用，量级参考）。 */
-export function contextTokens(records: readonly LogRecord[]): number {
-  return recordsToMessages(records).reduce((sum, message) => sum + estimateTokens(message.text), 0)
 }
 
 /** 取一段记忆索引；宿主没有该能力时返回空串。 */

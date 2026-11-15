@@ -7,6 +7,7 @@
  * 一条关键领域规则（PLAN §9）：`ready` 报告在没有 follow 项（如 PR 未合并）时直接结束票。
  * 所以 Overview 只挑 ticketStage 为 person 的票；已结束的票（含 completed）一律不进「待人处理」。
  */
+import { redactPreview, redactText } from '@dsh-ghost/economizer';
 import { canRetry, latestReport, reasonText, ticketStage } from '../../core/index.js';
 /** 把 TicketStage 压成界面可直接显示的字符串。 */
 function stageLabel(stage) {
@@ -179,7 +180,7 @@ export function buildSettingsView(repo, extra = {}) {
     const rows = Object.entries(settings).map(([block, value]) => makeRow(`settings:${block}`, {
         block,
         keys: value !== null && typeof value === 'object' ? Object.keys(value).length : 1,
-        preview: typeof value === 'string' ? value.slice(0, 80) : String(JSON.stringify(value) ?? '').slice(0, 80),
+        preview: redactPreview(value),
     }));
     return {
         view: 'settings',
@@ -246,5 +247,6 @@ export function renderViewText(view) {
         const cells = Object.entries(row.cells).map(([key, value]) => `${key}=${value === null ? '-' : String(value)}`).join(' ');
         return `${row.needsPerson ? '* ' : '  '}${row.id} ${cells}`;
     });
-    return `${header}\n${lines.join('\n')}\n可用动作：${view.actions.map(action => action.label).join(' / ') || '无'}`;
+    // 渲染给人看、也给模型看：敏感值一律洗成 ***（既防泄露，也省 token）。
+    return redactText(`${header}\n${lines.join('\n')}\n可用动作：${view.actions.map(action => action.label).join(' / ') || '无'}`);
 }

@@ -44,6 +44,7 @@ export declare const USER_ERRORS: {
     readonly sourceNotInstalled: readonly ["refused", "The {source} Source kind is not installed"];
     readonly noLabels: readonly ["refused", "This Source has no names to refresh"];
     readonly nothingToSync: readonly ["refused", "The {source} Source's part of the Policy has nothing to sync from, or the Source is off or waiting for setup"];
+    readonly plainSecret: readonly ["refused", "Config field {path} holds a plaintext secret; point it to an environment variable instead (for example tokenEnv: \"GITHUB_TOKEN\")"];
 };
 export type UserErrorCode = keyof typeof USER_ERRORS;
 /**

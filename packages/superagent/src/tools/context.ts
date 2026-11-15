@@ -5,6 +5,7 @@
  * 工具注册表本身一行都不用改。
  */
 
+import { findPlainSecret } from '@dsh-ghost/economizer'
 import { UserError } from '../core/index.ts'
 import type { ConfigStore, ViewReader } from './types.ts'
 
@@ -63,6 +64,10 @@ export class SettingsStore implements ConfigStore {
   save(block: string, value: Record<string, unknown>): void {
     const known = ['policy', 'executor', 'prompts', 'sources', 'accounts', 'models']
     if (!known.includes(block)) throw new UserError('unknownBlock', { block })
+    // 明文密钥一律拒写：它会同时落盘、进视图文本、进模型上下文。
+    // 凭据只能指向环境变量（tokenEnv: 'GITHUB_TOKEN'）。
+    const secret = findPlainSecret(value)
+    if (secret !== undefined) throw new UserError('plainSecret', { path: `${block}.${secret}` })
     this.data.set(block, { ...value })
     this.writes.push({ block, at: this.stamp() })
   }

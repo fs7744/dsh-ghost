@@ -24,5 +24,8 @@
   "files": [
     "lib",
     "src"
-  ]
+  ],
+  "dependencies": {
+    "@dsh-ghost/economizer": "0.0.0"
+  }
 }

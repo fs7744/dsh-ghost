@@ -5,6 +5,7 @@
  * 字段名随宿主版本变化，纯逻辑兼容多种写法，端点不可用一律静默降级（不打扰用户）。
  * 应答走 actionCards/act；宿主没接这个能力时把错误显示出来，不抛未捕获异常。
  */
+import { redactText } from '@dsh-ghost/economizer'
 import {
   asList, escapeHtml, pickStr, record, safeCall,
   type PanelServices,
@@ -72,8 +73,9 @@ export function extractApprovals(projections: unknown): ApprovalRequest[] {
         id: id || title,
         callId: pickStr(item, ['callId', 'id']) || id,
         agentId: pickStr(item, ['agentId', 'sessionId']),
-        title: title || '需要你批准',
-        detail: pickStr(item, ['detail', 'reason', 'summary', 'tool', 'command', 'description']),
+        // 审批卡会进模型上下文与截图：敏感值先洗成 ***（防泄露，也少占 token）。
+        title: redactText(title || '需要你批准'),
+        detail: redactText(pickStr(item, ['detail', 'reason', 'summary', 'tool', 'command', 'description'])),
         options: parseApprovalOptions(item.options ?? item.choices ?? item.actions ?? item.buttons),
       })
     }

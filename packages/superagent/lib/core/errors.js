@@ -44,6 +44,7 @@ export const USER_ERRORS = {
     sourceNotInstalled: ['refused', 'The {source} Source kind is not installed'],
     noLabels: ['refused', 'This Source has no names to refresh'],
     nothingToSync: ['refused', 'The {source} Source\'s part of the Policy has nothing to sync from, or the Source is off or waiting for setup'],
+    plainSecret: ['refused', 'Config field {path} holds a plaintext secret; point it to an environment variable instead (for example tokenEnv: "GITHUB_TOKEN")'],
 };
 /**
  * Structured error thrown by Engine parts and application services when a caller request is invalid or references missing state.

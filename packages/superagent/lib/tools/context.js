@@ -4,6 +4,7 @@
  * 宿主接真实存储 / 真实视图时只要实现 ConfigStore / ViewReader 接口替换即可，
  * 工具注册表本身一行都不用改。
  */
+import { findPlainSecret } from '@dsh-ghost/economizer';
 import { UserError } from '../core/index.js';
 /** 允许的提示词分片名与必须保留的占位符；可由装配层用 prompts/manifest.json 覆盖。 */
 export const DEFAULT_PROMPT_PARTS = [
@@ -51,6 +52,11 @@ export class SettingsStore {
         const known = ['policy', 'executor', 'prompts', 'sources', 'accounts', 'models'];
         if (!known.includes(block))
             throw new UserError('unknownBlock', { block });
+        // 明文密钥一律拒写：它会同时落盘、进视图文本、进模型上下文。
+        // 凭据只能指向环境变量（tokenEnv: 'GITHUB_TOKEN'）。
+        const secret = findPlainSecret(value);
+        if (secret !== undefined)
+            throw new UserError('plainSecret', { path: `${block}.${secret}` });
         this.data.set(block, { ...value });
         this.writes.push({ block, at: this.stamp() });
     }

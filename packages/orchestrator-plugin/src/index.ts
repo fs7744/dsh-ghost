@@ -19,8 +19,8 @@ import type {} from '@deepseek-ai/dsh-tools'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { createGithubSink } from '@dsh-ghost/sink-github'
 import {
-  beginBoot, buildSessionBrief, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars, LoopGuard, pruneUnusedTools,
-  recordToolCall, truncateToolResult, type ToolLedger,
+  beginBoot, buildSessionBrief, DEFAULT_OPTIONAL_TOOLS, emptyLedger, estimateToolChars,
+  pruneUnusedTools, recordToolCall, type ToolLedger,
 } from '@dsh-ghost/economizer'
 import { createRegistry, importMapper, type SourceSpec, type SourceSummary } from '@dsh-ghost/source-hub'
 import { Engine, MemoryRepositories, persisting, ticketStage, type Ticket, type Trigger } from '@dsh-ghost/superagent'
@@ -62,10 +62,9 @@ export interface Config {
   toolPrune?: boolean
   /** 永不剪的工具名。 */
   keepTools?: string[]
-  /** 单次工具结果上限，默认 12000 字符。 */
-  maxToolResultChars?: number
-  /** 关闭失败循环提示。 */
-  loopGuard?: boolean
+  // 说明：工具结果裁剪与重复调用提醒都由宿主负责
+  // （dsh-compaction-tool-result-pruner / dsh-repeat-tool-reminder），
+  // 这里不再重复实现，避免两层裁剪把结果削得更差。
   /** 本地触发源名，出现在票的来源里。 */
   source?: string
   /**
@@ -515,11 +514,6 @@ export function apply(ctx: Context, config: Config = {}): void {
     ctx.logger?.info('ghost-orchestrator: 剪掉 %d 个长期未用工具（省约 %d 字符定义）：%s', pruned.length, chars, pruned.join(', '))
   }
   const prunedSet = new Set(pruned)
-  const loopGuard = config.loopGuard === false ? undefined : new LoopGuard()
-  // 默认 0 = 不裁剪：宿主 dsh-compaction-tool-result-pruner 已经按 8192/4096/1024
-  // 裁过工具结果，我们再裁一遍只会更粗、还抢在宿主前面。只有宿主不可用时才手动配。
-  const maxResultChars = config.maxToolResultChars ?? 0
-  const clip = (text: string): string => maxResultChars > 0 ? truncateToolResult(text, maxResultChars) : text
 
   /** 开局带一小段记忆索引，省掉「先 list 再逐条 read」的重复发现。 */
   const sessionBrief = (title: string): string => {
@@ -546,17 +540,15 @@ export function apply(ctx: Context, config: Config = {}): void {
           if (descriptor.name === 'orchestrator_settings_save'
             || descriptor.name === 'orchestrator_policy_sync'
             || descriptor.name === 'orchestrator_prompts_save') persistToolConfig()
-          loopGuard?.success(descriptor.name)
           usageLedger = recordToolCall(usageLedger, descriptor.name, true)
           persistUsage()
-          return { text: clip(text) }
+          // 原样返回：超长结果由宿主 dsh-compaction-tool-result-pruner 裁剪。
+          return { text }
         } catch (error) {
           // 领域拒绝（UserError）原样给人话，让模型据此改参数自愈。
-          const base = `未执行：${String(error)}`
-          const hint = loopGuard?.failure(descriptor.name, String(error))
           usageLedger = recordToolCall(usageLedger, descriptor.name, false)
           persistUsage()
-          return { text: clip(hint === undefined ? base : `${base}\n${hint}`) }
+          return { text: `未执行：${String(error)}` }
         }
       },
     }), `ghost-orchestrator: ${descriptor.name}`)

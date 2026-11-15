@@ -53,23 +53,13 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
 
 节省量：这 8 个工具的定义约 **2227 字符（≈557 token）/ 请求**；多轮会话按请求数线性放大。
 
-### 3. 失败循环短提示（对标 loop guard）
+### 3. 工具结果截断与重复提醒：**已删除我们的实现，只用宿主的**
 
-实现：`packages/economizer/src/loop-guard.ts` + 工具包装层。
+宿主 `dsh-compaction-tool-result-pruner`（`8192/4096/1024`）和 `dsh-repeat-tool-reminder`
+（`3/5/8`）默认就开着。我们原来的 `truncateToolResult` 与 `LoopGuard` 已**从代码里删除**：
+两层都做只会更粗、还抢在宿主前面；重复提醒也该由宿主统一口径。
 
-- 不做 judge、不额外调模型。
-- 只认「同一工具 + 同一错误」在 **10 分钟**内重复；文件名/数字/ID 会归一化。
-- **第 2 次**才追加一行：“换参数、先读相关文件，或报告卡点，不要重复调用。”
-- 工具成功一次即清零，不干扰正常试错。
-
-### 4. 工具结果截断（默认交给宿主）
-
-宿主 `dsh-compaction-tool-result-pruner` 已按 `thresholdChars 8192 / head 4096 / tail 1024`
-裁剪超长工具结果，**比我们原来的 12000 字符更细**。所以我们的 `truncateToolResult`
-默认**关闭**（`maxToolResultChars: 0`），只在宿主不可用时手动开——两层都裁只会更粗，
-还抢在宿主前面。
-
-### 5. 上下文提醒（压缩由宿主做，我们只提醒）
+### 4. 上下文提醒（压缩由宿主做，我们只提醒）
 
 实现：`packages/economizer/src/compaction.ts`（读宿主真实用量）+ `apps/desktop/src/chat-context.ts`。
 
@@ -83,12 +73,22 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
     「上下文已到 X%，建议 /compact」，并保留手动压缩入口。
 - 拿不到投影时**不猜、不提醒**。
 
-### 6. 缓存感知成本换算
+### 5. 缓存感知成本换算
 
 `packages/economizer/src/cost.ts` 的 `estimateCost(usage, pricing)`：把宿主的
 `uncachedInputTokens` / `cacheReadTokens` / `cacheWriteTokens` / `outputTokens`
 按给定单价换算成钱，并给出缓存命中率。**价格由调用方给**，没给价格就返回 0，
 宁可显示 token 也不显示拍脑袋的钱。
+
+### 6. 凭据护栏（顺带省 token）
+
+实现：`packages/economizer/src/redact.ts`（纯逻辑，编排与桌面端共用）。
+
+- **写盘前拦**：`settings_save` 拒写明文密钥（`token` / `secret` / `apiKey` 等键），
+  必须改成指向环境变量（`tokenEnv: 'GITHUB_TOKEN'`）——否则它会同时进磁盘、视图文本和上下文。
+- **显示前洗**：所有面板视图文本、桌面端审批卡的标题与细节统一把敏感值换成 `***`；
+  顺带少占 token（长密钥没必要进上下文）。
+- 端到端验收：`npm run verify:ai-config`（AI 改配置落盘 + 明文密钥被拒且不回显）。
 
 ## 配置
 
@@ -120,10 +120,11 @@ npm run economizer -- restore orchestrator_eval  # 恢复，并永久免疫自�
 
 ## 验证
 
-- `npm run test:economizer`：15 个纯逻辑用例（剪枝门槛/观察期/恢复、简报门槛/预算、
-  token 估算、触发计划、宿主真实用量与提醒阈值、缓存感知成本、循环归一化、截断边界）。
-- `npm run test:chat-context`：5 个用例（记忆拼接、记录转消息、读宿主真实用量、
+- `npm run test:economizer`：12 个纯逻辑用例（剪枝门槛/观察期/恢复、简报门槛/预算、
+  宿主真实用量与提醒阈值、缓存感知成本、凭据脱敏）。
+- `npm run test:chat-context`：4 个用例（记忆拼接、读宿主真实用量、
   宿主已压过时不重复提醒、拿不到投影不猜）。
+- `npm run verify:ai-config`：端到端——AI 调配置工具落盘 + 明文密钥被拒、不落盘、不回显。
 - 编排插件接入后，`npm run verify:all -- --only=local` 仍全绿。
 
 > 与宿主能力的逐项对照见 [HARNESS-AUDIT.md](HARNESS-AUDIT.md)。

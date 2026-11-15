@@ -66,17 +66,36 @@ const server = createServer((request, response) => {
     const tools = Array.isArray(payload.tools) ? payload.tools.map(tool => tool.name) : []
     process.stdout.write(`req#${count}  tools=[${tools.join(',')}]  toolResult=${hasToolResult}\n`)
 
-    // 第一轮：要求调用 memory_list。第二轮（已有工具结果）：结束。
+    // 默认：要求调用 memory_list，第二轮（已有工具结果）结束。
+    // 脚本化：FAKE_TOOL / FAKE_ARGS 指定第一轮要调的���具；FAKE_TOOL2 / FAKE_ARGS2 指定第二轮。
+    const args1 = safeArgs(process.env.FAKE_ARGS)
+    const args2 = safeArgs(process.env.FAKE_ARGS2)
+    const tool2 = process.env.FAKE_TOOL2
     const blocks = hasToolResult
-      ? [{ type: 'text', text: '已查看记忆。' }]
-      : tools.includes('memory_list')
-        ? [{ type: 'tool_use', id: 'toolu_mock_1', name: 'memory_list', input: {} }]
-        : [{ type: 'text', text: '没有 memory_list 工具可用。' }]
+      ? (tool2 !== undefined && tool2 !== '' && tools.includes(tool2)
+        ? [{ type: 'tool_use', id: 'toolu_mock_2', name: tool2, input: args2 }]
+        : [{ type: 'text', text: '已查看记忆。' }])
+      : (process.env.FAKE_TOOL !== undefined && process.env.FAKE_TOOL !== '' && tools.includes(process.env.FAKE_TOOL)
+        ? [{ type: 'tool_use', id: 'toolu_mock_1', name: process.env.FAKE_TOOL, input: args1 }]
+        : tools.includes('memory_list')
+          ? [{ type: 'tool_use', id: 'toolu_mock_1', name: 'memory_list', input: {} }]
+          : [{ type: 'text', text: '没有 memory_list 工具可用。' }])
 
     response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
     response.end(stream(blocks, hasToolResult ? 'end_turn' : 'tool_use'))
   })
 })
+
+/** 解析脚本化工具参数；非法就当空参数。 */
+function safeArgs(raw) {
+  if (raw === undefined || raw === '') return {}
+  try {
+    const value = JSON.parse(raw)
+    return typeof value === 'object' && value !== null ? value : {}
+  } catch {
+    return {}
+  }
+}
 
 server.listen(port, '127.0.0.1', () => {
   process.stdout.write(`fake-messages listening on http://127.0.0.1:${port}（请求记录到 ${outDir}）\n`)

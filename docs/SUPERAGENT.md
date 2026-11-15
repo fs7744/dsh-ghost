@@ -169,6 +169,32 @@ node --experimental-transform-types packages/superagent/scripts/dsh-superagent w
 断言定义自身不参与扫描，避免模式字面文本自我命中。
 `verify-superagent-assets.mjs` 会先证明断言能命中一段坏代码，再扫描整个仓库要求 0 命中。
 
+## 8.5 AI 直接改配置 + 凭据护栏
+
+**能改。** 三个工具就是给模型改配置用的，改完立刻落盘、重启不丢：
+
+| 工具 | 作用 | 落点 |
+|---|---|---|
+| `orchestrator_settings_save` | 保存一个配置块（policy / executor / prompts / sources / accounts / models） | `<stateFile 目录>/orchestrator-settings.json` |
+| `orchestrator_policy_sync` | 策略推到新版本，受影响的票记 `policy-changed` | 同上 |
+| `orchestrator_prompts_save` | 保存一段提示词分片（校验非空、4000 字符预算、必留占位符） | 同上 |
+
+端到端证据：`npm run verify:ai-config` —— 假模型按脚本调这两个工具，
+断言「正常配置落盘」「明文密钥被拒且不落盘、不回显上下文」。
+
+**凭据护栏**（`packages/economizer/src/redact.ts`，编排与桌面端共用）：
+
+1. **写盘前拦**：`settings_save` 拒写明文密钥（键名含 token / secret / password / apiKey /
+   credential / private key / access key / refresh key）。必须改成指向环境变量：
+   ```yaml
+   accounts: { github: { tokenEnv: 'GITHUB_TOKEN' } }   # ✅
+   accounts: { github: { token: 'ghp_xxx' } }          # ❌ 拒写
+   ```
+   理由很直接：明文密钥会同时进磁盘、进视图文本、进模型上下文——既泄露又烧 token。
+2. **显示前洗**：面板视图文本与桌面端审批卡的标题/细节统一把敏感值换成 `***`。
+3. 授权/审批本身由宿主 action card 提供（宿主还有 `dsh-client-ui-secret-mask`），
+   我们只在渲染前再洗一遍，保证进上下文与截图的都不含明文。
+
 ## 9. 验收命令
 
 ```sh
