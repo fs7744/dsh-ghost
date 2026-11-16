@@ -191,9 +191,11 @@ app.innerHTML = `
   <div id="model-menu" class="popover hidden"></div>
   <div id="command-menu" class="popover hidden"></div>
   <div id="more-menu" class="popover hidden">
-    <button id="link-models" data-t="tab.models" title="打开设置里的模型配置"></button>
-    <button data-export="md" data-t="ui.exportMd"></button>
-    <button data-export="jsonl" data-t="ui.exportJsonl"></button>
+    <div class="popgroup" data-t="menu.group.model"></div>
+    <button class="poprow" id="link-models" data-t="tab.models" title="打开设置里的模型配置"></button>
+    <div class="popgroup" data-t="menu.group.export"></div>
+    <button class="poprow" data-export="md" data-t="ui.exportMd"></button>
+    <button class="poprow" data-export="jsonl" data-t="ui.exportJsonl"></button>
     <div class="popfoot">
       <span data-t="shortcut.palette"></span><span data-t="shortcut.sidebar"></span><span data-t="shortcut.settings"></span>
       <span data-t="shortcut.export"></span><span data-t="shortcut.theme"></span><span data-t="shortcut.language"></span>

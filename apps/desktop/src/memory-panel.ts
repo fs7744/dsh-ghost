@@ -6,6 +6,15 @@
  */
 import { groupEntries, memorySummary, validEntryName, type MemoryEntry } from './memory-view.ts'
 
+/** ISO 时间戳压成可读的「YYYY-MM-DD HH:mm」，无效值原样返回。 */
+export function friendlyTime(raw: string | undefined): string {
+  if (raw === undefined || raw === '') return '无时间'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return raw
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export interface MemoryWriteResult {
   outcome: { ok: boolean; reasons?: string[]; oneShot?: boolean }
 }
@@ -53,7 +62,7 @@ export function mountMemoryPanel(pane: HTMLElement, host: MemoryHost): void {
     return `<div class="mcard" data-name="${escapeHtml(item.name)}">
       <div class="mhead">
         <strong>${escapeHtml(item.title || item.name)}</strong>
-        <span class="mmeta">${escapeHtml(item.name)} · ${escapeHtml(item.updated || '无时间')}</span>
+        <span class="mmeta">${escapeHtml(item.name)} · ${escapeHtml(friendlyTime(item.updated))}</span>
         <span class="mspacer"></span>
         ${isEditing ? '' : '<button data-act="edit">编辑</button>'}
         <button data-act="del" class="danger">删除</button>

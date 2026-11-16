@@ -252,9 +252,16 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       selector: '[data-sec="settings"]', endpoint: 'settings/describe', args: EMPTY_ARGS,
       render: (raw, s) => {
         const rows = normalizeSettings(raw)
-        return rows.length === 0 ? `<div class="empty">${escapeHtml(s.t('common.empty'))}</div>`
-          : rows.map(row => `<div class="lrow"><span class="lname">${escapeHtml(row.label)}</span>
-              <span class="ldetail">${escapeHtml(row.value)}</span></div>`).join('')
+        if (rows.length === 0) return `<div class="empty">${escapeHtml(s.t('common.empty'))}</div>`
+        // 原始配置默认折叠，避免把宿主的 JSON 直接铺在界面上干扰普通用户。
+        const body = rows.map(row => {
+          const value = row.value
+          const isJson = value.startsWith('{') || value.startsWith('[')
+          const shown = isJson ? `${value.slice(0, 80)}${value.length > 80 ? '…' : ''}` : value
+          return `<div class="lrow"><span class="lname">${escapeHtml(row.label)}</span>
+            <span class="ldetail" ${isJson ? 'title="' + escapeHtml(value) + '"' : ''}>${escapeHtml(shown)}</span></div>`
+        }).join('')
+        return `<details class="rawsettings"><summary>${escapeHtml(s.t('settings.raw.toggle'))}</summary>${body}</details>`
       },
     },
   ]
@@ -457,17 +464,20 @@ async function renderSkinSection(host: HTMLElement, services: PanelServices): Pr
   const css = result.ok ? String(record(result.value).css ?? '') : ''
   const vars = [...css.matchAll(/(--[a-z-]+)\s*:/g)].map(match => match[1] ?? '').filter(name => name !== '')
   const active = activePresetId()
-  const presets = SKIN_PRESETS.map(preset => `<div class="lrow">
-      <span class="lname">${escapeHtml(preset.label)}</span>
-      <span class="ldetail">${escapeHtml(preset.description)}</span>
-      <button data-act="apply-preset" data-value="${escapeHtml(preset.id)}"
-        ${preset.id === active ? 'disabled' : ''} data-t="settings.skin.apply"></button>
-      ${preset.css === '' ? '' : `<button data-act="copy-preset" data-value="${escapeHtml(preset.id)}" data-t="settings.skin.copy"></button>`}
+  const presets = SKIN_PRESETS.map(preset => `<div class="skin-card${preset.id === active ? ' active' : ''}">
+      <div class="skin-head"><span class="skin-name">${escapeHtml(preset.label)}</span>
+        ${preset.id === active ? `<span class="skin-current">${escapeHtml(services.t('settings.permission.current'))}</span>` : ''}</div>
+      <div class="skin-desc">${escapeHtml(preset.description)}</div>
+      <div class="skin-actions">
+        <button data-act="apply-preset" data-value="${escapeHtml(preset.id)}"
+          ${preset.id === active ? 'disabled' : ''} data-t="settings.skin.apply"></button>
+        ${preset.css === '' ? '' : `<button data-act="copy-preset" data-value="${escapeHtml(preset.id)}" data-t="settings.skin.copy"></button>`}
+      </div>
     </div>`).join('')
-  box.innerHTML = presets
+  box.innerHTML = `<div class="skin-grid">${presets}</div>`
     + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.skin.hint'))}</span></div>`
-    + (vars.length === 0 ? '' : `<div class="lrow"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
-        <span class="ldetail">${escapeHtml(vars.join('、'))}</span></div>`)
+    + (vars.length === 0 ? '' : `<div class="lrow skin-vars"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
+        <span class="var-chips">${vars.map(v => `<code>${escapeHtml(v)}</code>`).join('')}</span></div>`)
     + `<div class="lrow"><button data-act="reload-skin" data-t="settings.skin.reload"></button></div>`
 }
 

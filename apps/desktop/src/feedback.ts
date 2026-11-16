@@ -132,13 +132,19 @@ function readPricing(): string | null {
 /** 单价输入区：留空就只显示 token，不显示金额。 */
 function pricingForm(pricing: ReturnType<typeof parsePricing>, t: (key: string) => string): string {
   const value = (key: string): string => pricing === undefined ? '' : String(pricing[key as keyof typeof pricing])
-  return `<div class="lrow"><span class="lname">${escapeHtml(t('stats.pricing'))}</span></div>`
-    + `<div class="lrow"><input data-price="inputPerMillion" type="number" step="0.01" min="0" value="${value('inputPerMillion')}" placeholder="input">`
-    + `<input data-price="outputPerMillion" type="number" step="0.01" min="0" value="${value('outputPerMillion')}" placeholder="output">`
-    + `<input data-price="cacheReadPerMillion" type="number" step="0.01" min="0" value="${value('cacheReadPerMillion')}" placeholder="cache read">`
-    + `<input data-price="cacheWritePerMillion" type="number" step="0.01" min="0" value="${value('cacheWritePerMillion')}" placeholder="cache write">`
-    + `<button data-act="save-pricing">${escapeHtml(t('stats.pricing.save'))}</button></div>`
-    + `<div class="lrow"><span class="ldetail">${escapeHtml(t('stats.pricing.hint'))}</span></div>`
+  const field = (key: string, label: string): string =>
+    `<label class="price-field"><span>${escapeHtml(label)}</span><input data-price="${key}" type="number" step="0.01" min="0" value="${value(key)}" placeholder="0.00"></label>`
+  return `<div class="pricing-box">`
+    + `<div class="pricing-title">${escapeHtml(t('stats.pricing'))}</div>`
+    + `<div class="price-grid">`
+    + field('inputPerMillion', 'input')
+    + field('outputPerMillion', 'output')
+    + field('cacheReadPerMillion', 'cache read')
+    + field('cacheWritePerMillion', 'cache write')
+    + `</div>`
+    + `<div class="pricing-foot"><button data-act="save-pricing">${escapeHtml(t('stats.pricing.save'))}</button>`
+    + `<span class="ldetail">${escapeHtml(t('stats.pricing.hint'))}</span></div>`
+    + `</div>`
 }
 
 /** C8-23 统计面板：反馈聚合 + 会话统计。 */
@@ -150,7 +156,7 @@ export function mountStatsPanel(host: HTMLElement, services: PanelServices): Pan
     </div>
     <div class="adminbody">
       <section><h3 data-t="feedback.title"></h3><div data-sec="feedback"></div></section>
-      <section><h3 data-t="stats.turns"></h3><div data-sec="stats"></div></section>
+      <section><h3 data-t="stats.title"></h3><div data-sec="stats"></div></section>
     </div>`
   const feedbackBox = host.querySelector<HTMLElement>('[data-sec="feedback"]')!
   const statsBox = host.querySelector<HTMLElement>('[data-sec="stats"]')!
@@ -186,20 +192,18 @@ export function mountStatsPanel(host: HTMLElement, services: PanelServices): Pan
       const usage = readHarnessUsage(projectionsResult.value)
       const pricing = parsePricing(readPricing())
       const cost = costRows(usage, pricing)
-      statsBox.innerHTML = `<div class="lrow"><span class="lname">${escapeHtml(
-        services.t('stats.turns').replace('{turns}', String(stats.turns)),
-      )}</span></div>`
-        + `<div class="lrow"><span class="lname">${escapeHtml(
-          services.t('stats.tokens').replace('{input}', String(stats.inputTokens)).replace('{output}', String(stats.outputTokens)),
-        )}</span></div>`
-        + `<div class="lrow"><span class="lname">${escapeHtml(
-          services.t('stats.duration').replace('{ms}', formatDuration(stats.llmMs)),
-        )}</span></div>`
+      // 每个指标拆成"标签 + 数值"两格，网格排布，避免旧版每行一大段留白。
+      const stat = (label: string, value: string): string =>
+        `<div class="stat"><span class="stat-k">${escapeHtml(label)}</span><span class="stat-v">${escapeHtml(value)}</span></div>`
+      statsBox.innerHTML = `<div class="stat-grid">`
+        + stat(services.t('stats.label.turns'), String(stats.turns))
+        + stat(services.t('stats.label.tokens'), `${stats.inputTokens} / ${stats.outputTokens}`)
+        + stat(services.t('stats.label.duration'), formatDuration(stats.llmMs))
         + cost.map(row => {
           const template = services.t(row.key)
-          const text = template.includes('{value}') ? template.replace('{value}', row.value) : `${template} ${row.value}`
-          return `<div class="lrow"><span class="lname">${escapeHtml(text)}</span></div>`
+          return stat(template.replace('{value}', '').trim(), row.value)
         }).join('')
+        + `</div>`
         + pricingForm(pricing, services.t)
     }
     statusEl.textContent = services.t('common.ready')
