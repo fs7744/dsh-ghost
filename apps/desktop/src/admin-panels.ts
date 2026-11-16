@@ -184,38 +184,43 @@ type SettingsCategoryId = typeof SETTINGS_CATEGORIES[number]['id']
 /** C8-16 设置页：按分类组织的设置项；模型分类内嵌可编辑的模型配置面板。 */
 export function mountSettingsPanel(host: HTMLElement, services: PanelServices): PanelInstance {
   const nav = SETTINGS_CATEGORIES.map((cat, index) =>
-    `<button type="button" class="setnav${index === 1 ? ' active' : ''}" data-cat="${cat.id}" data-t="${cat.labelKey}"></button>`).join('')
+    `<button type="button" role="tab" aria-controls="pane-${cat.id}" aria-selected="${index === 1}"
+      class="setnav${index === 1 ? ' active' : ''}" data-cat="${cat.id}" data-t="${cat.labelKey}"></button>`).join('')
   host.innerHTML = `<div class="panelbar">
       <strong data-t="tab.settings"></strong>
       <button data-act="refresh" data-t="common.refresh"></button>
       <span class="panelspacer"></span><span class="panelstatus"></span>
     </div>
     <div class="settings-shell">
-      <nav class="settings-nav">${nav}</nav>
+      <nav class="settings-nav" role="tablist" aria-label="${escapeHtml(services.t('tab.settings'))}">${nav}</nav>
       <div class="settings-panes">
-        <section data-pane="general" class="hidden">
+        <section data-pane="general" id="pane-general" role="tabpanel" class="hidden">
+          <p class="set-hint" data-t="settings.cat.general.hint"></p>
           <h3 data-t="settings.skin"></h3><div data-sec="skin"></div>
           <h3 data-t="ui.extensions"></h3><div data-sec="slots"></div>
         </section>
-        <section data-pane="model">
-          <h3 data-t="settings.cat.model"></h3>
+        <section data-pane="model" id="pane-model" role="tabpanel">
           <p class="set-hint" data-t="settings.model.hint"></p>
           <div id="models-root" class="settings-models"></div>
           <h3 data-t="admin.providers"></h3><div data-sec="providers"></div>
         </section>
-        <section data-pane="mcp" class="hidden">
+        <section data-pane="mcp" id="pane-mcp" role="tabpanel" class="hidden">
+          <p class="set-hint" data-t="settings.cat.mcp.hint"></p>
           <h3 data-t="admin.mcp"></h3><div data-sec="mcp"></div>
         </section>
-        <section data-pane="connection" class="hidden">
+        <section data-pane="connection" id="pane-connection" role="tabpanel" class="hidden">
+          <p class="set-hint" data-t="settings.cat.connection.hint"></p>
           <h3 data-t="settings.proxy"></h3><div data-sec="proxy"></div>
           <h3 data-t="settings.extension"></h3><div data-sec="extension"></div>
         </section>
-        <section data-pane="agent" class="hidden">
+        <section data-pane="agent" id="pane-agent" role="tabpanel" class="hidden">
+          <p class="set-hint" data-t="settings.cat.agent.hint"></p>
           <h3 data-t="settings.peers"></h3><div data-sec="peers"></div>
           <h3 data-t="settings.permission"></h3><div data-sec="permission"></div>
           <h3 data-t="settings.schedules"></h3><div data-sec="schedules"></div>
         </section>
-        <section data-pane="advanced" class="hidden">
+        <section data-pane="advanced" id="pane-advanced" role="tabpanel" class="hidden">
+          <p class="set-hint" data-t="settings.cat.advanced.hint"></p>
           <h3 data-t="admin.settings"></h3><div data-sec="settings"></div>
         </section>
       </div>
@@ -259,12 +264,17 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
 
   const showCategory = (id: SettingsCategoryId): void => {
     for (const button of host.querySelectorAll<HTMLElement>('.setnav')) {
-      button.classList.toggle('active', button.dataset.cat === id)
+      const active = button.dataset.cat === id
+      button.classList.toggle('active', active)
+      button.setAttribute('aria-selected', String(active))
+      button.tabIndex = active ? 0 : -1
     }
     for (const pane of host.querySelectorAll<HTMLElement>('.settings-panes [data-pane]')) {
       pane.classList.toggle('hidden', pane.dataset.pane !== id)
     }
   }
+  // 初始化 tab 的键盘焦点顺序（默认停靠 model）。
+  showCategory('model')
 
   const load = async (): Promise<void> => {
     paintText(host, services)
@@ -290,6 +300,21 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     await renderExtensionSlots(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length} · ${services.t('common.ready')}`
   }
+  // WAI-ARIA tab 模式：左右方向键在同组分类间移动焦点并激活。
+  host.addEventListener('keydown', event => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    const target = (event.target as HTMLElement).closest<HTMLElement>('.setnav')
+    if (target === null) return
+    const tabs = [...host.querySelectorAll<HTMLElement>('.setnav')]
+    const index = tabs.indexOf(target)
+    if (index < 0) return
+    const delta = event.key === 'ArrowRight' ? 1 : -1
+    const next = tabs[(index + delta + tabs.length) % tabs.length]
+    if (next === undefined) return
+    event.preventDefault()
+    showCategory(next.dataset.cat as SettingsCategoryId)
+    next.focus()
+  })
   host.addEventListener('click', event => {
     const target = event.target as HTMLElement
     const nav = target.closest<HTMLElement>('.setnav')

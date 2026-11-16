@@ -7,5 +7,5 @@
  */
 export { browserCandidates, clickExpression, CdpClient, fillExpression, findBrowser, launchArgs, launchBrowser, parseDevToolsUrl, READ_TEXT_EXPRESSION, truncateText, type BrowserCandidate, type LaunchedBrowser, } from './browser.ts';
 export { clickScript, elementsScript, escapePowerShellString, invokeScript, isWindows, keysScript, parseElements, screenshotScript, setValueScript, typeScript, } from './computer.ts';
-export { BROWSER_CHANNELS, bundledChromiumPresent, createBrowserEngine, hostAllowed, type BrowserEngine, type EngineOptions, } from './engine.ts';
+export { BROWSER_CHANNELS, bundledChromiumPresent, createBrowserEngine, hostAllowed, type BrowserEngine, type CdpConnection, type CdpDeps, type EngineOptions, } from './engine.ts';
 export type { UiElement } from './types.ts';

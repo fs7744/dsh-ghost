@@ -14,8 +14,14 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   clickExpression, CdpClient, fillExpression, findBrowser, launchBrowser, READ_TEXT_EXPRESSION,
-  type LaunchedBrowser,
+  type BrowserCandidate, type LaunchedBrowser,
 } from './browser.ts'
+
+/** CDP 连接的最小接口（让回落路径可注入、可单测，不必真启动浏览器）。 */
+export interface CdpConnection {
+  send(method: string, params?: Record<string, unknown>, sessionId?: string): Promise<unknown>
+  close(): void
+}
 
 /** 统一的浏览器引擎接口（工具层只认这个）。 */
 export interface BrowserEngine {
@@ -56,12 +62,21 @@ interface PlaywrightChromium {
   launch(options: { channel?: string; headless?: boolean; args?: string[] }): Promise<PlaywrightBrowser>
 }
 
+/** CDP 回落的依赖注入（仅测试用；生产走真实浏览器，不传即可）。 */
+export interface CdpDeps {
+  findBrowser?: (platform: string, env: Record<string, string | undefined>) => BrowserCandidate | undefined
+  launchBrowser?: (options: { executable: string; headless?: boolean }) => Promise<LaunchedBrowser>
+  connect?: (wsUrl: string) => Promise<CdpConnection>
+}
+
 export interface EngineOptions {
   headless?: boolean
   /** 允许的站点白名单；空表示不限制。 */
   allowHosts?: string[]
   /** 动态导入 playwright-core（测试可注入）。 */
   importPlaywright?: () => Promise<unknown>
+  /** CDP 回落依赖（测试可注入，避免单测真启动浏览器）。 */
+  cdpDeps?: CdpDeps
 }
 
 /** 站点是否在白名单内。 */
@@ -147,15 +162,19 @@ export async function createBrowserEngine(options: EngineOptions = {}): Promise<
     }
   }
 
-  // 兜底：CDP 直连本机浏览器
-  const candidate = findBrowser(process.platform, process.env)
+  // 兜底：CDP 直连本机浏览器（依赖可注入，单测不必真启动浏览器）
+  const deps = options.cdpDeps ?? {}
+  const find = deps.findBrowser ?? findBrowser
+  const launch = deps.launchBrowser ?? launchBrowser
+  const connect = deps.connect ?? ((wsUrl: string) => CdpClient.connect(wsUrl))
+  const candidate = find(process.platform, process.env)
   if (candidate === undefined) return { error: '本机没找到 Chrome / Edge。' }
   let launched: LaunchedBrowser | undefined
-  let cdp: CdpClient | undefined
+  let cdp: CdpConnection | undefined
   let sessionId = ''
   try {
-    launched = await launchBrowser({ executable: candidate.path, headless: options.headless !== false })
-    cdp = await CdpClient.connect(launched.wsUrl)
+    launched = await launch({ executable: candidate.path, headless: options.headless !== false })
+    cdp = await connect(launched.wsUrl)
     const target = await cdp.send('Target.createTarget', { url: 'about:blank' }) as { targetId?: string }
     const attached = await cdp.send('Target.attachToTarget', { targetId: target.targetId ?? '', flatten: true }) as { sessionId?: string }
     sessionId = attached.sessionId ?? ''

@@ -97,16 +97,20 @@ export async function createBrowserEngine(options = {}) {
             }
         }
     }
-    // 兜底：CDP 直连本机浏览器
-    const candidate = findBrowser(process.platform, process.env);
+    // 兜底：CDP 直连本机浏览器（依赖可注入，单测不必真启动浏览器）
+    const deps = options.cdpDeps ?? {};
+    const find = deps.findBrowser ?? findBrowser;
+    const launch = deps.launchBrowser ?? launchBrowser;
+    const connect = deps.connect ?? ((wsUrl) => CdpClient.connect(wsUrl));
+    const candidate = find(process.platform, process.env);
     if (candidate === undefined)
         return { error: '本机没找到 Chrome / Edge。' };
     let launched;
     let cdp;
     let sessionId = '';
     try {
-        launched = await launchBrowser({ executable: candidate.path, headless: options.headless !== false });
-        cdp = await CdpClient.connect(launched.wsUrl);
+        launched = await launch({ executable: candidate.path, headless: options.headless !== false });
+        cdp = await connect(launched.wsUrl);
         const target = await cdp.send('Target.createTarget', { url: 'about:blank' });
         const attached = await cdp.send('Target.attachToTarget', { targetId: target.targetId ?? '', flatten: true });
         sessionId = attached.sessionId ?? '';

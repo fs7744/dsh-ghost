@@ -808,10 +808,18 @@ pre.diff .dl.hunk { color: var(--accent); }
   #sidebar { width: 224px; }
   .composer-hint { display: none; }
   #f-sessions, #f-events { display: none; }
+  /* 抽屉让位收窄，别把主输入区挤扁 */
+  .workstage.detail-open main { padding-right: 300px; }
+  #detail { width: 300px; }
 }
 @media (max-width: 820px) {
   #app { padding: 0; }
   #sidebar, .workstage { border-radius: 0; }
   .composer-hint, .head-sub { display: none; }
   .welcome-cards { grid-template-columns: 1fr; }
+  /* 窄窗口抽屉改为覆盖式：不占主内容宽度，避免输入框被挤没 */
+  .workstage.detail-open main { padding-right: 0; }
+  #detail { width: min(330px, 88vw); box-shadow: -20px 0 48px rgba(0, 0, 0, .38); }
+  /* 设置页导航在窄窗口收窄为图标+短标签空间 */
+  .settings-nav { width: 116px; }
 }

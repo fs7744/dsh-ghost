@@ -16,6 +16,6 @@ export {
 } from './computer.ts'
 export {
   BROWSER_CHANNELS, bundledChromiumPresent, createBrowserEngine, hostAllowed,
-  type BrowserEngine, type EngineOptions,
+  type BrowserEngine, type CdpConnection, type CdpDeps, type EngineOptions,
 } from './engine.ts'
 export type { UiElement } from './types.ts'
