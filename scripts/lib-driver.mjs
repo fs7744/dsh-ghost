@@ -4,24 +4,42 @@ import { dirname, join } from 'node:path'
 import { boot as rawBoot, stop as rawStop, DSH_HOME } from '../spikes/p05-transport/lib/harness-client.mjs'
 export { WORKSPACE } from '../spikes/p05-transport/lib/harness-client.mjs'
 export { login, createTransport } from '../packages/harness-port/src/index.ts'
+import { HOST_PACKAGES } from './host-packages.mjs'
+import {
+  renderProvidersYaml, renderHostPluginsYaml, stripMarkedBlock,
+} from '../apps/shell/src/host-patch.ts'
 
 const REPO = join(import.meta.dirname, '..')
 const PATCH_TEMPLATE = join(import.meta.dirname, 'cordis.patch.template.yml')
-/** 会被宿主 profile 加载的 workspace 包。 */
-const HOST_PACKAGES = ['orchestrator-plugin', 'memory-plugin', 'memory', 'economizer', 'ui-plugin', 'ui-extensions', 'automation-plugin', 'automation', 'peer-agent-plugin', 'peer-agent', 'superagent', 'sink-github', 'source-github', 'source-hub', 'playbook', 'playbook-runtime', 'evolution']
 
 /**
  * 渲染标准 patch：模板是唯一真相源，只有凭据地址与模型名允许被环境变量覆盖。
  * 曾经有两个验收脚本各自整份重写 profile 里的 patch，把 orchestrator 和默认模型冲掉，
  * 导致后续脚本 `ghostTickets/*` 404、`selectModel` 失败。现在统一从这里生成。
+ *
+ * 路径类占位符在开发态一律指向仓库；打包态由 apps/shell/src/host-profile.ts
+ * 渲染成用户数据目录——两边的占位符名字必须一致。
  */
 export function renderPatch() {
-  return readFileSync(PATCH_TEMPLATE, 'utf8')
-    .replaceAll('{{REPO}}', REPO.replace(/\\/g, '/'))
-    .replaceAll('{{BASE_URL}}', process.env.WB_BASE_URL ?? 'http://127.0.0.1:7864/v1')
-    .replaceAll('{{MODEL}}', process.env.WB_MODEL ?? 'hy3')
-    .replaceAll('{{PROVIDERS}}', renderProvidersYaml())
-    .replaceAll('{{HOST_PLUGINS}}', renderHostPluginsYaml())
+  const repo = REPO.replace(/\\/g, '/')
+  const baseUrl = process.env.WB_BASE_URL ?? 'http://127.0.0.1:7864/v1'
+  const model = process.env.WB_MODEL ?? 'hy3'
+  const template = readFileSync(PATCH_TEMPLATE, 'utf8')
+  const runtimePackages = join(DSH_HOME, '..', 'node_modules', '@deepseek-ai')
+  const rendered = template
+    .replaceAll('{{MEMORY_ROOT}}', `${repo}/.ghost/memory`)
+    .replaceAll('{{UI_ROOT}}', `${repo}/.ghost/ui`)
+    .replaceAll('{{STATE_DIR}}', `${repo}/.ghost`)
+    .replaceAll('{{WORKSPACE_DIR}}', repo)
+    .replaceAll('{{TICKETS_FILE}}', `${repo}/.ghost/tickets.json`)
+    .replaceAll('{{REPO_ROOT}}', repo)
+    .replaceAll('{{SOURCE_HUB_EXAMPLE}}', `${repo}/packages/source-hub/examples/im.mjs`)
+    .replaceAll('{{BASE_URL}}', baseUrl)
+    .replaceAll('{{MODEL}}', model)
+    .replaceAll('{{PROVIDERS}}', renderProvidersYaml(join(REPO, '.ghost', 'ui')))
+    .replaceAll('{{HOST_PLUGINS}}', renderHostPluginsYaml(join(REPO, '.ghost', 'ui'), runtimePackages))
+  // 网关 provider 是可选的：没有 baseURL 就整段删掉，别让 llm-pi-ai 因为空地址激活失败。
+  return baseUrl.trim() === '' ? stripMarkedBlock(rendered, 'wb-provider') : rendered
 }
 
 /**
@@ -50,80 +68,6 @@ export function readProxyEnv(root = join(REPO, '.ghost', 'ui')) {
   } catch {
     return {}
   }
-}
-
-/**
- * 允许用户开启的宿主插件（白名单；不在名单里的一律忽略）。
- * 与 ghost-ui 插件的 HOST_PLUGIN_ALLOWLIST 保持一致——那份是界面口径，这份是装配口径。
- */
-const HOST_PLUGIN_ALLOWLIST = new Map([
-  ['cua', '@deepseek-ai/dsh-cua'],
-  ['cua-bundle', '@deepseek-ai/dsh-cua-bundle'],
-  ['schedule', '@deepseek-ai/dsh-schedule'],
-  ['goal', '@deepseek-ai/dsh-goal'],
-])
-
-/**
- * 把用户在界面里开启的宿主插件渲染成 profile 的插件行。
- * 包必须真的装在运行时里，否则跳过（不能插入一个不存在的包）。
- */
-export function renderHostPluginsYaml(root = join(REPO, '.ghost', 'ui')) {
-  const file = join(root, 'host-plugins.json')
-  if (!existsSync(file)) return ''
-  let ids = []
-  try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8'))
-    if (Array.isArray(parsed)) ids = parsed.filter(id => typeof id === 'string')
-  } catch {
-    return ''
-  }
-  const runtimeModules = join(DSH_HOME, '..', 'node_modules', '@deepseek-ai')
-  const lines = []
-  for (const id of ids) {
-    const name = HOST_PLUGIN_ALLOWLIST.get(id)
-    if (name === undefined) continue
-    if (!existsSync(join(runtimeModules, name.split('/')[1] ?? ''))) continue
-    lines.push(`- id: host-${id}`)
-    lines.push(`  name: '${name}'`)
-  }
-  return lines.length === 0 ? '' : lines.join('\n')
-}
-
-/**
- * 把用户在界面里登记的 LLM 服务渲染成 profile 的 providers 片段。
- * 读 `.ghost/ui/providers.json`（由 ghost-ui 插件写入，校验过才落盘）。
- */
-export function renderProvidersYaml() {
-  const file = join(REPO, '.ghost', 'ui', 'providers.json')
-  if (!existsSync(file)) return ''
-  let providers = []
-  try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8'))
-    if (Array.isArray(parsed)) providers = parsed
-  } catch {
-    return ''
-  }
-  const lines = []
-  for (const provider of providers) {
-    if (typeof provider?.id !== 'string' || provider.id === '') continue
-    lines.push(`      ${provider.id}:`)
-    lines.push(`        displayName: ${JSON.stringify(String(provider.displayName ?? provider.id))}`)
-    lines.push(`        api: ${JSON.stringify(String(provider.api ?? 'openai-completions'))}`)
-    if (typeof provider.baseURL === 'string' && provider.baseURL !== '') {
-      lines.push(`        baseURL: ${JSON.stringify(provider.baseURL)}`)
-    }
-    lines.push(`        apiKeyEnv: ${JSON.stringify(String(provider.apiKeyEnv ?? 'MODEL_KEY'))}`)
-    lines.push('        models:')
-    for (const model of Array.isArray(provider.models) ? provider.models : []) {
-      if (typeof model?.id !== 'string' || model.id === '') continue
-      lines.push(`          - id: ${JSON.stringify(model.id)}`)
-      lines.push(`            name: ${JSON.stringify(String(model.name ?? model.id))}`)
-      const caps = model.capabilities ?? {}
-      lines.push(`            contextWindow: ${Number(caps.contextWindow ?? 32768)}`)
-      lines.push(`            maxTokens: ${Number(caps.maxTokens ?? 8192)}`)
-    }
-  }
-  return lines.length === 0 ? '' : lines.join('\n')
 }
 
 /** 把 patch 写进指定 profile。 */

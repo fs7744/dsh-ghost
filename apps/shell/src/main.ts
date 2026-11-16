@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomBytes } from 'node:crypto'
 import { registerSchemes, createShellApp } from './electron-app.ts'
-import { createShellWindow, openInfoWindow, type ShellWindowApi } from './electron-window.ts'
+import { createShellWindow, openInfoWindow, openFatalWindow, type ShellWindowApi } from './electron-window.ts'
 import { createTray, type TrayApi } from './electron-tray.ts'
 import { buildApplicationMenu } from './electron-menu.ts'
 import { registerIpc, showOpenFileDialog } from './electron-ipc.ts'
@@ -20,6 +20,7 @@ import { createSafeStorage } from './electron-safe-storage.ts'
 import { configureUpdater } from './electron-updater.ts'
 import { startStaticServer, type StaticServer } from './electron-static.ts'
 import { createHostLauncher } from './electron-host-launcher.ts'
+import { materializeHostProfile } from './host-profile.ts'
 import { readProxyEnv } from './proxy-env.ts'
 import { createPairingStore } from './extension-pairing.ts'
 import { LOCAL_HOST } from './urls.ts'
@@ -94,8 +95,15 @@ function resolvePaths(userData: string, packaged: boolean) {
     // 开发态复用 spikes 的 profile（已同步插件）；打包态用独立 DSH_HOME。
     dshHome: process.env['DSH_GHOST_HOME']
       ?? (packaged ? join(userData, 'dsh-home') : join(repoRoot, 'spikes', 'p05-transport', '.dsh-home')),
-    profile: process.env['DSH_GHOST_PROFILE'] ?? (packaged ? 'desktop' : 'p05'),
+    // profile 名不能叫 desktop：harness 把这个名字留给自家 Electron 载体，
+    // 从 CLI 启动会被直接拒绝（"managed exclusively by the Electron application"）。
+    // 我们自己物化 profile（见 host-profile.ts），用产品自己的名字。
+    profile: process.env['DSH_GHOST_PROFILE'] ?? (packaged ? 'ghost' : 'p05'),
     patchPath: process.env['DSH_GHOST_PATCH'],
+    // 我们自己的插件层模板：开发态在仓库里，打包态随包进 asar。
+    // 两条路径用同一个相对位置（here = <root>/apps/shell/dist/），
+    // 所以开发态指向 <repo>/scripts/，打包态指向 app.asar/scripts/。
+    patchTemplatePath: join(here, '..', '..', '..', 'scripts', 'cordis.patch.template.yml'),
     stateDir: join(userData, 'state'),
   }
 }
@@ -126,6 +134,27 @@ async function main(): Promise<void> {
   const clock = createClock()
   fs.mkdir(paths.userData)
   fs.mkdir(paths.stateDir)
+
+  // 打包态先把宿主 profile 物化出来（manifest + 我们自己的插件层）。
+  // 不做这一步，harness 会因为 profile 不存在直接退出，壳就永远等不到宿主，
+  // 结果是「只有后台进程、没有窗口」。
+  if (shellApp.isPackaged()) {
+    const profile = materializeHostProfile({
+      dshHome: paths.dshHome,
+      profile: paths.profile,
+      runtimeModules: paths.runtimeModules,
+      userData: paths.userData,
+      templatePath: paths.patchTemplatePath,
+      baseUrl: process.env['WB_BASE_URL'] ?? '',
+      model: process.env['WB_MODEL'] ?? '',
+    })
+    if (!profile.ok) {
+      process.stderr.write(`dsh-ghost: ${profile.error ?? 'profile 物化失败'}\n`)
+      openFatalWindow('dsh-ghost 无法启动', profile.error ?? '宿主 profile 物化失败')
+      shellApp.quit()
+      return
+    }
+  }
 
   const configPath = join(paths.userData, 'settings.json')
   let config: ShellConfig = readConfig(fs, configPath).config
@@ -377,6 +406,12 @@ async function main(): Promise<void> {
     onFatal: error => {
       logger.error(`runtime fatal ${error.message}`)
       tray?.notify('approval') // 宿主不可用，提示用户人工处理
+      // 宿主彻底起不来：必须给用户一个能看见的窗口，否则表现就是「双击没反应」。
+      openFatalWindow(
+        'dsh-ghost 启动失败',
+        `本地宿主（harness）没能启动：${error.message}`,
+        logBuffer.join('\n'),
+      )
     },
   })
 

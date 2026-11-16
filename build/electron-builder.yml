@@ -21,6 +21,9 @@ files:
   - apps/shell/preload.cjs
   - apps/desktop/dist/**/*
   - package.json
+  # 我们自己的插件层模板：壳在运行时渲染它，写进宿主的 profile。
+  # 路径与开发态一致（<root>/scripts/...），所以壳里只用一个相对位置就能同时命中两处。
+  - scripts/cordis.patch.template.yml
   # 运行时在 resources/runtime（asar 外）；asar 内不需要 node_modules。
   - "!node_modules/**"
 

@@ -32,11 +32,10 @@ electron-builder 配置见 `build/electron-builder.yml`。
 
 ## 设计与重建
 
-- 风格：石墨黑瓦片（`#141412`）+ 米白熊猫幽灵（`#ECEAE4`）+ 青绿信号线（`#5DCAA5`），
-  与 `apps/desktop/src/style.css` 的 UI 变量一致。
-- 熊猫特征：白色耳廓 + 黑色内耳、倾斜黑眼斑 + 白点眼、黑色鼻；幽灵特征：圆头 + 三个 V 形缺口。
-- 赛博朋克靠**左眼青色植入环 + 直角信号线 + 数据尾迹**，不用大面积霓虹。
-- 源文件：`build/resources/src/icon.svg`（大尺寸）、`icon-small.svg`（16/24/32 光学变体）、
-  `trayTemplate.svg`（macOS 托盘）。
+- 风格：与界面一致的品牌图 —— 深黑底 + 青绿火焰 + 极简熊猫幽灵
+  （`apps/desktop/src/brand-image.ts` 内嵌的 data URI）。
+- 源文件：**品牌图只有一个真相源** —— `apps/desktop/src/brand-image.ts` 里的 data URI，
+  `scripts/build-icons.mjs` 从它生成 exe/托盘图标；界面显示的也是它，两边不会分裂。
+  托盘另用 `build/resources/src/trayTemplate.svg`（macOS 模板图）。
 - 重建：`npm run icons`；校验：`npm run icons:check`。
 - ICO/ICNS 由 `scripts/build-icons.mjs` 直接打包 PNG 块，不依赖 ImageMagick / iconutil。

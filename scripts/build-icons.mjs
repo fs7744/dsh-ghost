@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 /**
- * 从矢量源生成三平台图标（无网络、可复现）：
- *   build/resources/src/icon.svg         -> icon.png / icon.ico / icon.icns
- *   build/resources/src/trayTemplate.svg -> trayTemplate.png / trayTemplate@2x.png
+ * 生成三平台图标（无网络、可复现）：
+ *   apps/desktop/src/brand-image.ts 的品牌图 -> icon.png / icon.ico / icon.icns
+ *   build/resources/src/trayTemplate.svg      -> trayTemplate.png / trayTemplate@2x.png
+ *
+ * **品牌图只有一个真相源**：`apps/desktop/src/brand-image.ts` 里内嵌的 data URI
+ * （界面直接用它显示）。exe 图标也从它生成，两边不会再出现「界面是新熊猫、
+ * exe 还是旧图标」的分裂。之前这里是手绘 SVG（build/resources/src/icon.svg），
+ * 品牌换成 AI 图后就对不上了。
  *
  * ICO/ICNS 都是容器格式，这里手写打包，避免引入图像工具链：
  * - ICO 用 PNG 压缩条目（Vista+），尺寸 16..256；
@@ -18,8 +23,7 @@ import sharp from 'sharp'
 const REPO = join(import.meta.dirname, '..')
 const SRC = join(REPO, 'build', 'resources', 'src')
 const OUT = join(REPO, 'build', 'resources')
-const ICON_SVG = join(SRC, 'icon.svg')
-const SMALL_SVG = join(SRC, 'icon-small.svg')
+const BRAND_MODULE = join(REPO, 'apps', 'desktop', 'src', 'brand-image.ts')
 const TRAY_SVG = join(SRC, 'trayTemplate.svg')
 
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
@@ -33,8 +37,20 @@ const ICNS_SIZES = [
   ['ic10', 1024],
 ]
 
-function pngFor(svgPath, size) {
-  return sharp(readFileSync(svgPath), { density: 384 })
+/** 从品牌模块里取出内嵌的 data URI，解成图片字节。 */
+function loadBrandImage() {
+  const source = readFileSync(BRAND_MODULE, 'utf8')
+  const match = /data:image\/[a-z+]+;base64,([A-Za-z0-9+/=]+)/.exec(source)
+  if (match === null) {
+    throw new Error(`品牌图 data URI 没找到：${BRAND_MODULE}`)
+  }
+  return Buffer.from(match[1], 'base64')
+}
+
+/** 统一出口：SVG 或位图都走 sharp，输出目标尺寸的 PNG。 */
+async function pngFor(source, size) {
+  const input = Buffer.isBuffer(source) ? source : readFileSync(source)
+  return sharp(input, { density: 384 })
     .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png({ compressionLevel: 9 })
     .toBuffer()
@@ -79,19 +95,18 @@ function buildIcns(entries) {
 }
 
 async function generate() {
-  const png512 = await pngFor(ICON_SVG, 512)
-  writeFileSync(join(OUT, 'icon.png'), png512)
+  const brand = loadBrandImage()
+  writeFileSync(join(OUT, 'icon.png'), await pngFor(brand, 512))
 
   const icoEntries = []
-  // 16/24/32 用放大主体的光学变体，避免小尺寸糊成一团。
   for (const size of ICO_SIZES) {
-    icoEntries.push({ size, data: await pngFor(size <= 32 ? SMALL_SVG : ICON_SVG, size) })
+    icoEntries.push({ size, data: await pngFor(brand, size) })
   }
   writeFileSync(join(OUT, 'icon.ico'), buildIco(icoEntries))
 
   const icnsEntries = []
   for (const [type, size] of ICNS_SIZES) {
-    icnsEntries.push({ type, data: await pngFor(size <= 32 ? SMALL_SVG : ICON_SVG, size) })
+    icnsEntries.push({ type, data: await pngFor(brand, size) })
   }
   writeFileSync(join(OUT, 'icon.icns'), buildIcns(icnsEntries))
 

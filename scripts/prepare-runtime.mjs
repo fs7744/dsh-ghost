@@ -14,18 +14,22 @@
  *
  * 退出码: 0 计划打印完/复制成功；1 来源不完整；2 用法错误。
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveDshModules } from './harness-paths.mjs'
+import { HOST_PACKAGES } from './host-packages.mjs'
 
 const REPO = join(import.meta.dirname, '..')
 const TARGET = join(REPO, 'build', 'runtime', 'node_modules')
+const MANIFEST = join(REPO, 'build', 'runtime', 'manifest.json')
 
 function parseArgs(argv) {
-  const out = { apply: false, modules: undefined, json: false }
+  const out = { apply: false, force: false, modules: undefined, json: false }
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
     if (arg === '--apply') out.apply = true
+    else if (arg === '--force') out.force = true
     else if (arg === '--json') out.json = true
     else if (arg === '--modules') {
       out.modules = argv[++index]
@@ -86,13 +90,52 @@ if (!args.apply) {
   process.exit(0)
 }
 
-rmSync(TARGET, { recursive: true, force: true })
-mkdirSync(TARGET, { recursive: true })
-process.stdout.write('复制中（1.3GB 量级，可能需要几分钟）...\n')
-cpSync(modules, TARGET, { recursive: true, dereference: true })
-writeFileSync(join(REPO, 'build', 'runtime', 'manifest.json'), `${JSON.stringify({
+/**
+ * 目标里已经有同一份来源的运行时吗？
+ *
+ * 有就不重拷：580MB / 1.4 万文件每次全量复制十几分钟，而 harness 的包很少变。
+ * 只同步我们的插件层（很便宜），再刷新 manifest。
+ */
+function targetUpToDate() {
+  if (!existsSync(join(TARGET, '@deepseek-ai', 'dsh', 'lib', 'bin.js'))) return false
+  if (!existsSync(MANIFEST)) return false
+  try {
+    const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8'))
+    return manifest.source === modules
+  } catch {
+    return false
+  }
+}
+
+if (!args.force && targetUpToDate()) {
+  process.stdout.write('运行时已是最新（同一来源），跳过 580MB 重拷，只同步插件层。\n')
+} else {
+  rmSync(TARGET, { recursive: true, force: true })
+  mkdirSync(TARGET, { recursive: true })
+  process.stdout.write('复制中（580MB / 1.4 万文件，几分钟）...\n')
+  cpSync(modules, TARGET, { recursive: true, dereference: true })
+}
+const ghostCount = syncGhostPlugins()
+writeFileSync(MANIFEST, `${JSON.stringify({
   preparedAt: new Date().toISOString(),
   packages: size.count,
   source: modules,
+  ghostPlugins: ghostCount,
 }, null, 2)}\n`)
 process.stdout.write(`完成：${TARGET}\n`)
+
+/**
+ * 把我们的 workspace 插件包复制进运行时的 `@dsh-ghost/*`。
+ *
+ * 逻辑在 scripts/sync-host-plugins.mjs（同一份口径，可单独跑，不用重拷 1.3GB 运行时）。
+ */
+function syncGhostPlugins() {
+  const result = spawnSync(process.execPath, [
+    join(REPO, 'scripts', 'sync-host-plugins.mjs'), '--runtime', TARGET,
+  ], { cwd: REPO, stdio: 'inherit', shell: false })
+  if (result.status !== 0) {
+    process.stderr.write('插件同步失败：宿主启动时会缺我们的插件层\n')
+    process.exit(1)
+  }
+  return HOST_PACKAGES.length
+}

@@ -131,3 +131,47 @@ export function openInfoWindow(filePath: string, translate: Translator): void {
   win.setMenu(null)
   void win.loadFile(filePath)
 }
+
+/**
+ * 致命错误窗口：宿主起不来时必须有东西给人看。
+ *
+ * 之前宿主失败只会让壳一直等 `healthy`，`ensureWindow` 永远不执行 ——
+ * 用户看到的是「双击了没反应，任务管理器里几个后台进程」。
+ * 这里给一个独立小窗口，把原因和日志尾巴直接摆出来。
+ */
+export function openFatalWindow(title: string, message: string, details = ''): void {
+  const escapeHtml = (text: string): string => text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  const body = `<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  :root { color-scheme: dark }
+  body { margin: 0; padding: 28px; background: #141414; color: #e8e8e8;
+         font: 14px/1.7 "Segoe UI", "Microsoft YaHei", sans-serif; }
+  h1 { margin: 0 0 12px; font-size: 18px; color: #ff7a7a; }
+  p { margin: 0 0 16px; color: #cfcfcf; }
+  pre { margin: 0; max-height: 320px; overflow: auto; padding: 12px;
+        background: #0d0d0d; border: 1px solid #2c2c2c; border-radius: 8px;
+        color: #9fd8c8; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+</style></head>
+<body>
+  <h1>${escapeHtml(title)}</h1>
+  <p>${escapeHtml(message)}</p>
+  ${details === '' ? '' : `<pre>${escapeHtml(details.slice(-4000))}</pre>`}
+</body></html>`
+  const win = new BrowserWindow({
+    width: 760,
+    height: 520,
+    title,
+    alwaysOnTop: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  })
+  win.setMenu(null)
+  void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(body)}`)
+}

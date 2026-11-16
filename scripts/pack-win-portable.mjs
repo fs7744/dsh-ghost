@@ -44,7 +44,6 @@ const BASE_CONFIG = join(REPO, 'build', 'electron-builder.yml')
 const DEFAULT_OUT = join(REPO, 'out', 'win-portable')
 const RUNTIME_DIR = join(REPO, 'build', 'runtime')
 const RUNTIME_MODULES = join(RUNTIME_DIR, 'node_modules')
-const RUNTIME_MANIFEST = join(RUNTIME_DIR, 'manifest.json')
 const RUNTIME_BIN = join(RUNTIME_MODULES, '@deepseek-ai', 'dsh', 'lib', 'bin.js')
 const ICON_PATH = join(REPO, 'build', 'resources', 'icon.ico')
 
@@ -191,17 +190,6 @@ function runBuilder(configPath, label, extraEnv = {}, prepackagedDir = '') {
   })
 }
 
-function runtimeReady(source) {
-  if (!existsSync(RUNTIME_BIN)) return false
-  if (!existsSync(RUNTIME_MANIFEST)) return false
-  try {
-    const manifest = JSON.parse(readFileSync(RUNTIME_MANIFEST, 'utf8'))
-    return manifest.source === source
-  } catch {
-    return false
-  }
-}
-
 // ---------------------------------------------------------------------------
 // exe 品牌：图标 + 版本信息
 //
@@ -318,30 +306,23 @@ if (args.skipRuntime) {
   log('  包内不含 resources/runtime，宿主起不来，只能验证 UI 层')
 } else {
   step('harness 运行时')
-  if (args.forceRuntime) {
-    log('  --force-runtime：清掉旧副本重拷')
-    rmSync(RUNTIME_MODULES, { recursive: true, force: true })
-    rmSync(RUNTIME_MANIFEST, { force: true })
+  log(`  来源 ${runtimeSource}`)
+  if (!existsSync(join(runtimeSource, '@deepseek-ai', 'dsh', 'lib', 'bin.js'))) {
+    process.stderr.write('运行时来源不完整：找不到 @deepseek-ai/dsh/lib/bin.js\n设 DSH_DSH_MODULES 指向含 @deepseek-ai/dsh 的 node_modules，或加 --skip-runtime 只要 UI。\n')
+    process.exit(1)
   }
-  if (runtimeReady(runtimeSource)) {
-    log(`  已就绪，复用 ${RUNTIME_MODULES}`)
-    runtimeIncluded = true
-  } else {
-    log(`  来源 ${runtimeSource}`)
-    if (!existsSync(join(runtimeSource, '@deepseek-ai', 'dsh', 'lib', 'bin.js'))) {
-      process.stderr.write('运行时来源不完整：找不到 @deepseek-ai/dsh/lib/bin.js\n设 DSH_DSH_MODULES 指向含 @deepseek-ai/dsh 的 node_modules，或加 --skip-runtime 只要 UI。\n')
-      process.exit(1)
-    }
-    log('  复制中（约 580MB / 1.4 万文件，几分钟）...')
-    const result = spawnSync(process.execPath, [
-      join(REPO, 'scripts', 'prepare-runtime.mjs'), '--apply', '--modules', runtimeSource,
-    ], { cwd: REPO, stdio: args.json ? 'ignore' : 'inherit', shell: false })
-    if (result.status !== 0) {
-      process.stderr.write('运行时复制失败\n')
-      process.exit(1)
-    }
-    runtimeIncluded = true
+  // prepare-runtime 自己判断要不要重拷：来源没变就只同步插件层，
+  // 不重拷那 580MB / 1.4 万文件（一次十几分钟）。
+  const result = spawnSync(process.execPath, [
+    join(REPO, 'scripts', 'prepare-runtime.mjs'), '--apply',
+    ...(args.forceRuntime ? ['--force'] : []),
+    '--modules', runtimeSource,
+  ], { cwd: REPO, stdio: args.json ? 'ignore' : 'inherit', shell: false })
+  if (result.status !== 0) {
+    process.stderr.write('运行时准备失败\n')
+    process.exit(1)
   }
+  runtimeIncluded = true
 }
 
 // ---------------------------------------------------------------------------

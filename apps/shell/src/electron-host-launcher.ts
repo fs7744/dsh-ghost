@@ -131,7 +131,11 @@ export function createHostLauncher(deps: HostLauncherDeps): HostLauncher {
           if (settled) return
           settled = true
           clearTimeout(timer)
-          reject(new Error(`host exited before ready: code=${String(code)} signal=${String(signal)}`))
+          // 宿主挂掉的原因在它的 stdout/stderr 里（例如 profile 不存在、插件装不上）。
+          // 只报退出码等于什么都没说，这里把尾巴一起带上。
+          reject(new Error(
+            `host exited before ready: code=${String(code)} signal=${String(signal)}\n${buffer.slice(-2000)}`,
+          ))
         })
       })
 

@@ -66,13 +66,32 @@ CI 出的是**安装版**（要写注册表、占卸载项）。本地反复验�
 `scripts/pack-win-portable.mjs`（`npm run pack:win` / `pack:win:fast` / `pack:win:exe`），
 产物在 `out/win-portable/`，不碰注册表、不碰更新 feed、不污染 `out/shell-release/`。
 
-两处与 CI 不同，是为了让本地能反复跑（细节见 [build/README.md](../build/README.md)）：
+三处与 CI 不同，是为了让本地能反复跑（细节见 [build/README.md](../build/README.md)）：
 
 - **图标/版本信息自己写。** electron-builder 默认用 `winCodeSign` 里的 rcedit 改 exe 资源，
   那套要联网下载，且解压要求「创建符号链接」权限（非管理员/未开开发者模式必失败）。
   脚本关掉 `win.signAndEditExecutable`，改用缓存里已解压的 `rcedit-x64.exe` 补图标与版本信息。
 - **zip / 便携版从打好图标的目录出。** 先打 `dir` -> rcedit 补图标 -> 再用 `--prepackaged`
   出 zip 与单文件便携版，避免压缩包里是 Electron 默认图标。
+- **运行时按需复制。** `prepare-runtime.mjs` 记住来源，来源没变就不重拷那 580MB，
+  只同步我们的插件层。
+
+### 4.2 打包态的宿主 profile（C7 补齐）
+
+打包态原本**起不来宿主**：`--profile desktop` 既不在 `$DSH_HOME/profiles/` 里、
+也不在 harness 的内置模板表（只有 acp / web / headless / sdk / sdk-minimal），
+harness 直接抛 `profile "desktop" does not exist` 退出；壳一直等 `healthy`，
+`ensureWindow` 永不执行 —— **一个窗口都不弹**，用户只看到后台进程。
+
+现在：
+
+- 壳在启动宿主前**物化 profile**（`apps/shell/src/host-profile.ts`）：写 manifest
+  （base + web-app 两个 bundle）+ 渲染我们自己的插件层 `cordis.patch.yml`；
+- 插件包同步进 **profile 的 node_modules** —— harness 的运行时分��表里插件属于
+  profile 作用域，只放在运行时 node_modules 里会被当成「读不到的 bundle」跳过；
+- profile 名用 `ghost`：`desktop` 是 harness 留给自家 Electron 载体的保留名，
+  从 CLI 启动会被直接拒绝；
+- 宿主彻底起不来时，壳会**弹出错误窗口**并带上日志尾巴，不再静默装死。
 
 ## 5. 更新通道与灰度
 

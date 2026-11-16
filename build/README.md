@@ -58,7 +58,15 @@ npm run pack:win:exe      # 额外产出单文件便携 .exe
   零下载、零特权。缓存里没有 rcedit 时会跳过，exe 保留 Electron 默认图标。
 - **压缩级别用 normal。** `maximum` 对 580MB 的运行时太慢，收益几乎为零。
 
-打包顺序：packages → `build:shell` → `build:ui` → `prepare-runtime --apply`（首次）→ electron-builder → rcedit 补图标。
+打包顺序：packages → `build:shell` → `build:ui` → `prepare-runtime`（首次复制，来源没变就只同步插件层）
+→ electron-builder → rcedit 补图标 → `--prepackaged` 出 zip/便携版。
+
+图标来源只有一个：`apps/desktop/src/brand-image.ts` 里内嵌的品牌图（界面显示的也是它）。
+`npm run icons` 从它生成 `icon.png` / `icon.ico` / `icon.icns`，不会再出现
+「界面是新品牌、exe 还是旧图标」的分裂。
+
+宿主能在打包态起来，靠的是壳在启动前**物化 profile**（manifest + 我们自己的插件层），
+细节见 [docs/RELEASE.md](../docs/RELEASE.md)。
 
 ## 构建顺序（CI 见 .github/workflows/release.yml）
 

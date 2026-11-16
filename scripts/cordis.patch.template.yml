@@ -1,38 +1,42 @@
 # dsh-ghost 的宿主插件层 —— 单一真相源。
 # scripts/lib-driver.mjs 每次启动宿主前把它落盘到 profile 的 cordis.patch.yml；
-# 不要直接改 .dsh-home 里的副本（会被覆盖）。占位符由 renderPatch() 替换。
+# 不要直接改 .dsh-home 里的副本（会被覆盖）。
+# 占位符分两套渲染：开发态 scripts/lib-driver.mjs 的 renderPatch()，
+# 打包态 apps/shell/src/host-profile.ts 的 renderHostPatch()——两边口径必须一致。
+# 路径类占位符（MEMORY_ROOT / UI_ROOT / STATE_DIR / WORKSPACE_DIR / TICKETS_FILE /
+# REPO_ROOT / SOURCE_HUB_EXAMPLE）在开发态指向仓库，在打包态指向用户数据目录。
 - insert:
     - id: ghost-memory
       name: '@dsh-ghost/memory-plugin'
       config:
-        root: '{{REPO}}/.ghost/memory'
+        root: '{{MEMORY_ROOT}}'
         # /init 草案只允许扫描仓库内；桌面端以后改成用户工作目录。
-        repoRoot: '{{REPO}}'
+        repoRoot: '{{REPO_ROOT}}'
 
     # 用户扩展：放 JSON 就能加页面/注入界面/登记 LLM 服务（见 docs/UI-EXTENSIONS.md）。
     - id: ghost-ui
       name: '@dsh-ghost/ui-plugin'
       config:
-        root: '{{REPO}}/.ghost/ui'
+        root: '{{UI_ROOT}}'
 
     # 自动化：浏览器（CDP 直连已装浏览器）与 Windows 电脑操控。
     # 默认关闭——要在「宿主能力」页显式开启，插件内也会再查一次开关。
     - id: ghost-automation
       name: '@dsh-ghost/automation-plugin'
       config:
-        stateDir: '{{REPO}}/.ghost'
-        workspaceDir: '{{REPO}}'
+        stateDir: '{{STATE_DIR}}'
+        workspaceDir: '{{WORKSPACE_DIR}}'
 
     # 外部 agent（同事）：Claude/Codex/豆包… 以 CLI / HTTP / A2A 接进来。
     - id: ghost-peers
       name: '@dsh-ghost/peer-agent-plugin'
       config:
-        stateDir: '{{REPO}}/.ghost'
+        stateDir: '{{STATE_DIR}}'
 
     - id: ghost-orchestrator
       name: '@dsh-ghost/orchestrator-plugin'
       config:
-        stateFile: '{{REPO}}/.ghost/tickets.json'
+        stateFile: '{{TICKETS_FILE}}'
         source: 'local'
         # 信息源可插拔：内置 GitHub / 声明式映射 / 用户自定义 mapper。
         # 密钥一律走 *Env 指向环境变量，不写进配置。详见 docs/SOURCES.md。
@@ -79,8 +83,11 @@
             description: '用户自定义 .mjs mapper'
             options:
               mention: '@ghost'
-            mapper: '{{REPO}}/packages/source-hub/examples/im.mjs'
+            mapper: '{{SOURCE_HUB_EXAMPLE}}'
 
+# :wb-provider-start
+# WorkBuddy 网关这个 provider 是可选的：没有 baseURL 时整段删掉，
+# 否则 llm-pi-ai 会因为空 baseURL 激活失败（界面登记的服务走下面的 {{PROVIDERS}}）。
 - id: llm-pi-ai
   config:
     providers:
@@ -96,6 +103,14 @@
             maxTokens: 8192
 {{PROVIDERS}}
 
+# 新会话自动选中可用模型，避免默认模型不可用导致 session/model-unavailable。
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: wb
+    model: '{{MODEL}}'
+# :wb-provider-end
+
 # 用户在界面里开启的宿主插件（电脑操控 / 定时任务 / 持久目标…）。
 # 只允许白名单里的包，且包必须在运行时里存在；渲染时决定插不插。
 {{HOST_PLUGINS}}
@@ -105,9 +120,3 @@
 - id: http-proxy
   name: '@deepseek-ai/dsh-http-proxy'
 
-# 新会话自动选中可用模型，避免默认模型不可用导致 session/model-unavailable。
-- id: agent-default-model
-  name: "@deepseek-ai/dsh-agent-default-model"
-  config:
-    provider: wb
-    model: '{{MODEL}}'
