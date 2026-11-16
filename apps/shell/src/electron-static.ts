@@ -5,13 +5,14 @@
  */
 import http from 'node:http'
 import net from 'node:net'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { resolveStaticPath, shouldProxy, isLocalModelsApi } from './static-server.ts'
 import { createModelsApi } from './models-api.ts'
 import { createFileCatalogStore } from './models-store.ts'
 import { LOCAL_HOST } from './urls.ts'
 import type { Logger } from './ports.ts'
-import type { ProviderSpec } from '@dsh-ghost/model-manager'
+import { discoveryUrl, discoveryHeaders, type ProviderSpec } from '@dsh-ghost/model-manager'
 
 export interface StaticServerDeps {
   distDir: string
@@ -19,6 +20,10 @@ export interface StaticServerDeps {
   logger: Logger
   /** 模型配置落地文件；缺省用内存（重启即丢，只适合测试）。 */
   modelsFile?: string
+  /** harness 实际读取的 providers.json；模型库保存时同步写这里，配置才进入 cordis patch。 */
+  providersFile?: string
+  /** 按 env 引用名取密钥（来自安全存储）；自测与模型发现优先用它，其次进程环境。 */
+  getCredential?: (name: string) => string | undefined
   /** 扩展配对：校验配对码，换出宿主地址与 Cookie。 */
   pairExtension?: (code: string) => Promise<
     { origin: string; cookieName: string; cookieValue: string; cwd: string } | undefined
@@ -35,18 +40,47 @@ export async function startStaticServer(deps: StaticServerDeps): Promise<StaticS
   // harness 崩溃重启可能换端口，代理目标可动态更新。
   let harnessPort = deps.harnessPort
 
-  /** 模型管理页的连通性自测：真发一次 /models，凭据从进程环境读，绝不写日志。 */
+  const credentialFor = (name: string): string | undefined =>
+    deps.getCredential?.(name) ?? process.env[name]
+
+  /** 登录发现/自测：按协议拼端点与请求头，密钥只从安全存储或进程环境取，绝不写日志。 */
+  const requestModels = async (provider: ProviderSpec, timeoutMs: number): Promise<Response> => {
+    const url = discoveryUrl(provider.baseURL ?? '', provider.api)
+    return await fetch(url, {
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: discoveryHeaders(provider.api, credentialFor(provider.apiKeyEnv)),
+    })
+  }
+
+  /** 保存模型配置时同步写 harness 读取的 providers.json（原子写，失败即报错）。 */
+  const syncProviders = (providers: readonly ProviderSpec[]): void => {
+    const file = deps.providersFile
+    if (file === undefined) return
+    mkdirSync(dirname(file), { recursive: true })
+    const temporary = `${file}.tmp`
+    writeFileSync(temporary, `${JSON.stringify(providers, null, 2)}\n`)
+    renameSync(temporary, file)
+  }
+  const loadLegacyProviders = (): readonly ProviderSpec[] => {
+    const file = deps.providersFile
+    if (file === undefined || !existsSync(file)) return []
+    try {
+      const raw: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      return Array.isArray(raw) ? raw as ProviderSpec[] : []
+    } catch {
+      return []
+    }
+  }
+
   const store = deps.modelsFile === undefined ? undefined : createFileCatalogStore(deps.modelsFile)
   const modelsApi = createModelsApi({
     ...(store === undefined ? {} : { store }),
+    syncProviders,
+    loadLegacyProviders,
+    discover: async provider => await (await requestModels(provider, 6_000)).json(),
     probe: async (provider: ProviderSpec) => {
-      const base = (provider.baseURL ?? '').replace(/\/+$/, '')
-      const key = process.env[provider.apiKeyEnv]
       try {
-        const response = await fetch(`${base}/models`, {
-          signal: AbortSignal.timeout(3000),
-          headers: key === undefined ? {} : { authorization: `Bearer ${key}` },
-        })
+        const response = await requestModels(provider, 3_000)
         return { ok: response.ok, status: response.status }
       } catch (error) {
         return { ok: false, error: String(error).slice(0, 120) }

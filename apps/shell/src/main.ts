@@ -19,6 +19,8 @@ import { registerIpc, showOpenFileDialog } from './electron-ipc.ts'
 import { createSafeStorage } from './electron-safe-storage.ts'
 import { configureUpdater } from './electron-updater.ts'
 import { startStaticServer, type StaticServer } from './electron-static.ts'
+import { createLlmBalancer } from './llm-balancer.ts'
+import { createFileCatalogStore } from './models-store.ts'
 import { createHostLauncher } from './electron-host-launcher.ts'
 import { materializeHostProfile } from './host-profile.ts'
 import { readProxyEnv } from './proxy-env.ts'
@@ -135,6 +137,34 @@ async function main(): Promise<void> {
   fs.mkdir(paths.userData)
   fs.mkdir(paths.stateDir)
 
+  const configPath = join(paths.userData, 'settings.json')
+  let config: ShellConfig = readConfig(fs, configPath).config
+  const t = createTranslator(resolveLocale(shellApp.getLocale(), config.locale))
+
+  let currentToken = ''
+  const logger = createLogger(() => [currentToken])
+  const vault = new CredentialVault({ safeStorage: createSafeStorage(), fs, path: configPath, logger })
+  const modelsFile = join(paths.userData, 'models.json')
+
+  /**
+   * 本地 LLM 负载均衡代理。有多个启用的 OpenAI 兼容服务时才启用，
+   * 作为 wb provider 的 baseURL 注入 patch —— harness 仍只认一个 provider，
+   * 实际请求由这里按策略分发到多个真实服务。开发态模型库是 demo，不启动。
+   */
+  const balancer = shellApp.isPackaged()
+    ? await createLlmBalancer({
+      modelsFile,
+      getCredential: name => {
+        const secret = vault.get(name)
+        return secret === null ? undefined : secret
+      },
+      fallbackBaseURL: process.env['WB_BASE_URL'] ?? '',
+      fallbackModel: process.env['WB_MODEL'] ?? '',
+      logger,
+    })
+    : undefined
+  const effectiveBaseUrl = balancer?.baseURL ?? (process.env['WB_BASE_URL'] ?? '')
+
   // 打包态先把宿主 profile 物化出来（manifest + 我们自己的插件层）。
   // 不做这一步，harness 会因为 profile 不存在直接退出，壳就永远等不到宿主，
   // 结果是「只有后台进程、没有窗口」。
@@ -145,7 +175,7 @@ async function main(): Promise<void> {
       runtimeModules: paths.runtimeModules,
       userData: paths.userData,
       templatePath: paths.patchTemplatePath,
-      baseUrl: process.env['WB_BASE_URL'] ?? '',
+      baseUrl: effectiveBaseUrl,
       model: process.env['WB_MODEL'] ?? '',
     })
     if (!profile.ok) {
@@ -156,13 +186,26 @@ async function main(): Promise<void> {
     }
   }
 
-  const configPath = join(paths.userData, 'settings.json')
-  let config: ShellConfig = readConfig(fs, configPath).config
-  const t = createTranslator(resolveLocale(shellApp.getLocale(), config.locale))
+  /**
+   * 把界面登记的每个服务的 apiKeyEnv 引用名映射到 vault 里的明文，注入宿主进程环境。
+   * 只在启动时求值：密钥存的是引用名，真正的值由宿主按 env 名读取；明文绝不经配置或日志。
+   */
+  const modelCredentialEnv = (): Record<string, string> => {
+    const catalog = createFileCatalogStore(modelsFile)
+    let env: Record<string, string> = {}
+    try {
+      // 文件版 store 的 read 是同步的（CatalogStore 接口允许异步，这里确定是同步实现）。
+      const state = catalog.read() as { providers: readonly { apiKeyEnv: string }[] }
+      for (const provider of state.providers) {
+        const secret = vault.get(provider.apiKeyEnv)
+        if (secret !== null && secret !== '') env[provider.apiKeyEnv] = secret
+      }
+    } catch {
+      env = {}
+    }
+    return env
+  }
 
-  let currentToken = ''
-  const logger = createLogger(() => [currentToken])
-  const vault = new CredentialVault({ safeStorage: createSafeStorage(), fs, path: configPath, logger })
   const telemetry = new TelemetryBuffer(clock)
   telemetry.setEnabled(config.telemetryEnabled)
 
@@ -314,11 +357,9 @@ async function main(): Promise<void> {
         process.stderr.write(`dsh-ghost: tray unavailable (${String(error)})\n`)
       }
     }
-    if (!config.onboardingCompleted) {
-      await shellWindow.loadFile(paths.onboardingPath)
-    } else {
-      await shellWindow.load(token)
-    }
+    // 首启不再弹向导：直接进工作台。模型 / 密钥 / 职责等配置都放在「模型库」页与设置里，
+    // 随用随改，不必在第一次启动时一次性填完（见 docs/MODELS.md）。
+    await shellWindow.load(token)
     if (pendingFiles.length > 0) {
       shellWindow.send('shell:open-files', pendingFiles)
       pendingFiles = []
@@ -364,7 +405,13 @@ async function main(): Promise<void> {
         distDir: paths.distDir,
         harnessPort: info.port,
         logger,
-        modelsFile: join(paths.userData, 'models.json'),
+        modelsFile,
+        // 与宿主的 ghost-ui 插件同一路径：模型库保存后立即反映到 cordis patch。
+        providersFile: join(paths.userData, 'ghost', 'ui', 'providers.json'),
+        getCredential: name => {
+          const secret = vault.get(name)
+          return secret === null ? undefined : secret
+        },
         pairExtension,
       })
       staticPort = staticSrv.port
@@ -385,6 +432,8 @@ async function main(): Promise<void> {
       ...(paths.patchPath === undefined ? {} : { patchPath: paths.patchPath }),
       logger,
       env: {
+        // 界面登记的服务密钥：从安全存储取出，按各自 apiKeyEnv 引用名注入宿主。
+        ...modelCredentialEnv(),
         WB_BASE_URL: process.env['WB_BASE_URL'] ?? '',
         WB_MODEL: process.env['WB_MODEL'] ?? '',
         // 权限档位：宿主的 sandbox-policy 与 user-approval 策略在加载 patch 时读它。
@@ -459,6 +508,7 @@ async function main(): Promise<void> {
     quitting = true
     runtime?.stop()
     void staticSrv?.close()
+    void balancer?.close()
     releaseStateLock(paths.stateDir, process.pid, lockDeps)
     if (shellWindow !== null) {
       const bounds = shellWindow.getBounds()

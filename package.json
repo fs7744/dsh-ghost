@@ -62,7 +62,7 @@
     "test:playbook-ai": "node --test --experimental-transform-types packages/playbook/tests/ai.test.ts",
     "test:script-runtime": "node --test --experimental-transform-types packages/playbook-runtime/tests/runtime.test.ts",
     "test:evolution": "node --test --experimental-transform-types packages/evolution/tests/evolution.test.ts packages/evolution/tests/config.test.ts",
-    "test:model": "node --test --experimental-transform-types packages/model-adapter-kit/tests/contract.test.ts packages/model-manager/tests/catalog.test.ts packages/model-manager/tests/credentials.test.ts tests/unit/tooling.test.ts",
+    "test:model": "node --test --experimental-transform-types packages/model-adapter-kit/tests/contract.test.ts packages/model-manager/tests/catalog.test.ts packages/model-manager/tests/credentials.test.ts packages/model-manager/tests/discovery-balancing.test.ts tests/unit/tooling.test.ts",
     "test:shell": "node --test --experimental-transform-types apps/shell/tests/*.test.ts",
     "test:replay": "node scripts/replay.mjs --replay",
     "verify:panels": "node --experimental-transform-types scripts/verify-panels.mjs",

@@ -2,7 +2,8 @@
 
 > 对应 PLAN §12、FEATURES C3-01～05、REVIEW R8（凭据）、docs/LICENSING.md。
 > 结论先行：接模型这件事 harness 已经解决了 80%，本仓库做产品面 + 一个对外契约，
-> **不自己实现 provider 协议栈、不做聚合、不自动爬取能力**。
+> **不自己实现 provider 协议栈**；模型列表可从服务方自动拉取（结果可编辑），
+> 多个服务由壳内的轻量本地代理做负载均衡与故障转移，但协议转换仍交给 harness。
 
 ## 1. 三层分账
 
@@ -41,6 +42,8 @@
 | `roles.ts` | `parseRole` / `resolveRole` / `defaultModelForRole` / `validateRoleBindings` |
 | `catalog.ts` | `validateProviderSpec` / `createCatalog(store)` |
 | `probe.ts` | `runConnectivityProbe` / `normalizeProbeResult` / `describeProbe` |
+| `discovery.ts` | `discoveryUrl` / `discoveryHeaders` / `parseDiscoveredModels`（自动拉取模型列表） |
+| `balancing.ts` | `selectBalanceTarget` / `BALANCE_STRATEGIES`（5 种分发策略的纯选路） |
 
 ## 3. 能力标注与角色路由
 
@@ -98,9 +101,27 @@
 - `models-app.ts`：默认 host 通过 `fetch('/api/models/...')` 走同源；
   连不上后端时降级到内置 `DEMO_STATE` 并标 **demo**，页面仍可完整演示。
 
-页面提供：模型库列表、能力标注、角色路由编辑（下拉选模型）、连通性自测按钮、
-Ollama / vLLM 一键生成预设。后端 API 契约：`GET/POST /api/models/state`、
-`POST /api/models/probe`、`POST /api/models/preset`；未接后端时全部走 demo 降级。
+页面提供**可编辑**的服务管理：
+
+- 「+ 新增服务」表单——协议下拉（按业界标准：OpenAI Chat Completions / Responses /
+  Anthropic Messages / Google Gemini）、接口地址、API Key、以及可增删行的「支持的模型」
+  （id / 显示名 / 上下文 / 输出上限 / 思考档位）；编辑页对已有服务可改可删。
+- API Key 填**原文**即可，保存时经 `window.shellApi.setCredential`（Electron safeStorage /
+  Windows DPAPI）加密落系统安全区，`models.json` 里只留派生出的 `apiKeyEnv` 引用名
+  （如 `MY_LLM_KEY`）；浏览器 demo 模式无安全存储，会明确拒绝保存而不落明文。
+- 「职责 → 模型」：按职责（规划/路由、执行/干活）选模型，每个职责旁有按能力标注生成的
+  「推荐」按钮，顶栏「职责自动推荐」一键给全部职责分配；「自动推荐」是纯函数
+  `autoBindRoles`（规划优先推理档位多 / 上下文大的，执行选剩余里上下文大的）。
+- 连通性自测按钮、Ollama / vLLM 一键生成预设。
+
+- 「↓ 自动获取模型」：按服务的协议去拉标准 `/models` 端点，解析后把模型 id / 显示名
+  填进表单；**已填的行保留用户的修改，只追加新模型**，能力标注给保守默认值仍可逐项改。
+  密钥由壳按 `apiKeyEnv` 从安全存储取出注入请求头，明文不经过 API、不落日志。
+- 「多服务负载均衡」：每个服务有「参与负载均衡」开关与权重，全局可选
+  `单服务直连 / 轮询 / 随机 / 加权 / 故障转移` 五种策略。
+
+后端 API 契约：`GET/POST /api/models/state`、`POST /api/models/probe`、
+`POST /api/models/discover`、`POST /api/models/preset`；未接后端时全部走 demo 降级。
 
 ## 8. 许可证划分
 
@@ -129,8 +150,35 @@ node --test --experimental-transform-types packages/model-manager/tests/credenti
 
 `apps/desktop/models.html` 是独立的模型库页，Vite 多页构建会把它打进 `dist/`；主界面顶栏「模型」链接直达。它走同源 `/api/models/state|probe|preset`：
 
-- **Electron 生产**：`apps/shell/src/electron-static.ts` 把这一小段路径留在本机，`apps/shell/src/models-api.ts` 用 `model-manager` 的纯逻辑处理（校验、能力标注、角色路由、本地预设、连通性自测），其余 `/api/*` 照旧反代给 harness。凭据只认 env 引用名，探测时从进程环境取值且绝不写日志。
+- **Electron 生产**：`apps/shell/src/electron-static.ts` 把这一小段路径留在本机，`apps/shell/src/models-api.ts` 用 `model-manager` 的纯逻辑处理（校验、能力标注、职责路由、本地预设、连通性自测），其余 `/api/*` 照旧反代给 harness。配置只认 env 引用名；自测经注入的 `getCredential` 从安全存储取值，宿主启动时 `main.ts` 用 `modelCredentialEnv()` 把各服务的密钥按引用名注入宿主进程环境，明文绝不落配置或日志。
 - **Vite 开发**：没有本机 handler，页面自动降级到内置示例数据并标 `demo`，仍可演示完整交互。
 - 测试：`apps/shell/tests/models-api.test.ts`（8 用例：路由归属、状态往返、明文凭据拒绝、非法能力标注、探测归一化、预设去重），随 `npm run test:shell` 一起跑。
 
-配置目前存内存（壳重启即清空）——要持久化时给 `createModelsApi` 注入一个文件版 `CatalogStore` 即可，接口已经留好。
+配置持久化到用户数据目录的 `models.json`（文件版 `CatalogStore`，tmp + rename 原子写，坏文件回退空目录），壳重启不丢；密钥本身不在其中。
+
+## 11. 配置如何真正生效 + 多服务负载均衡
+
+模型库页保存后，`models-api.ts` 会把 providers 同步写到 harness 真正读取的
+`<userData>/ghost/ui/providers.json`，下次启动宿主的 `renderProvidersYaml` 就把它们
+渲染进 `cordis.patch.yml` 的 `llm-pi-ai.config.providers`。首次打开模型库页时若
+`models.json` 为空，会从旧的 `providers.json` 一次性导入，兼容「设置 → LLM 服务」里
+登记过的服务。
+
+harness 一次调用只能指定一个 provider/model，**多个服务本身不会被自动分摊**。因此
+壳内 `apps/shell/src/llm-balancer.ts` 起一个只监听 127.0.0.1 的聚合代理：
+
+- 代理地址作为 `wb` provider 的 `baseURL` 注入 `{{BASE_URL}}`，agent 侧无需改动；
+- 按选中的策略从启用的 OpenAI 兼容服务里挑一个，转发 `/v1/chat/completions`，
+  **流式响应逐块透传**；目标服务没有 agent 当前模型时改写成它自己的第一个模型；
+- 上游 429 / 5xx 或网络错误会**换下一个候选重试**（任何策略都有故障转移兜底）；
+- 没有可用服务时 `baseURL` 留空，patch 仍直连原来的 `WB_BASE_URL`，行为与旧版一致；
+- Anthropic / Gemini 线协议不同，不参与本代理分发，仍由 harness 按各自协议注册使用。
+
+策略、启用开关、权重都存在 `models.json` 里，**改完重启宿主生效**（patch 只在启动时渲染）；
+代理每次请求都重读配置，策略切换后重启即可。密钥仍只从 safeStorage 按 `apiKeyEnv` 取，
+只在出站请求里用一次，不写配置、不进日志。
+
+测试：`packages/model-manager/tests/discovery-balancing.test.ts`（协议端点/鉴权头、
+3 种响应形状的解析去重、5 种策略的确定性选路）、`apps/shell/tests/llm-balancer.test.ts`
+（真 HTTP 打假服务：轮询分发、模型 id 改写、500 故障转移、模型聚合、无服务透传），
+分别随 `npm run test:model` 与 `npm run test:shell` 跑。

@@ -15,3 +15,7 @@ export { validateProviderSpec, createCatalog } from './catalog.ts';
 export type { CatalogApi, CatalogModel } from './catalog.ts';
 export { normalizeProbeResult, describeProbe, runConnectivityProbe } from './probe.ts';
 export type { ProbeOutcome, ProbeFn, ConnectivityReport } from './probe.ts';
+export { discoveryUrl, discoveryHeaders, parseDiscoveredModels, DEFAULT_DISCOVERED_CONTEXT, DEFAULT_DISCOVERED_MAX_TOKENS, } from './discovery.ts';
+export type { DiscoveredModel } from './discovery.ts';
+export { BALANCE_STRATEGIES, isBalanceStrategy, selectBalanceTarget } from './balancing.ts';
+export type { BalanceStrategy, BalanceCandidate, BalanceSelection } from './balancing.ts';

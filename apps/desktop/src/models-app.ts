@@ -4,10 +4,16 @@
  * 默认 host 通过 fetch('/api/models/...') 走同源；连不上后端时降级到内置
  * DEMO_STATE 并标 demo，页面仍可完整演示。不碰 main.ts / style.css。
  */
-import { mountModelsPanel, type ModelsHost, type ProbeView } from './models-panel.ts'
+import { mountModelsPanel, type ModelsHost, type ProbeView, type DiscoverSpec, type DiscoverResult } from './models-panel.ts'
 import { DEMO_STATE, buildLocalPresetView, type ModelsState } from './models-view.ts'
 
 const API = '/api/models'
+
+/** 桌面壳 preload 暴露的最小 API；浏览器 demo 模式下不存在。 */
+interface ShellCredentialApi {
+  setCredential(name: string, plain: string): Promise<{ stored: boolean; reason?: string }>
+}
+const shellApi = (window as unknown as { shellApi?: ShellCredentialApi }).shellApi
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API}${path}`, {
@@ -44,6 +50,20 @@ function createHost(): ModelsHost {
       } catch (error) {
         return { ok: false, label: '自测失败', detail: String(error).slice(0, 60) }
       }
+    },
+    async discover(spec: DiscoverSpec): Promise<DiscoverResult> {
+      if (offline) return { ok: false, label: 'demo 模式无后端' }
+      try {
+        return await api<DiscoverResult>('/discover', { method: 'POST', body: JSON.stringify(spec) })
+      } catch (error) {
+        return { ok: false, label: '获取失败', detail: String(error).slice(0, 60) }
+      }
+    },
+    async setCredential(name: string, plain: string) {
+      if (shellApi?.setCredential === undefined) {
+        return { stored: false, reason: 'no-safe-storage' }
+      }
+      return await shellApi.setCredential(name, plain)
     },
     async applyPreset(preset: string): Promise<ModelsState> {
       if (!offline) {

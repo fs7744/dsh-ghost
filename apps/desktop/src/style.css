@@ -100,7 +100,7 @@ body.theme-light {
 .hidden { display: none !important; }
 html, body { height: 100%; }
 body { margin: 0; font-family: var(--font-ui); font-size: 13.5px; line-height: 1.6;
-  background: var(--window); color: var(--on-surface); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  background: var(--canvas); color: var(--on-surface); overflow: hidden; -webkit-font-smoothing: antialiased; }
 button, input, textarea, select { font-family: inherit; }
 button { color: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible {
@@ -113,14 +113,15 @@ svg.ico { display: block; flex: none; }
 ::-webkit-scrollbar-thumb:hover { background: var(--outline); background-clip: padding-box; }
 
 /* ============ 应用骨架 ============ */
-#app { display: flex; height: 100vh; padding: 8px; gap: 0; background: var(--window); }
+/* 窗口内容铺满：不在四周留 padding，避免露出 --window 形成一圈深色画框。 */
+#app { display: flex; height: 100vh; padding: 0; gap: 0; background: var(--canvas); }
 #sidebar { width: 252px; flex: none; display: flex; flex-direction: column; min-width: 0;
-  background: var(--sidebar); border-radius: 14px 0 0 14px; overflow: hidden;
+  background: var(--sidebar); overflow: hidden;
   transition: width .22s ease; }
 #app.sidebar-collapsed #sidebar { width: 0; }
 .workstage { flex: 1; min-width: 0; position: relative; display: grid;
   grid-template-rows: 56px minmax(0, 1fr) 26px; background: var(--canvas);
-  border-left: 1px solid var(--hairline); border-radius: 0 14px 14px 0; overflow: hidden; }
+  border-left: 1px solid var(--hairline); overflow: hidden; }
 header { grid-row: 1; display: flex; align-items: center; gap: 12px; padding: 0 18px; min-width: 0; }
 main { grid-row: 2; position: relative; min-height: 0; overflow: hidden;
   transition: padding-right .24s ease; }

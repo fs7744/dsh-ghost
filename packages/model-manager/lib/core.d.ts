@@ -5,6 +5,7 @@
  * CatalogStore，缺省是内存实现；界面与验收脚本各自注入自己的 store。
  * 凭据只允许 env 引用名（apiKeyEnv），绝不接受明文 key。
  */
+import type { BalanceStrategy } from './balancing.ts';
 export type ProviderApi = 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'google-generative-ai';
 export declare const PROVIDER_APIS: readonly ProviderApi[];
 export type ModelRole = 'router' | 'worker';
@@ -27,6 +28,10 @@ export interface ProviderSpec {
     baseURL?: string;
     apiKeyEnv: string;
     models: readonly ModelSpec[];
+    /** 是否参与负载均衡；缺省 true。只影响本地聚合代理，不写进 harness patch。 */
+    enabled?: boolean;
+    /** 负载均衡权重（weighted 策略用）；缺省 1。 */
+    weight?: number;
 }
 /** 把某个角色绑定到默认模型。 */
 export interface RoleBinding {
@@ -37,6 +42,10 @@ export interface RoleBinding {
 export interface CatalogState {
     providers: readonly ProviderSpec[];
     bindings: readonly RoleBinding[];
+    /** 多服务负载均衡配置；缺省 off（单服务直连）。 */
+    balance?: {
+        strategy: BalanceStrategy;
+    };
 }
 export declare const EMPTY_STATE: CatalogState;
 /** 配置读写的唯一入口；可注入文件实现、Remote 实现，或测试用的内存实现。 */

@@ -10,8 +10,9 @@
  */
 import {
   createMemoryStore, generateLocalRoute, isLocalPreset, runConnectivityProbe,
-  validateProviderSpec, findPlaintextCredentials,
+  validateProviderSpec, findPlaintextCredentials, parseDiscoveredModels, isBalanceStrategy,
   type CatalogState, type CatalogStore, type ModelSpec, type ProviderSpec, type RoleBinding,
+  type BalanceStrategy,
 } from '@dsh-ghost/model-manager'
 import { isLocalModelsApi } from './static-server.ts'
 
@@ -32,14 +33,26 @@ export interface ProviderViewShape {
   models: readonly ModelViewShape[]
 }
 export interface BindingViewShape { role: 'router' | 'worker'; providerId: string; modelId: string }
-export interface ModelsStateShape { providers: readonly ProviderViewShape[]; bindings: readonly BindingViewShape[]; demo: false }
+export interface ModelsStateShape {
+  providers: readonly ProviderViewShape[]
+  bindings: readonly BindingViewShape[]
+  balance?: { strategy: BalanceStrategy }
+  demo: false
+}
 
 export interface ModelsApiResponse { status: number; body: unknown }
 export type ProbeFn = (provider: ProviderSpec) => Promise<unknown> | unknown
+/** 模型发现：返回 provider 的 /models 原始响应，解析交给 parseDiscoveredModels。 */
+export type DiscoverFn = (provider: ProviderSpec) => Promise<unknown>
 
 export interface ModelsApiDeps {
   store?: CatalogStore
   probe?: ProbeFn
+  discover?: DiscoverFn
+  /** 保存后同步写 harness 真正读取的 providers.json，让配置进入 cordis patch。 */
+  syncProviders?: (providers: readonly ProviderSpec[]) => void
+  /** models.json 为空时从旧配置源（providers.json）导入，兼容设置面板的历史数据。 */
+  loadLegacyProviders?: () => readonly ProviderSpec[]
 }
 
 /** Catalog → 渲染层视图；可选字段在这里补成渲染层要的确定形状。 */
@@ -61,6 +74,7 @@ export function toView(state: CatalogState): ModelsStateShape {
     bindings: state.bindings
       .filter(binding => binding.role === 'router' || binding.role === 'worker')
       .map(binding => ({ role: binding.role as 'router' | 'worker', providerId: binding.providerId, modelId: binding.modelId })),
+    ...(state.balance === undefined ? {} : { balance: state.balance }),
   }
 }
 
@@ -91,6 +105,8 @@ export function fromView(value: unknown): CatalogState {
       ...(typeof raw.baseURL === 'string' && raw.baseURL !== '' ? { baseURL: raw.baseURL } : {}),
       apiKeyEnv: String(raw.apiKeyEnv ?? ''),
       models,
+      ...(typeof raw.enabled === 'boolean' ? { enabled: raw.enabled } : {}),
+      ...(typeof raw.weight === 'number' && Number.isFinite(raw.weight) ? { weight: raw.weight } : {}),
     }
     const problems = validateProviderSpec(spec)
     if (problems.length > 0) throw new Error(`provider ${spec.id} 不合法：${problems.join('; ')}`)
@@ -100,15 +116,41 @@ export function fromView(value: unknown): CatalogState {
     if (!isRecord(raw)) throw new Error('binding 必须是对象')
     return { role: String(raw.role ?? '') as RoleBinding['role'], providerId: String(raw.providerId ?? ''), modelId: String(raw.modelId ?? '') }
   })
-  return { providers, bindings }
+  let balance: CatalogState['balance']
+  if (isRecord(value.balance)) {
+    const strategy = String(value.balance.strategy ?? 'off')
+    if (!isBalanceStrategy(strategy)) throw new Error(`负载均衡策略非法：${strategy}`)
+    balance = { strategy }
+  }
+  return { providers, bindings, ...(balance === undefined ? {} : { balance }) }
 }
 
 /** 建一个本机模型 API；缺省内存 store，重启即清空（持久化由外层注入）。 */
 export function createModelsApi(deps: ModelsApiDeps = {}) {
   const store = deps.store ?? createMemoryStore()
   const probe: ProbeFn = deps.probe ?? (() => ({ ok: false, error: '未配置连通性探测' }))
+  const discover: DiscoverFn = deps.discover ?? (async () => { throw new Error('未配置模型发现') })
 
-  const read = async (): Promise<CatalogState> => await store.read()
+  let legacyImported = false
+  const read = async (): Promise<CatalogState> => {
+    const state = await store.read()
+    // 一次性迁移：模型库页是新建的，历史服务在设置面板写的 providers.json 里。
+    if (!legacyImported && state.providers.length === 0 && deps.loadLegacyProviders !== undefined) {
+      legacyImported = true
+      const legacy = deps.loadLegacyProviders()
+      if (legacy.length > 0) {
+        const merged: CatalogState = { ...state, providers: legacy }
+        await store.write(merged)
+        return merged
+      }
+    }
+    return state
+  }
+  /** 统一写口：models.json 与 harness 的 providers.json 必须一起更新，配置才真正生效。 */
+  const write = async (state: CatalogState): Promise<void> => {
+    await store.write(state)
+    deps.syncProviders?.(state.providers)
+  }
   const view = async (): Promise<ModelsStateShape> => toView(await read())
 
   return {
@@ -118,7 +160,7 @@ export function createModelsApi(deps: ModelsApiDeps = {}) {
         if (path === '/api/models/state' && method === 'GET') return { status: 200, body: await view() }
         if (path === '/api/models/state' && method === 'POST') {
           const next = fromView(body)
-          await store.write(next)
+          await write(next)
           return { status: 200, body: await view() }
         }
         if (path === '/api/models/probe' && method === 'POST') {
@@ -132,12 +174,40 @@ export function createModelsApi(deps: ModelsApiDeps = {}) {
             body: { ok: result.ok, label: result.label, ...(detail === undefined ? {} : { detail }) },
           }
         }
+        if (path === '/api/models/discover' && method === 'POST') {
+          const raw = isRecord(body) ? body : {}
+          const providerId = typeof raw['providerId'] === 'string' ? raw['providerId'] : ''
+          const saved = providerId === '' ? undefined : (await read()).providers.find(item => item.id === providerId)
+          if (providerId !== '' && saved === undefined) {
+            return { status: 404, body: { ok: false, label: '未找到该服务，请先保存' } }
+          }
+          // 以已保存配置为底，表单字段优先覆盖：这样「改了地址还没保存」也能先拉取验证。
+          // 密钥始终按 apiKeyEnv 从安全存储取，明文不经过这个 API。
+          const id = String(raw['id'] ?? saved?.id ?? '')
+          const pick = (key: string, fallback: string): string => {
+            const value = raw[key]
+            return typeof value === 'string' && value !== '' ? value : fallback
+          }
+          const target: ProviderSpec = {
+            id,
+            displayName: pick('displayName', saved?.displayName ?? id),
+            api: pick('api', saved?.api ?? 'openai-completions') as ProviderSpec['api'],
+            baseURL: pick('baseURL', saved?.baseURL ?? ''),
+            apiKeyEnv: pick('apiKeyEnv', saved?.apiKeyEnv ?? ''),
+            models: saved?.models ?? [],
+          }
+          if (!/^https?:\/\//.test(target.baseURL ?? '')) {
+            return { status: 400, body: { ok: false, label: '请先填写合法的接口地址' } }
+          }
+          const models = parseDiscoveredModels(target.api, await discover(target))
+          return { status: 200, body: { ok: true, models } }
+        }
         if (path === '/api/models/preset' && method === 'POST') {
           const preset = isRecord(body) ? String(body.preset ?? '') : ''
           if (!isLocalPreset(preset)) return { status: 400, body: { ok: false, label: `未知预设 ${preset}` } }
           const state = await read()
           const generated = generateLocalRoute(preset)
-          await store.write({ ...state, providers: [...state.providers.filter(item => item.id !== generated.id), generated] })
+          await write({ ...state, providers: [...state.providers.filter(item => item.id !== generated.id), generated] })
           return { status: 200, body: await view() }
         }
         return { status: 404, body: { ok: false, label: '未知模型 API 路径' } }

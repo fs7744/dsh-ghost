@@ -6,7 +6,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import type { CatalogState, CatalogStore, ProviderSpec, RoleBinding } from '@dsh-ghost/model-manager'
+import { isBalanceStrategy, type CatalogState, type CatalogStore, type ProviderSpec, type RoleBinding } from '@dsh-ghost/model-manager'
 
 const EMPTY: CatalogState = { providers: [], bindings: [] }
 
@@ -22,7 +22,12 @@ function parseState(raw: unknown): CatalogState {
     .filter(item => Array.isArray(item['models']))
     .map(item => item as unknown as ProviderSpec)
   const bindings = raw.bindings.filter(isRecord) as unknown as RoleBinding[]
-  return { providers, bindings }
+  // 负载均衡策略必须跟着 providers 一起持久化，否则代理每次读到的都是 off，
+  // 用户选的轮询 / 加权 / 故障转移形同虚设。
+  const balance = isRecord(raw.balance) && typeof raw.balance.strategy === 'string' && isBalanceStrategy(raw.balance.strategy)
+    ? { strategy: raw.balance.strategy }
+    : undefined
+  return { providers, bindings, ...(balance === undefined ? {} : { balance }) }
 }
 
 /** 文件版 CatalogStore；路径由调用方注入，测试可用临时目录。 */

@@ -6,6 +6,8 @@
  * 凭据只允许 env 引用名（apiKeyEnv），绝不接受明文 key。
  */
 
+import type { BalanceStrategy } from './balancing.ts'
+
 export type ProviderApi = 'openai-completions' | 'openai-responses' | 'anthropic-messages' | 'google-generative-ai'
 export const PROVIDER_APIS: readonly ProviderApi[] = ['openai-completions', 'openai-responses', 'anthropic-messages', 'google-generative-ai']
 
@@ -32,6 +34,10 @@ export interface ProviderSpec {
   baseURL?: string
   apiKeyEnv: string
   models: readonly ModelSpec[]
+  /** 是否参与负载均衡；缺省 true。只影响本地聚合代理，不写进 harness patch。 */
+  enabled?: boolean
+  /** 负载均衡权重（weighted 策略用）；缺省 1。 */
+  weight?: number
 }
 
 /** 把某个角色绑定到默认模型。 */
@@ -44,6 +50,8 @@ export interface RoleBinding {
 export interface CatalogState {
   providers: readonly ProviderSpec[]
   bindings: readonly RoleBinding[]
+  /** 多服务负载均衡配置；缺省 off（单服务直连）。 */
+  balance?: { strategy: BalanceStrategy }
 }
 
 export const EMPTY_STATE: CatalogState = Object.freeze({ providers: [], bindings: [] })
