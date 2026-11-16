@@ -91,15 +91,22 @@
 明文永不落 settings、永不进配置文件。Windows 上的加密存储（Electron `safeStorage`
 / DPAPI）属于桌面壳排期，不在本层；本层只保证「配置里没有明文」。
 
-## 7. 独立 UI 页
+## 7. UI 页（设置 → 模型）
 
-`apps/desktop/models.html` 是独立页面，不碰 `main.ts` / `style.css`：
+模型配置的主入口是左侧导航「设置 → 模型」分类，右上角「⋮ → 模型」直达；
+`apps/desktop/models.html` 保留为独立页，两处共用同一套组件与 host：
 
 - `models-view.ts`：纯逻辑零 DOM（demo 数据、能力格式化、角色解析与编辑、
   凭据标签、本地预设预览、状态摘要）。
 - `models-panel.ts`：DOM 渲染 + 事件委托，依赖可注入 `ModelsHost`。
-- `models-app.ts`：默认 host 通过 `fetch('/api/models/...')` 走同源；
+- `models-host.ts`：默认 host 通过 `fetch('/api/models/...')` 走同源；
   连不上后端时降级到内置 `DEMO_STATE` 并标 **demo**，页面仍可完整演示。
+- `models-app.ts`：独立页薄入口；设置页在 `admin-panels.ts` 里挂同一个面板。
+- 组件样式在全局 `style.css`（选择器都带 `#models-root` 前缀），两页共用；
+  `models.html` 只保留独立页布局样式。
+
+> 设置页按通用 / 模型 / MCP / 连接 / 智能体 / 高级分类组织（左侧二级导航）。
+> 老的「设置 → LLM 服务」简版表单已移除，统一到这里的增强版面板，避免出现两套配置入口。
 
 页面提供**可编辑**的服务管理：
 
@@ -148,7 +155,7 @@ node --test --experimental-transform-types packages/model-manager/tests/credenti
 
 ## 10. 界面接线（不是 demo 了）
 
-`apps/desktop/models.html` 是独立的模型库页，Vite 多页构建会把它打进 `dist/`；主界面顶栏「模型」链接直达。它走同源 `/api/models/state|probe|preset`：
+模型配置面板挂在「设置 → 模型」（`admin-panels.ts`）或独立页 `apps/desktop/models.html`（Vite 多页构建进 `dist/`）；右上角「⋮ → 模型」直达设置分类。它走同源 `/api/models/state|probe|preset|discover`：
 
 - **Electron 生产**：`apps/shell/src/electron-static.ts` 把这一小段路径留在本机，`apps/shell/src/models-api.ts` 用 `model-manager` 的纯逻辑处理（校验、能力标注、职责路由、本地预设、连通性自测），其余 `/api/*` 照旧反代给 harness。配置只认 env 引用名；自测经注入的 `getCredential` 从安全存储取值，宿主启动时 `main.ts` 用 `modelCredentialEnv()` 把各服务的密钥按引用名注入宿主进程环境，明文绝不落配置或日志。
 - **Vite 开发**：没有本机 handler，页面自动降级到内置示例数据并标 `demo`，仍可演示完整交互。
@@ -158,9 +165,9 @@ node --test --experimental-transform-types packages/model-manager/tests/credenti
 
 ## 11. 配置如何真正生效 + 多服务负载均衡
 
-模型库页保存后，`models-api.ts` 会把 providers 同步写到 harness 真正读取的
+模型配置页保存后，`models-api.ts` 会把 providers 同步写到 harness 真正读取的
 `<userData>/ghost/ui/providers.json`，下次启动宿主的 `renderProvidersYaml` 就把它们
-渲染进 `cordis.patch.yml` 的 `llm-pi-ai.config.providers`。首次打开模型库页时若
+渲染进 `cordis.patch.yml` 的 `llm-pi-ai.config.providers`。首次打开模型配置页时若
 `models.json` 为空，会从旧的 `providers.json` 一次性导入，兼容「设置 → LLM 服务」里
 登记过的服务。
 

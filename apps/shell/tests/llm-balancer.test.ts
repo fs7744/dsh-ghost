@@ -56,7 +56,8 @@ test('round-robin 把两次请求分发到两个服务，并改写目标不认�
     let raw = ''
     req.on('data', chunk => { raw += String(chunk) })
     req.on('end', () => {
-      seen.push({ id: 'a', model: (JSON.parse(raw) as { model: unknown }).model, auth: req.headers.authorization })
+      const auth = req.headers.authorization
+      seen.push({ id: 'a', model: (JSON.parse(raw) as { model: unknown }).model, ...(auth === undefined ? {} : { auth }) })
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end('{"choices":[{"message":{"content":"A"}}]}')
     })

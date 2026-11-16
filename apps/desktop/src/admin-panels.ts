@@ -11,6 +11,8 @@ import {
 import { applyCustomSkin, invokeSlot, slotSection } from './extensions.ts'
 import { createSchedule, renderSchedulesSection, scheduleAction } from './schedules-section.ts'
 import { activePresetId, applyPreset, SKIN_PRESETS } from './themes.ts'
+import { mountModelsPanel } from './models-panel.ts'
+import { createModelsHost } from './models-host.ts'
 
 export function sortByName<T extends { name: string }>(rows: readonly T[]): T[] {
   return [...rows].sort((a, b) => a.name.localeCompare(b.name))
@@ -168,25 +170,55 @@ interface SectionJob {
 
 const EMPTY_ARGS = (): Record<string, unknown> => ({})
 
-/** C8-16 设置页：模型信息 / MCP / 用户设置三分区。 */
+/** 设置页分类：左侧导航，右侧只显示当前分类。参考 WorkBuddy / Claude 的设置形态。 */
+const SETTINGS_CATEGORIES = [
+  { id: 'general', labelKey: 'settings.cat.general' },
+  { id: 'model', labelKey: 'settings.cat.model' },
+  { id: 'mcp', labelKey: 'settings.cat.mcp' },
+  { id: 'connection', labelKey: 'settings.cat.connection' },
+  { id: 'agent', labelKey: 'settings.cat.agent' },
+  { id: 'advanced', labelKey: 'settings.cat.advanced' },
+] as const
+type SettingsCategoryId = typeof SETTINGS_CATEGORIES[number]['id']
+
+/** C8-16 设置页：按分类组织的设置项；模型分类内嵌可编辑的模型配置面板。 */
 export function mountSettingsPanel(host: HTMLElement, services: PanelServices): PanelInstance {
+  const nav = SETTINGS_CATEGORIES.map((cat, index) =>
+    `<button type="button" class="setnav${index === 1 ? ' active' : ''}" data-cat="${cat.id}" data-t="${cat.labelKey}"></button>`).join('')
   host.innerHTML = `<div class="panelbar">
       <strong data-t="tab.settings"></strong>
       <button data-act="refresh" data-t="common.refresh"></button>
       <span class="panelspacer"></span><span class="panelstatus"></span>
     </div>
-    <div class="adminbody">
-      <section><h3 data-t="admin.providers"></h3><div data-sec="providers"></div></section>
-      <section><h3 data-t="admin.mcp"></h3><div data-sec="mcp"></div></section>
-      <section><h3 data-t="settings.llmServices"></h3><div data-sec="llm"></div></section>
-      <section><h3 data-t="settings.proxy"></h3><div data-sec="proxy"></div></section>
-      <section><h3 data-t="settings.skin"></h3><div data-sec="skin"></div></section>
-      <section><h3 data-t="settings.extension"></h3><div data-sec="extension"></div></section>
-      <section><h3 data-t="settings.peers"></h3><div data-sec="peers"></div></section>
-      <section><h3 data-t="settings.permission"></h3><div data-sec="permission"></div></section>
-      <section><h3 data-t="settings.schedules"></h3><div data-sec="schedules"></div></section>
-      <section><h3 data-t="ui.extensions"></h3><div data-sec="slots"></div></section>
-      <section><h3 data-t="admin.settings"></h3><div data-sec="settings"></div></section>
+    <div class="settings-shell">
+      <nav class="settings-nav">${nav}</nav>
+      <div class="settings-panes">
+        <section data-pane="general" class="hidden">
+          <h3 data-t="settings.skin"></h3><div data-sec="skin"></div>
+          <h3 data-t="ui.extensions"></h3><div data-sec="slots"></div>
+        </section>
+        <section data-pane="model">
+          <h3 data-t="settings.cat.model"></h3>
+          <p class="set-hint" data-t="settings.model.hint"></p>
+          <div id="models-root" class="settings-models"></div>
+          <h3 data-t="admin.providers"></h3><div data-sec="providers"></div>
+        </section>
+        <section data-pane="mcp" class="hidden">
+          <h3 data-t="admin.mcp"></h3><div data-sec="mcp"></div>
+        </section>
+        <section data-pane="connection" class="hidden">
+          <h3 data-t="settings.proxy"></h3><div data-sec="proxy"></div>
+          <h3 data-t="settings.extension"></h3><div data-sec="extension"></div>
+        </section>
+        <section data-pane="agent" class="hidden">
+          <h3 data-t="settings.peers"></h3><div data-sec="peers"></div>
+          <h3 data-t="settings.permission"></h3><div data-sec="permission"></div>
+          <h3 data-t="settings.schedules"></h3><div data-sec="schedules"></div>
+        </section>
+        <section data-pane="advanced" class="hidden">
+          <h3 data-t="admin.settings"></h3><div data-sec="settings"></div>
+        </section>
+      </div>
     </div>`
   const statusEl = host.querySelector<HTMLElement>('.panelstatus')!
   const jobs: SectionJob[] = [
@@ -221,6 +253,19 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       },
     },
   ]
+  // 模型配置面板只挂载一次：它自己管理表单状态，重复挂载会叠加事件监听。
+  const modelsRoot = host.querySelector<HTMLElement>('#models-root')
+  if (modelsRoot !== null) mountModelsPanel(modelsRoot, createModelsHost())
+
+  const showCategory = (id: SettingsCategoryId): void => {
+    for (const button of host.querySelectorAll<HTMLElement>('.setnav')) {
+      button.classList.toggle('active', button.dataset.cat === id)
+    }
+    for (const pane of host.querySelectorAll<HTMLElement>('.settings-panes [data-pane]')) {
+      pane.classList.toggle('hidden', pane.dataset.pane !== id)
+    }
+  }
+
   const load = async (): Promise<void> => {
     paintText(host, services)
     let okCount = 0
@@ -235,7 +280,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       okCount += 1
       box.innerHTML = job.render(result.value, services)
     }
-    await renderLlmServices(host, services)
+    // LLM 服务已并入「模型」分类的可编辑面板（models-panel.ts），旧简版表单不再渲染。
     await renderProxySection(host, services)
     await renderSkinSection(host, services)
     await renderExtensionSection(host, services)
@@ -247,14 +292,16 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
   }
   host.addEventListener('click', event => {
     const target = event.target as HTMLElement
+    const nav = target.closest<HTMLElement>('.setnav')
+    if (nav !== null) {
+      const id = nav.dataset.cat
+      if (id !== undefined) showCategory(id as SettingsCategoryId)
+      return
+    }
     const button = target.closest<HTMLButtonElement>('button[data-act]')
     if (button === null) return
     const action = button.dataset.act ?? ''
     if (action === 'refresh') { void load(); return }
-    if (action === 'add-provider') {
-      void submitProvider(host, services)
-      return
-    }
     if (action === 'save-proxy') {
       void submitProxy(host, services)
       return
@@ -337,77 +384,6 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     }
   })
   return { refresh: load }
-}
-
-/** LLM 服务区：列出已登记的 provider，并提供登记表单（校验由宿主插件做）。 */
-async function renderLlmServices(host: HTMLElement, services: PanelServices): Promise<void> {
-  const box = host.querySelector<HTMLElement>('[data-sec="llm"]')
-  if (box === null) return
-  const result = await safeCall(() => services.transport.call('ghostUI/providers' as never, {} as never))
-  if (!result.ok) {
-    box.innerHTML = unavailableHtml(services.t('common.unavailable'), result.reason)
-    return
-  }
-  const raw = record(result.value)
-  const providers = asList(raw.providers)
-  const errors = asList(raw.errors).map(item => String(item))
-  const rows = providers.map(item => {
-    const provider = record(item)
-    const models = asList(provider.models).map(model => pickStr(record(model), ['id'])).filter(text => text !== '')
-    return `<div class="lrow"><span class="lname">${escapeHtml(pickStr(provider, ['displayName', 'id']))}</span>
-      <span class="ldetail">${escapeHtml(`${pickStr(provider, ['id'])} · ${models.join('、')}`)}</span></div>`
-  }).join('')
-  box.innerHTML = (rows === '' ? `<div class="empty">${escapeHtml(services.t('common.empty'))}</div>` : rows)
-    + (errors.length === 0 ? '' : `<div class="empty">${escapeHtml(errors.join('；'))}</div>`)
-    + `<div class="lrow"><input data-llm="id" placeholder="id（kebab-case）" />
-      <input data-llm="displayName" placeholder="显示名" />
-      <select data-llm="api">
-        <option value="openai-completions">openai-completions</option>
-        <option value="openai-responses">openai-responses</option>
-        <option value="anthropic-messages">anthropic-messages</option>
-        <option value="google-generative-ai">google-generative-ai</option>
-      </select>
-      <input data-llm="baseURL" placeholder="baseURL（可选）" />
-      <input data-llm="apiKeyEnv" placeholder="凭据 env 名（如 OLLAMA_KEY）" />
-      <input data-llm="model" placeholder="模型 id" />
-      <input data-llm="contextWindow" type="number" placeholder="上下文窗口" value="32768" />
-      <input data-llm="maxTokens" type="number" placeholder="输出上限" value="8192" />
-      <button data-act="add-provider" data-t="settings.llmServices.add"></button></div>`
-    + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.llmServices.hint'))}</span></div>`
-}
-
-/** 提交 LLM 服务登记：读表单 → 追加到现有列表 → 交给宿主插件校验并落盘。 */
-async function submitProvider(host: HTMLElement, services: PanelServices): Promise<void> {
-  const read = (key: string): string => host.querySelector<HTMLInputElement>(`[data-llm="${key}"]`)?.value.trim() ?? ''
-  const id = read('id')
-  const model = read('model')
-  if (id === '' || model === '') {
-    services.notice(services.t('settings.llmServices.incomplete'))
-    return
-  }
-  const current = await safeCall(() => services.transport.call('ghostUI/providers' as never, {} as never))
-  const providers = current.ok ? asList(record(current.value).providers).map(item => record(item)) : []
-  providers.push({
-    id,
-    displayName: read('displayName') === '' ? id : read('displayName'),
-    api: read('api') === '' ? 'openai-completions' : read('api'),
-    ...(read('baseURL') === '' ? {} : { baseURL: read('baseURL') }),
-    apiKeyEnv: read('apiKeyEnv') === '' ? 'MODEL_KEY' : read('apiKeyEnv'),
-    models: [{
-      id: model,
-      capabilities: {
-        contextWindow: Number.parseInt(read('contextWindow') || '32768', 10),
-        maxTokens: Number.parseInt(read('maxTokens') || '8192', 10),
-        reasoningEfforts: [],
-      },
-    }],
-  })
-  const saved = await safeCall(() => services.transport.call('ghostUI/providersSave' as never, { input: { providers } } as never))
-  if (!saved.ok) {
-    services.notice(saved.reason)
-    return
-  }
-  services.notice(services.t('settings.llmServices.saved'))
 }
 
 /** 网络代理区：填 http/https/noProxy，交给宿主插件校验并落盘（重启宿主后生效）。 */

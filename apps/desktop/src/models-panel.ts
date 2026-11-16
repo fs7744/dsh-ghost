@@ -32,7 +32,7 @@ export interface DiscoverSpec {
   baseURL?: string
   apiKeyEnv?: string
 }
-export interface DiscoverResult { ok: boolean; models?: DiscoveredView[]; label?: string }
+export interface DiscoverResult { ok: boolean; models?: DiscoveredView[]; label?: string; detail?: string }
 
 export interface ModelsHost {
   load(): Promise<ModelsState>

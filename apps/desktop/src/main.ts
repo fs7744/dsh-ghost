@@ -189,7 +189,7 @@ app.innerHTML = `
   <div id="model-menu" class="popover hidden"></div>
   <div id="command-menu" class="popover hidden"></div>
   <div id="more-menu" class="popover hidden">
-    <a id="link-models" class="navlink" href="models.html" data-t="tab.models" title="模型库、能力标注与角色路由"></a>
+    <button id="link-models" data-t="tab.models" title="打开设置里的模型配置"></button>
     <button data-export="md" data-t="ui.exportMd"></button>
     <button data-export="jsonl" data-t="ui.exportJsonl"></button>
     <div class="popfoot">Ctrl+K 指令 · Ctrl+B 侧栏 · Ctrl+, 设置</div>
@@ -955,6 +955,13 @@ async function main(): Promise<void> {
   el('btn-new').addEventListener('click', () => { void newSession() })
   el('btn-search').addEventListener('click', () => el<HTMLInputElement>('side-search').focus())
   el('btn-side-settings').addEventListener('click', () => mountedPanels?.activate('settings'))
+  // 「⋮」→ 模型：打开设置页并切到「模型」分类（全应用只有这一处模型配置入口）。
+  el('link-models').addEventListener('click', () => {
+    mountedPanels?.activate('settings')
+    closePopovers()
+    const modelNav = document.querySelector<HTMLElement>('#panel-settings .setnav[data-cat="model"]')
+    modelNav?.click()
+  })
   el<HTMLInputElement>('side-search').addEventListener('input', () => applySearch())
   el<HTMLInputElement>('side-search').addEventListener('keydown', event => {
     if (event.key === 'Escape') {

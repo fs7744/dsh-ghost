@@ -12,7 +12,7 @@
 - 剧本 = skill：`.flow` 是唯一真相源，图 / 表单 / 源码三视图共享同一条文本数据流（编辑即回写**文本**，浏览器阶段用「导出 .flow」落盘；文件直写待 Electron 工作区 IPC）；另有图 diff、可注入的 AI 生成与局部重写（默认确定性实现，无需 key）、单步试跑、脚本运行时与分层 references。
 - 记忆与进化：文件式四层记忆、写入门槛、界面可看可删；返工三次生成约束提案，剧本/技能提案落盘待人工批准，`runs.jsonl` 记度量——**禁止运行时静默改自己**。
 - 契约面：131 项宿主探针 + 224 个 Remote 端点 + 31 个转发事件，全部从 harness 编译产物生成并做漂移校验。
-- 桌面壳：`apps/shell` 是 Electron 主进程（Windows x64 / macOS x64+arm64 / Linux x64+arm64），runtime 子进程 / 单实例 / 托盘 / 开机启动 / 崩溃恢复 / `safeStorage`(DPAPI/Keychain) / 诊断包脱敏 / NSIS+dmg+AppImage 与更新通道配置齐全。启动直接进工作台，模型/密钥/职责随用随配（见「模型库」页）。
+- 桌面壳：`apps/shell` 是 Electron 主进程（Windows x64 / macOS x64+arm64 / Linux x64+arm64），runtime 子进程 / 单实例 / 托盘 / 开机启动 / 崩溃恢复 / `safeStorage`(DPAPI/Keychain) / 诊断包脱敏 / NSIS+dmg+AppImage 与更新通道配置齐全。启动直接进工作台，模型/密钥/职责随用随配（见「设置 → 模型」）。
 - 测试分层：L0 单测、L1 确定性故障注入假端点、L2 JSONL 回放、L3 真模型**结构**断言、L4 离线评测、L5 Playwright 骨架、CI 门禁矩阵。
 
 > 仍需真实环境才能闭环的只有 P4 外部动作：代码签名/公证证书、干净机器上的安装→自更新→卸载、发版前官方 BYOK 冒烟。Electron 44.7.0 内置 Node 与原生模块已实测。详见 [PLAN.md §0](PLAN.md) 与 [docs/RELEASE.md](docs/RELEASE.md)。
@@ -44,7 +44,7 @@
 | **进化（C10-05～07）** | 三次返工 → 人闸提案 → L2 约束；剧本/技能提案只落盘不自动应用；`runs.jsonl` + before/after 度量 |
 | **上下文与项目记忆（C11-03/04/07）** | 压缩策略配置、占用条上的压缩点标记与可展开原文、`/init` 等价的 `GHOST.md` 草案（不覆盖既有文件） |
 | **superagent 装配（B2–B7）** | 三个插件入口、19 个会话工具描述符与处理器、7 个面板视图、GitHub / 飞书（默认关）触发源、16 个分级加载的提示词、部署脚本与自检，见 [docs/SUPERAGENT.md](docs/SUPERAGENT.md) |
-| **模型层（C3）** | `model-manager`（provider / 能力标注 / 角色路由 / 连通性自测 / 模型列表自动拉取 / 5 种负载均衡选路 / Ollama·vLLM 预设 / 明文凭据拒绝）与 `model-adapter-kit`（Apache-2.0 的稳定三方法契约，第三方插件不碰 harness）；模型库页由 Electron 本机 `/api/models/*` 提供真数据，Vite 开发时降级 demo；打包态壳内本地代理把多服务分摊请求并做故障转移 |
+| **模型层（C3）** | `model-manager`（provider / 能力标注 / 角色路由 / 连通性自测 / 模型列表自动拉取 / 5 种负载均衡选路 / Ollama·vLLM 预设 / 明文凭据拒绝）与 `model-adapter-kit`（Apache-2.0 的稳定三方法契约，第三方插件不碰 harness）；模型配置在「设置 → 模型」分类（左侧导航），由 Electron 本机 `/api/models/*` 提供真数据，Vite 开发时降级 demo；打包态壳内本地代理把多服务分摊请求并做故障转移 |
 | **升级与纪律（C1-04/05）** | `upgrade:harness` 8 步 dry-run 默认、绝不 push；`check-port-discipline` 禁绕过 port 层；`matrix.json` + [UPGRADE.md](docs/UPGRADE.md) |
 | **测试分层（C4）** | [TESTING.md](docs/TESTING.md)：L1 假端点 7 种故障、L2 规范化回放、L3 结构断言、L4 评分、L5 规格、CI 门禁 |
 | **Electron 壳与发布（C5/C6/C7）** | `apps/shell` + `build/` + [RELEASE.md](docs/RELEASE.md)；单实例 / 托盘 / 崩溃恢复 / 安全存储 / 诊断包 / NSIS+dmg+AppImage / 更新通道 / 隐私与第三方声明 |
@@ -124,8 +124,9 @@ npm run dev:ui
 
 > 只改了 `apps/desktop/**` 的前端代码：跳过第 4 步，直接 `npm run dev:ui` 即可（Vite 热更新）。
 > 改了 `packages/**` 的包代码：必须先 `npm run build` 再启动，否则插件还是旧的。
-> 模型服务的协议 / 地址 / key / 支持模型 / 职责选模型，都在界面的「模型库」页配置，
-> 改完重启宿主生效；密钥经 safeStorage（Windows DPAPI）加密后存系统安全区，配置里只留引用名。
+> 模型服务的协议 / 地址 / key / 支持模型 / 职责选模型，都在左侧导航「设置 → 模型」分类里配置
+> （右上角「⋮ → 模型」也能直达）；改完重启宿主生效；密钥经 safeStorage（Windows DPAPI）
+> 加密后存系统安全区，配置里只留引用名。设置页按通用 / 模型 / MCP / 连接 / 智能体 / 高级分类组织。
 > 模型列表可点「↓ 自动获取模型」从服务方拉取（填过的行保留你的修改）；可配置多个 LLM 服务，
 > 在「多服务负载均衡」里选轮询 / 随机 / 加权 / 故障转移，并逐服务设置启用与权重——
 > 壳内本地代理会把请求分摊到各服务，上游失败自动换下一个（见 docs/MODELS.md §11）。

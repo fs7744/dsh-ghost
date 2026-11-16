@@ -6,77 +6,9 @@
     <title>dsh-ghost · 模型库</title>
     <link rel="stylesheet" href="/src/style.css" />
     <style>
-      /* 独立页专用样式，不改全局 style.css；颜色一律走变量，亮暗主题都可读。 */
+      /* 组件样式在全局 style.css（设置页「模型」分类共用）；这里只管独立页布局。 */
       body { overflow: auto; }
       #models-root { max-width: 960px; margin: 0 auto; padding: 28px 24px 40px; }
-      #models-root .mmbar { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--hairline); padding-bottom: 12px; }
-      #models-root .mspacer { flex: 1; }
-      #models-root .mdemo { color: var(--warn); font-size: 12px; }
-      #models-root .mnotice { min-height: 20px; color: var(--accent); font-size: 12.5px; margin: 8px 0; }
-      #models-root .msection { margin: 22px 0; }
-      #models-root .mprovider { border: 1px solid var(--outline); border-radius: var(--radius-lg); padding: 12px 14px; margin: 10px 0; background: var(--surface-low); }
-      #models-root .mphead { display: flex; align-items: center; gap: 10px; }
-      #models-root .mmeta { color: var(--faint); font-size: 12px; }
-      #models-root .mprobe { font-size: 12px; margin-left: 8px; }
-      #models-root .mprobe.ok { color: var(--ok); }
-      #models-root .mprobe.bad { color: var(--danger); }
-      #models-root .mmodels { list-style: none; padding-left: 8px; margin: 8px 0 0; }
-      #models-root .mmodel { display: flex; gap: 12px; padding: 5px 0; }
-      #models-root .mid { color: var(--faint); font-size: 12px; }
-      #models-root .mcap { color: var(--on-surface-variant); font-size: 12px; }
-      #models-root .mrole { color: var(--on-surface-variant); font-size: 12.5px; }
-      #models-root .mrole-row { padding: 8px 10px; margin: 6px 0; border: 1px solid var(--outline);
-        border-radius: var(--radius-md); background: var(--surface-low); }
-      #models-root .mrole-line { display: flex; align-items: center; gap: 10px; }
-      #models-root .mrole-line select { min-width: 260px; max-width: 460px; }
-      #models-root .mrole-hint { color: var(--faint); font-size: 11px; margin: 5px 0 0; }
-      #models-root .mrec button { border-color: var(--accent); color: var(--accent); }
-      #models-root .msec-hint { color: var(--faint); font-size: 11.5px; margin: -4px 0 8px; }
-      #models-root .mprobe-api { color: var(--accent); font-size: 11px;
-        padding: 1px 8px; border-radius: 999px; background: var(--accent-container); }
-      #models-root .mlb { color: var(--on-surface-variant); font-size: 11px;
-        padding: 1px 8px; border-radius: 999px; background: var(--surface-low); }
-      #models-root .mbalance { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-      #models-root .mbalance label { display: flex; align-items: center; gap: 8px;
-        color: var(--on-surface-variant); font-size: 12px; }
-      #models-root .mbtns { display: flex; gap: 8px; }
-      #models-root .empty { color: var(--faint); }
-
-      /* 新增 / 编辑服务表单 */
-      #models-root .mform { margin: 12px 0; padding: 16px; border: 1px solid var(--accent-soft, var(--accent));
-        border-radius: var(--radius-lg); background: var(--surface-low); }
-      #models-root .mfhead { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
-      #models-root .mfh-save-note { color: var(--faint); font-size: 11px; }
-      #models-root .mfgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
-      #models-root .mfgrid label { display: flex; flex-direction: column; gap: 4px;
-        color: var(--on-surface-variant); font-size: 11.5px; }
-      #models-root .mfgrid .mf-wide { grid-column: 1 / -1; }
-      #models-root .mfgrid input, #models-root .mfgrid select { width: 100%; }
-      #models-root .mfgrid input[readonly] { opacity: .65; cursor: not-allowed; }
-      #models-root .mfgrid .mfcheck { flex-direction: row; align-items: center; gap: 7px; }
-      #models-root .mfgrid .mfcheck input { width: auto; }
-      #models-root .mfhint { color: var(--faint); font-size: 11px; margin: 10px 0 0; }
-      #models-root .mfhint code { color: var(--accent); font-family: var(--font-mono); }
-      #models-root .mfmodels-head { display: flex; align-items: center; gap: 8px;
-        margin: 14px 0 6px; font-size: 12px; color: var(--on-surface-variant); }
-      #models-root .mfmodels-head span { flex: 1; }
-      #models-root .mfmodels-head [data-act="discover"] { border-color: var(--accent); color: var(--accent); }
-      #models-root .mfmodels-head button:disabled { opacity: .55; cursor: wait; }
-      #models-root .mfcolhead, #models-root .mfrow { display: grid;
-        grid-template-columns: 1.2fr 1.2fr .9fr .9fr 1.2fr 28px; gap: 6px; align-items: center; }
-      #models-root .mfcolhead { color: var(--faint); font-size: 10.5px; padding: 0 2px 4px; }
-      #models-root .mfrow { margin-bottom: 6px; }
-      #models-root .mfrow input { width: 100%; min-width: 0; padding: 5px 8px; }
-      #models-root .mfdel { padding: 0; width: 28px; height: 30px; color: var(--danger); }
-      #models-root .mfbtns { display: flex; gap: 8px; margin-top: 14px; }
-      #models-root .mf-primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
-      #models-root .mf-primary:hover { color: #fff; filter: brightness(1.08); }
-
-      #models-root button, #models-root select, #models-root input { border: 1px solid var(--outline);
-        border-radius: var(--radius-md); background: var(--surface-low); color: var(--on-surface);
-        padding: 5px 9px; font-size: 12px; cursor: pointer; }
-      #models-root input { cursor: text; }
-      #models-root button:hover { border-color: var(--accent); color: var(--accent); }
     </style>
   </head>
   <body>
