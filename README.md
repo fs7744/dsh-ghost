@@ -131,6 +131,27 @@ npm run dev:ui
 > 壳内本地代理会把请求分摊到各服务，上游失败自动换下一个（见 docs/MODELS.md §11）。
 > 不需要首启向导——启动直接进工作台。
 
+### 桌面窗体（Electron）：完整启动
+
+`dev:ui` 起的是**浏览器调试**，不是桌面窗口。桌面窗体是另一条自包含链路：
+Electron 主进程自己起 harness、自己开本机静态服务（从编译产物加载界面），
+不经过 Vite，也没有热更新。改了代码要重新编译才生效。
+
+一条命令编译全部并拉起窗体（Windows cmd，先配好 PATH）：
+
+```sh
+set "PATH=C:\Users\Windows\.workbuddy\binaries\node\versions\22.22.2-6;%PATH%" && npm run build && npm run build:ui && npm run build:shell && npx electron .
+```
+
+各步作用：`build` 编译内部包到 `lib/`；`build:ui` 产出 `apps/desktop/dist`（界面）；
+`build:shell` 把主进程 bundle 到 `apps/shell/dist/main.js`；`npx electron .` 按根
+`package.json` 的 `main` 启动窗体。前置运行时复用 `spikes/p05-transport/node_modules`
+与 `.dsh-home`，无需额外准备。关掉窗口即退出（harness 子进程一并结束）。
+
+> 开发态窗体不启用负载均衡代理（`isPackaged()` 为 false，见 `main.ts`），代理只在打包态生效；
+> 要验证完整的多服务分发请用 `npm run pack:win` 打包后的程序。
+> 只想快速调界面用 `dev:ui`，想看真实窗口 / 托盘 / 单实例 / 安全存储用本节的 Electron 命令。
+
 ### 命令速查
 
 ```sh
@@ -178,7 +199,8 @@ npm run verify:auth               # 安全边界：401 / 伪造 Cookie / 非本�
 npm run verify:commands           # 斜杠命令：commands/list + commands/execute
 npm run check:secrets             # 扫描受版本控制的文件里有没有密钥
 
-npm run dev:ui                    # 起 harness + 前端（自动读 .env，保留人工审批）
+npm run dev:ui                    # 浏览器调试：起 harness + Vite 前端（自动读 .env，保留人工审批）
+npx electron .                    # 桌面窗体：需先 build + build:ui + build:shell（见上节）
 npm run ticket                    # 触发 → 准入 → 建票 → 派活（真模型）→ 报告
 npm run verify:auto-run           # 开票后执行器自己跑完，不需人工推进
 npm run verify:github             # GitHub webhook：签名 → Trigger → 开票
