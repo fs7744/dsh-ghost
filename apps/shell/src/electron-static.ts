@@ -162,7 +162,11 @@ function proxyHttp(req: http.IncomingMessage, res: http.ServerResponse, harnessP
       port: harnessPort,
       path,
       method: req.method,
-      headers: { ...req.headers, host: `${LOCAL_HOST}:${harnessPort}` },
+      // **不要改写 Host**：harness 的 Host/Origin 栅栏要求 Origin 的 host:port
+      // 与 Host 完全一致，而且会话 Cookie 是按 Host 里的 authority 签发的。
+      // 改写成宿主的端口 → Origin 对不上 → 全部 403；Cookie 的 authority 也对不上
+      // → WebSocket 事件流 401。开发态的 vite 代理用 changeOrigin:false 也是这个道理。
+      headers: { ...req.headers },
     },
     up => {
       res.writeHead(up.statusCode ?? 502, up.headers)

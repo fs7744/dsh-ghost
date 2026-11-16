@@ -214,6 +214,8 @@ async function main(): Promise<void> {
     electron: process.versions['electron'] ?? 'unknown',
     chromium: process.versions['chrome'] ?? 'unknown',
     node: process.versions['node'] ?? 'unknown',
+    // 无边框窗口（Windows / Linux）：界面要把侧栏头部标成拖动区。
+    frameless: process.platform !== 'darwin',
   })
   const environment = (): Record<string, unknown> => ({
     platform: process.platform,
@@ -255,7 +257,7 @@ async function main(): Promise<void> {
       })
       shellWindow.hideMenu()
 
-  const ipc = registerIpc({
+      const ipc = registerIpc({
         fs, clock, logger, configPath,
         getConfig, setConfig, vault, telemetry,
         currentToken: () => currentToken,
@@ -271,6 +273,13 @@ async function main(): Promise<void> {
         setTickets: value => { ticketCache = value },
         workspaceRoot: () => config.workspaceDir !== '' ? config.workspaceDir : join(paths.userData, 'workspace'),
         issuePairingCode: () => pairing.issue(),
+        // 无边框窗口：界面自己的窗口按钮。
+        windowAction: action => {
+          if (shellWindow === null) return
+          if (action === 'minimize') shellWindow.minimize()
+          else if (action === 'maximize') shellWindow.toggleMaximize()
+          else shellWindow.close()
+        },
       })
 
       buildApplicationMenu({

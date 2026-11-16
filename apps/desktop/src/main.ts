@@ -128,6 +128,12 @@ app.innerHTML = `
         <button id="btn-lang" class="text-btn" title="切换中英文">中 / EN</button>
         <button id="btn-detail" class="icon-btn" data-detail title="任务详情" aria-label="任务详情">${icon('panel')}</button>
         <button id="btn-more" class="icon-btn" data-popover="more-menu" title="更多" aria-label="更多">${icon('dots')}</button>
+        <!-- 无边框窗口没有系统标题栏，窗口按钮由界面自己提供（仅打包态显示）。 -->
+        <span class="win-buttons">
+          <button class="win-btn" data-window="minimize" title="最小化" aria-label="最小化">&#8211;</button>
+          <button class="win-btn" data-window="maximize" title="最大化 / 还原" aria-label="最大化">&#9633;</button>
+          <button class="win-btn win-close" data-window="close" title="关闭" aria-label="关闭">&#10005;</button>
+        </span>
       </div>
     </header>
 
@@ -886,10 +892,41 @@ async function send(): Promise<void> {
   }
 }
 
+/**
+ * 窗口外观：无边框时给 body 加标记，样式据此把侧栏头部设成拖动区。
+ * 壳里才有这个信息（preload 的 appInfo）；开发态没有壳就跳过。
+ */
+async function applyWindowChrome(): Promise<void> {
+  const shell = (window as unknown as {
+    shellApi?: {
+      appInfo?: () => Promise<{ frameless?: boolean }>
+      windowAction?: (action: 'minimize' | 'maximize' | 'close') => Promise<unknown>
+    }
+  }).shellApi
+  if (shell?.appInfo === undefined) return
+  try {
+    const info = await shell.appInfo()
+    if (info?.frameless !== true) return
+    document.body.classList.add('is-frameless')
+    // 窗口按钮：点了告诉壳去做。
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-window]')) {
+      button.addEventListener('click', event => {
+        event.stopPropagation()
+        const action = button.dataset.window
+        if (action !== 'minimize' && action !== 'maximize' && action !== 'close') return
+        void shell.windowAction?.(action)
+      })
+    }
+  } catch { /* 拿不到就按普通窗口处理 */ }
+}
 async function main(): Promise<void> {
   initTheme()
   initLocale()
   readSavedModel()
+
+  // 无边框窗口（Windows / Linux）：没有系统标题栏，界面得自己提供拖动区。
+  // 壳把这个标志通过 appInfo 传过来；开发态（vite）没有壳，侧栏头部就是普通区域。
+  await applyWindowChrome()
 
   // 所有直接写 #f-state 的旧代码也自动获得 toast 反馈。
   new MutationObserver(() => showToast(el('f-state').textContent ?? '')).observe(el('f-state'), {

@@ -51,5 +51,13 @@ export function buildApplicationMenu(deps: MenuDeps): void {
       ],
     },
   ]
+  // 只有 macOS 需要原生菜单栏（那是系统约定）。Windows / Linux 上不设应用菜单：
+  // 一设就会多出一条「文件 编辑 视图 帮助」的菜单栏，跟我们自己的界面叠在一起，
+  // 看着像「一个窗体里嵌了个别的窗体」。文字编辑类的系统快捷键
+  // （复制/粘贴/剪切）在输入框里由 Chromium 自己处理，不依赖菜单。
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+    return
+  }
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }

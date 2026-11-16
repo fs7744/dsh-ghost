@@ -45,6 +45,10 @@ export interface ShellWindowApi {
   hideMenu(): void
   reload(): void
   send(channel: string, payload: unknown): void
+  /** 无边框窗口：界面自己的窗口按钮。 */
+  minimize(): void
+  toggleMaximize(): void
+  close(): void
 }
 
 let cspInstalled = false
@@ -77,6 +81,10 @@ export function createShellWindow(deps: WindowDeps): ShellWindowApi {
     height: bounds.height,
     show: false,
     icon: deps.iconPath,
+    // 无边框：界面自己就是整个窗口。带系统标题栏 + 菜单栏会变成
+    // 「一个窗体里嵌了个别的窗体」的样子。
+    // macOS 保留系统框（交通灯是系统的，去掉就没法关了）。
+    ...(process.platform === 'darwin' ? {} : { frame: false }),
     webPreferences: {
       preload: deps.preloadPath,
       nodeIntegration: false,
@@ -113,6 +121,9 @@ export function createShellWindow(deps: WindowDeps): ShellWindowApi {
     hideMenu: () => win.setMenu(null),
     reload: () => win.webContents.reload(),
     send: (channel, payload) => win.webContents.send(channel, payload),
+    minimize: () => win.minimize(),
+    toggleMaximize: () => (win.isMaximized() ? win.unmaximize() : win.maximize()),
+    close: () => win.close(),
   }
 }
 

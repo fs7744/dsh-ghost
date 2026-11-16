@@ -32,12 +32,14 @@ export interface IpcDeps {
   telemetry: TelemetryBuffer
   currentToken(): string
   runtimeState(): string
-  appInfo(): { product: string; shell: string; electron: string; chromium: string; node: string }
+  appInfo(): { product: string; shell: string; electron: string; chromium: string; node: string; frameless?: boolean }
   logTail(): string
   tickets(): unknown
   environment(): Record<string, unknown>
   onOnboardingFinished(): void
   onLaunchOnStartupChanged(enabled: boolean): void
+  /** 无边框窗口的窗口操作（最小化/最大化/关闭）。缺省就没有这些按钮。 */
+  windowAction?(action: 'minimize' | 'maximize' | 'close'): void
   /** 渲染层把最近一次票列表报给主进程，诊断包用。 */
   setTickets(value: unknown): void
   /** 「保存到工作区」的根目录；空配置时由 main 回退到 userData/workspace。 */
@@ -199,6 +201,12 @@ export function registerIpc(deps: IpcDeps): IpcApi {
   })
 
   ipcMain.handle('app:info', () => deps.appInfo())
+  // 无边框窗口：界面自己的窗口按钮走这里。
+  ipcMain.handle('window:action', (_event: unknown, action: unknown) => {
+    if (deps.windowAction === undefined) return
+    if (action !== 'minimize' && action !== 'maximize' && action !== 'close') return
+    deps.windowAction(action)
+  })
   ipcMain.handle('telemetry:export', () => deps.telemetry.export([deps.currentToken()]))
   ipcMain.handle('telemetry:clear', () => {
     deps.telemetry.clear()

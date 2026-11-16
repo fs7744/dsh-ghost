@@ -137,8 +137,23 @@ footer { grid-row: 3; display: flex; align-items: center; gap: 12px; padding: 0 
 #detail.open { transform: none; }
 
 /* ============ 侧栏 ============ */
+/* 无边框窗口：侧栏头部是拖动区（app-region: drag），里面的按钮要显式标 no-drag，
+   否则按钮点不动。macOS 有系统标题栏，不需要拖动区。 */
 .side-head { height: 52px; flex: none; display: flex; align-items: center;
   justify-content: space-between; padding: 0 12px 0 16px; }
+body.is-frameless .side-head { -webkit-app-region: drag; }
+body.is-frameless .side-head button,
+body.is-frameless .side-head input,
+body.is-frameless .side-head a { -webkit-app-region: no-drag; }
+
+/* 无边框窗口的窗口按钮：只在打包态出现，平时隐藏。 */
+.win-buttons { display: none; margin-left: 6px; gap: 2px; }
+body.is-frameless .win-buttons { display: inline-flex; }
+.win-btn { width: 30px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 6px; background: transparent; color: var(--on-surface-variant);
+  font-size: 13px; line-height: 1; cursor: pointer; -webkit-app-region: no-drag; }
+.win-btn:hover { background: var(--surface-mid); color: var(--on-surface); }
+.win-btn.win-close:hover { background: #c4372f; color: #fff; }
 .brand { display: flex; align-items: center; gap: 9px; white-space: nowrap; min-width: 0; }
 .brand-mark { display: block; flex: none; object-fit: cover; border-radius: 10px;
   background: #14161a; box-shadow: 0 0 0 1px rgba(255, 255, 255, .07); }

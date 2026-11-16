@@ -19,6 +19,7 @@ const shellApi = {
   git: (op, payload) => ipcRenderer.invoke('workspace:git', op, payload),
   extensionPairing: () => ipcRenderer.invoke('extension:pairing'),
   appInfo: () => ipcRenderer.invoke('app:info'),
+  windowAction: action => ipcRenderer.invoke('window:action', action),
   telemetryExport: () => ipcRenderer.invoke('telemetry:export'),
   telemetryClear: () => ipcRenderer.invoke('telemetry:clear'),
   setTelemetryEnabled: enabled => ipcRenderer.invoke('telemetry:set-enabled', enabled),
