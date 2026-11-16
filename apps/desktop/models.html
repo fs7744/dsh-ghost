@@ -2,31 +2,36 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark light" />
     <title>dsh-ghost · 模型库</title>
     <link rel="stylesheet" href="/src/style.css" />
     <style>
-      /* 独立页专用样式，不改全局 style.css。 */
-      #models-root { max-width: 960px; margin: 24px auto; padding: 0 20px; }
-      #models-root .mmbar { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+      /* 独立页专用样式，不改全局 style.css；颜色一律走变量，亮暗主题都可读。 */
+      body { overflow: auto; }
+      #models-root { max-width: 960px; margin: 0 auto; padding: 28px 24px 40px; }
+      #models-root .mmbar { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--hairline); padding-bottom: 12px; }
       #models-root .mspacer { flex: 1; }
-      #models-root .mdemo { color: #c9a227; font-size: 12px; }
-      #models-root .mnotice { min-height: 20px; color: #8ab4f8; font-size: 13px; margin: 8px 0; }
-      #models-root .msection { margin: 18px 0; }
-      #models-root .mprovider { border: 1px solid #444; border-radius: 6px; padding: 10px 12px; margin: 10px 0; }
+      #models-root .mdemo { color: var(--warn); font-size: 12px; }
+      #models-root .mnotice { min-height: 20px; color: var(--accent); font-size: 12.5px; margin: 8px 0; }
+      #models-root .msection { margin: 22px 0; }
+      #models-root .mprovider { border: 1px solid var(--outline); border-radius: var(--radius-lg); padding: 12px 14px; margin: 10px 0; background: var(--surface-low); }
       #models-root .mphead { display: flex; align-items: center; gap: 10px; }
-      #models-root .mmeta { color: #888; font-size: 12px; }
+      #models-root .mmeta { color: var(--faint); font-size: 12px; }
       #models-root .mprobe { font-size: 12px; margin-left: 8px; }
-      #models-root .mprobe.ok { color: #6cc26c; }
-      #models-root .mprobe.bad { color: #e06c6c; }
-      #models-root .mmodels { list-style: none; padding-left: 8px; }
-      #models-root .mmodel { display: flex; gap: 12px; padding: 4px 0; }
-      #models-root .mid { color: #888; font-size: 12px; }
-      #models-root .mcap { color: #aaa; font-size: 12px; }
-      #models-root .mrole { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+      #models-root .mprobe.ok { color: var(--ok); }
+      #models-root .mprobe.bad { color: var(--danger); }
+      #models-root .mmodels { list-style: none; padding-left: 8px; margin: 8px 0 0; }
+      #models-root .mmodel { display: flex; gap: 12px; padding: 5px 0; }
+      #models-root .mid { color: var(--faint); font-size: 12px; }
+      #models-root .mcap { color: var(--on-surface-variant); font-size: 12px; }
+      #models-root .mrole { display: flex; align-items: center; gap: 10px; margin: 6px 0; border-color: var(--outline); }
       #models-root .mrole span { width: 70px; }
-      #models-root .mrole em { color: #888; font-size: 12px; font-style: normal; }
+      #models-root .mrole em { color: var(--faint); font-size: 12px; font-style: normal; }
       #models-root .mbtns { display: flex; gap: 8px; }
-      #models-root .empty { color: #888; }
+      #models-root .empty { color: var(--faint); }
+      #models-root button, #models-root select { border: 1px solid var(--outline); border-radius: var(--radius-md);
+        background: var(--surface-low); color: var(--on-surface); padding: 5px 11px; font-size: 12px; cursor: pointer; }
+      #models-root button:hover { border-color: var(--accent); color: var(--accent); }
     </style>
   </head>
   <body>

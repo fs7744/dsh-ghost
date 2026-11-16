@@ -89,6 +89,8 @@ export function pickedPath(raw: unknown): string {
 export interface AttachmentTools {
   /** 取走并清空本轮 receipts（发送后调用，避免下一条消息重复引用）。 */
   takeReceipts: () => string[]
+  /** 当前待发送附件数（输入区据此决定是否允许发送、按钮是否高亮）。 */
+  pending: () => number
 }
 
 /** C8-22 + C8-24：把上传 / 选目录入口挂到输入区，并注册全局拖放。 */
@@ -184,5 +186,5 @@ export function mountAttachmentTools(composer: HTMLElement, services: PanelServi
   }
   document.addEventListener('dragover', onDragOver)
   document.addEventListener('drop', onDrop)
-  return { takeReceipts: () => receipts.splice(0) }
+  return { takeReceipts: () => receipts.splice(0), pending: () => receipts.length }
 }

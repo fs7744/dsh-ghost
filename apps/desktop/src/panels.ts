@@ -41,6 +41,22 @@ export interface StaticPane {
   order: number
 }
 
+/**
+ * 导航分组：从 `before` 这条面板开始，到下一个分组之前的所有面板归到同一段。
+ * 分组标题可点击折叠，折叠状态在切换语言重绘后仍保留。
+ */
+export interface PanelGroup {
+  /** 分组起始面板 id。 */
+  before: string
+  labelKey: string
+  /** 字面标题（用户扩展用；有值时优先于 labelKey）。 */
+  label?: string
+  /** 是否允许折叠（只有标题可点时才有意义）。 */
+  collapsible?: boolean
+  /** 初始折叠；工程向的分组用它收纳，不占主导航空间。 */
+  collapsed?: boolean
+}
+
 /** 从任意 Remote 响应里挖出数组，兼容常见容器字段或裸数组。 */
 export function asList(raw: unknown): unknown[] {
   if (Array.isArray(raw)) return raw
@@ -141,6 +157,8 @@ export interface MountPanelsOptions {
   main: HTMLElement
   staticPanes: readonly StaticPane[]
   defs: readonly PanelDef[]
+  /** 导航分组标题（按 before 匹配面板 id）。 */
+  groups?: readonly PanelGroup[]
   services: PanelServices
   /** 切换到某标签后的额外回调（main.ts 用来刷新上下文条等）。 */
   onActivate?: (id: string) => void
@@ -159,6 +177,7 @@ export interface MountedPanels {
  */
 export function mountPanels(options: MountPanelsOptions): MountedPanels {
   const { tabs, main, staticPanes, defs, services, onActivate } = options
+  const groupByPanel = new Map((options.groups ?? []).map(group => [group.before, group]))
   const entries: Entry[] = sortPanelDefs<Entry>([
     ...staticPanes.map((pane): Entry => ({
       id: pane.id, labelKey: pane.labelKey, order: pane.order, paneId: pane.id, mount: undefined,
@@ -179,19 +198,44 @@ export function mountPanels(options: MountPanelsOptions): MountedPanels {
     instances.set(entry.id, entry.mount(host, services))
   }
 
+  const collapsed = new Set((options.groups ?? []).filter(group => group.collapsed === true).map(group => group.before))
   const drawTabs = (): void => {
-    tabs.innerHTML = entries.map(entry =>
-      `<button type="button" data-panel="${escapeHtml(entry.id)}">${escapeHtml(entry.label ?? services.t(entry.labelKey))}</button>`).join('')
+    let html = ''
+    let open = false
+    for (const entry of entries) {
+      const group = groupByPanel.get(entry.id)
+      if (group !== undefined) {
+        if (open) html += '</div></div>'
+        const label = group.label ?? services.t(group.labelKey)
+        const isCollapsed = collapsed.has(group.before)
+        // 标题用 div 而不是 button：搜索/自动化里 `#tabs button` 只匹配真正的面板项。
+        html += `<div class="tabsection${isCollapsed ? ' collapsed' : ''}" data-section="${escapeHtml(group.before)}">`
+          + `<div class="tabgroup${group.collapsible === true ? ' foldable' : ''}"`
+          + (group.collapsible === true ? ` data-section-toggle="${escapeHtml(group.before)}" role="button" tabindex="0"` : '')
+          + `><span>${escapeHtml(label)}</span>`
+          + (group.collapsible === true ? '<span class="tgroup-chevron" aria-hidden="true"></span>' : '')
+          + '</div><div class="tabitems">'
+        open = true
+      }
+      html += `<button type="button" data-panel="${escapeHtml(entry.id)}" title="${escapeHtml(entry.label ?? services.t(entry.labelKey))}">`
+        + '<span class="pico" aria-hidden="true"></span>'
+        + `<span class="plabel">${escapeHtml(entry.label ?? services.t(entry.labelKey))}</span></button>`
+    }
+    if (open) html += '</div></div>'
+    tabs.innerHTML = html
   }
   drawTabs()
 
   let currentId = entries[0]?.id ?? ''
+  const markActive = (): void => {
+    tabs.querySelectorAll<HTMLButtonElement>('button[data-panel]').forEach(button =>
+      button.classList.toggle('on', button.dataset.panel === currentId))
+  }
   const activate = (id: string): void => {
     const entry = entries.find(item => item.id === id)
     if (entry === undefined) return
     currentId = id
-    tabs.querySelectorAll<HTMLButtonElement>('button[data-panel]').forEach(button =>
-      button.classList.toggle('on', button.dataset.panel === id))
+    markActive()
     for (const item of entries) {
       const pane = document.getElementById(item.paneId)
       pane?.classList.toggle('hidden', item.paneId !== entry.paneId)
@@ -201,16 +245,32 @@ export function mountPanels(options: MountPanelsOptions): MountedPanels {
     onActivate?.(id)
   }
 
+  const toggleSection = (key: string): void => {
+    if (key === '') return
+    if (collapsed.has(key)) collapsed.delete(key)
+    else collapsed.add(key)
+    drawTabs()
+    markActive()
+  }
   tabs.addEventListener('click', event => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-panel]')
+    const target = event.target as HTMLElement
+    const heading = target.closest<HTMLElement>('[data-section-toggle]')
+    if (heading !== null) { toggleSection(heading.dataset.sectionToggle ?? ''); return }
+    const button = target.closest<HTMLButtonElement>('button[data-panel]')
     if (button === null) return
     activate(button.dataset.panel ?? '')
+  })
+  tabs.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    const heading = (event.target as HTMLElement).closest<HTMLElement>('[data-section-toggle]')
+    if (heading === null) return
+    event.preventDefault()
+    toggleSection(heading.dataset.sectionToggle ?? '')
   })
 
   const applyLocale = (): void => {
     drawTabs()
-    tabs.querySelectorAll<HTMLButtonElement>('button[data-panel]').forEach(button =>
-      button.classList.toggle('on', button.dataset.panel === currentId))
+    markActive()
     const instance = instances.get(currentId)
     if (instance !== undefined) void instance.refresh()
   }
