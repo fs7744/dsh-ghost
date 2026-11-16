@@ -8,3 +8,4 @@ out/
 .ghost/
 .env
 dist/
+build/runtime/manifest.json

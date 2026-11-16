@@ -60,6 +60,20 @@
 
 产物形态：Windows NSIS；macOS dmg + zip（zip 给 Squirrel.Mac）；Linux AppImage + deb。
 
+### 4.1 非安装版（本地反复验证用）
+
+CI 出的是**安装版**（要写注册表、占卸载项）。本地反复验证要的是**免安装包**：
+`scripts/pack-win-portable.mjs`（`npm run pack:win` / `pack:win:fast` / `pack:win:exe`），
+产物在 `out/win-portable/`，不碰注册表、不碰更新 feed、不污染 `out/shell-release/`。
+
+两处与 CI 不同，是为了让本地能反复跑（细节见 [build/README.md](../build/README.md)）：
+
+- **图标/版本信息自己写。** electron-builder 默认用 `winCodeSign` 里的 rcedit 改 exe 资源，
+  那套要联网下载，且解压要求「创建符号链接」权限（非管理员/未开开发者模式必失败）。
+  脚本关掉 `win.signAndEditExecutable`，改用缓存里已解压的 `rcedit-x64.exe` 补图标与版本信息。
+- **zip / 便携版从打好图标的目录出。** 先打 `dir` -> rcedit 补图标 -> 再用 `--prepackaged`
+  出 zip 与单文件便携版，避免压缩包里是 Electron 默认图标。
+
 ## 5. 更新通道与灰度
 
 - `updater.ts`：`none` 关闭；stable 只收 stable；beta 收 stable+beta；

@@ -29,6 +29,37 @@
 
 `apps/shell/package.json` 内也提供等价的 `test` / `verify` / `build` / `release:check` 脚本。
 
+## 非安装版（本地反复验证用）
+
+`scripts/pack-win-portable.mjs` 打的是**免安装包**：不写注册表、不建快捷方式、不进卸载项，
+产物落在 `out/win-portable/`，和 CI 的 `out/shell-release/` 互不干扰。
+
+```bash
+npm run pack:win          # dir（免安装目录）+ zip（解压即用），带 harness 运行时
+npm run pack:win:fast     # 同上但不带运行时：只验证 UI 层，产物小很多
+npm run pack:win:exe      # 额外产出单文件便携 .exe
+```
+
+| 选项 | 作用 |
+|---|---|
+| `--skip-runtime` | 不打包 harness 运行时（`resources/runtime`），跑不起宿主，只看界面 |
+| `--skip-build` | 不重编译 packages / shell / ui，沿用现有 `dist` |
+| `--force-runtime` | 强制重新复制 harness 运行时 |
+| `--exe` / `--no-zip` | 控制产物形态 |
+| `--no-brand` | 不改 exe 图标/版本信息 |
+| `--out-dir <dir>` | 换产物目录 |
+| `--json` | 机器可读结果 |
+
+两处和 CI 不同，都是为了**本地能反复跑**：
+
+- **图标/版本信息自己写。** electron-builder 默认靠 `winCodeSign` 里的 rcedit 改 exe 资源，
+  那套东西要从 GitHub 下载，且解压要求「创建符号链接」权限（非管理员/未开开发者模式必失败）。
+  脚本关掉 `win.signAndEditExecutable`，改用缓存里已解压的 `rcedit-x64.exe` 补图标与版本信息：
+  零下载、零特权。缓存里没有 rcedit 时会跳过，exe 保留 Electron 默认图标。
+- **压缩级别用 normal。** `maximum` 对 580MB 的运行时太慢，收益几乎为零。
+
+打包顺序：packages → `build:shell` → `build:ui` → `prepare-runtime --apply`（首次）→ electron-builder → rcedit 补图标。
+
 ## 构建顺序（CI 见 .github/workflows/release.yml）
 
 1. `npm ci`（安装发布期依赖：electron / electron-builder / electron-updater，本地不执行）。
