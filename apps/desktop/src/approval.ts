@@ -162,7 +162,7 @@ export function mountApprovalLayer(services: PanelServices): ApprovalLayer {
     const result = await safeCall(() => services.transport.call(reply.endpoint as never, reply.args as never))
     if (result.ok) {
       hide()
-      services.notice(services.t('runtime.done'))
+      services.notice(services.t('common.done'))
     } else {
       detailEl.textContent = `${services.t('common.unavailable')}: ${result.reason}`
     }

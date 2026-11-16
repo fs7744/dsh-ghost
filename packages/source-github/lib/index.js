@@ -25,6 +25,11 @@ export function verifySignature(options, rawBody, header) {
     const given = header.slice('sha256='.length);
     if (given.length !== expected.length)
         return { ok: false, reason: 'length-mismatch' };
+    // Buffer.from(str,'hex') 遇到非 hex 字符会静默截断，长度相等但非法的头会得到空 buffer，
+    // 令 timingSafeEqual 抛 ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH（可被用来打挂 webhook）。
+    // 先在字符串层面校验格式，非法直接拒绝。
+    if (!/^[0-9a-f]{64}$/i.test(given))
+        return { ok: false, reason: 'bad-signature-format' };
     return timingSafeEqual(Buffer.from(given, 'hex'), Buffer.from(expected, 'hex'))
         ? { ok: true }
         : { ok: false, reason: 'digest-mismatch' };

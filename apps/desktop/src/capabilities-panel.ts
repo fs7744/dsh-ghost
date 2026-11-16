@@ -155,7 +155,7 @@ export function mountCapabilitiesPanel(host: HTMLElement, services: PanelService
       + `<section><h3 data-t="capabilities.computerUse"></h3>${cuaBlock}</section>`
       + `<section><h3 data-t="capabilities.hostPlugins"></h3>${pluginBlock}</section>`
       + `<section><h3 data-t="capabilities.ledger"></h3>${ledger}</section>`
-    statusEl.textContent = services.t('common.refresh')
+    statusEl.textContent = services.t('common.ready')
   }
 
   host.addEventListener('click', event => {

@@ -123,6 +123,34 @@ export function unavailableHtml(label: string, detail = ''): string {
     + '</div>'
 }
 
+/**
+ * 就地二次确认：第一次点击把按钮切成「确认…」态，4 秒内再点才真正执行。
+ * 返回 true 表示已确认可执行；false 表示这次只是「上膛」或已超时。
+ * 统一删除/覆盖类危险操作的反馈范式，替代突兀的 window.confirm。
+ */
+export function armConfirm(
+  button: HTMLElement,
+  labels: { idle: string; armed: string },
+  onArmed?: () => void,
+): boolean {
+  if (button.dataset.armed !== '1') {
+    button.dataset.armed = '1'
+    button.classList.add('armed')
+    button.textContent = labels.armed
+    window.setTimeout(() => {
+      button.dataset.armed = '0'
+      button.classList.remove('armed')
+      button.textContent = labels.idle
+    }, 4000)
+    onArmed?.()
+    return false
+  }
+  button.dataset.armed = '0'
+  button.classList.remove('armed')
+  button.textContent = labels.idle
+  return true
+}
+
 /** 包一层 Remote 调用：失败返回 ok:false，永不向外抛。 */
 export async function safeCall(
   call: () => Promise<unknown>,

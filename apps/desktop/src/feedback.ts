@@ -108,7 +108,14 @@ export function decorateStream(stream: HTMLElement, services: PanelServices): vo
       const positive = button.dataset.fb === 'positive'
       void safeCall(() => services.transport.call('messageFeedback/put',
         buildFeedbackPut(services.agentId() ?? '', button.dataset.target ?? '', positive)))
-        .then(result => services.notice(result.ok ? services.t('runtime.done') : result.reason))
+        .then(result => {
+          if (!result.ok) { services.notice(result.reason); return }
+          // 就地选中态：同一条消息只保留一个评价，再点一次可撤销。
+          const wasOn = button.classList.contains('on')
+          bar.querySelectorAll<HTMLButtonElement>('button[data-fb]').forEach(item => item.classList.remove('on'))
+          if (!wasOn) button.classList.add('on')
+          services.notice(services.t('feedback.recorded'))
+        })
     })
   })
 }
@@ -142,7 +149,7 @@ export function mountStatsPanel(host: HTMLElement, services: PanelServices): Pan
       <span class="panelspacer"></span><span class="panelstatus"></span>
     </div>
     <div class="adminbody">
-      <section><h3 data-t="feedback.like"></h3><div data-sec="feedback"></div></section>
+      <section><h3 data-t="feedback.title"></h3><div data-sec="feedback"></div></section>
       <section><h3 data-t="stats.turns"></h3><div data-sec="stats"></div></section>
     </div>`
   const feedbackBox = host.querySelector<HTMLElement>('[data-sec="feedback"]')!
@@ -195,7 +202,7 @@ export function mountStatsPanel(host: HTMLElement, services: PanelServices): Pan
         }).join('')
         + pricingForm(pricing, services.t)
     }
-    statusEl.textContent = services.t('common.refresh')
+    statusEl.textContent = services.t('common.ready')
   }
   host.addEventListener('click', event => {
     const target = event.target as HTMLElement

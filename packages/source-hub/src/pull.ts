@@ -66,6 +66,17 @@ export async function pullFromApi(
   const doFetch = options.fetchImpl ?? fetch
   const env = options.env ?? process.env
   if (config.url.trim() === '') return { ok: false, reason: '拉取地址为空', requests: [] }
+  // 只放行 http(s)：配置可来自用户导入的 mapper / JSON，若允许 file:// 等协议，
+  // 配合下面的 env:NAME 凭据头会造成 SSRF / 本地文件读取与密钥外泄。
+  let parsed: URL
+  try {
+    parsed = new URL(config.url)
+  } catch {
+    return { ok: false, reason: '拉取地址格式非法', requests: [] }
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { ok: false, reason: '拉取地址仅支持 http / https', requests: [] }
+  }
 
   const headers: Record<string, string> = {}
   for (const [key, value] of Object.entries(config.headers ?? {})) {

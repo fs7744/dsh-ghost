@@ -371,6 +371,7 @@ body.is-frameless .win-buttons { display: inline-flex; }
 .fback button { background: transparent; border: 1px solid var(--outline);
   color: var(--faint); border-radius: 999px; padding: 1px 9px; font-size: 11px; cursor: pointer; }
 .fback button:hover { border-color: var(--accent); color: var(--accent); }
+.fback button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-container); }
 
 /* 工具卡片：默认折叠，点开才看明细 */
 .tcard { border: 1px solid var(--outline); border-radius: 10px; overflow: hidden;
@@ -481,8 +482,9 @@ details.tool pre { white-space: pre-wrap; background: var(--surface-mid); paddin
 .popmeta { margin-left: auto; color: var(--faint); font-size: 11px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
 .popfoot { margin-top: 6px; padding: 8px 10px 4px; border-top: 1px solid var(--hairline);
-  color: var(--faint); font-size: 10.5px; }
-#more-menu { min-width: 200px; }
+  color: var(--faint); font-size: 10.5px; display: flex; flex-wrap: wrap; gap: 2px 10px; }
+.popfoot span { white-space: nowrap; }
+#more-menu { min-width: 230px; }
 #more-menu .navlink, #more-menu button { display: block; width: 100%; padding: 8px 10px;
   border: 0; border-radius: var(--radius-md); background: transparent;
   color: var(--on-surface); font-size: 12.5px; text-align: left;
@@ -578,6 +580,11 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .lstate.idle, .lstate.not-wired { color: var(--faint); }
 .lstate.toggleable { color: var(--warn); }
 .lstate.host-default { color: var(--accent); }
+/* 就地二次确认：删除/覆盖类按钮上膛后转为危险色，4 秒内未点自动还原。 */
+#tabs button.armed, .lrow button.armed, .adminbody button.armed,
+.settings-panes button.armed, .panelbar button.armed {
+  border-color: var(--danger) !important; color: var(--danger) !important;
+  background: color-mix(in srgb, var(--danger) 12%, transparent) !important; font-weight: 600; }
 .lcheck { font-family: var(--font-mono); color: var(--accent); }
 .panel-unavailable { padding: 24px 16px; text-align: center; }
 .pu-title { color: var(--on-surface-variant); font-size: 13px; }
@@ -761,6 +768,7 @@ pre.diff .dl.hunk { color: var(--accent); }
   color: var(--on-surface-variant); font-size: 12px; }
 #models-root .mbtns { display: flex; gap: 8px; }
 #models-root .empty { color: var(--faint); }
+.empty .empty-hint { margin-top: 6px; font-size: 11px; color: var(--faint); opacity: .8; }
 #models-root .mform { margin: 12px 0; padding: 16px; border: 1px solid var(--accent-soft, var(--accent));
   border-radius: var(--radius-lg); background: var(--surface-low); }
 #models-root .mfhead { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }

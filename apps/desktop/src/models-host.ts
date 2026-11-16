@@ -21,8 +21,9 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T
 }
 
-/** 建一个模型配置 host。noticeTarget 指定提示文案写到哪个元素（设置页与独立页不同）。 */
-export function createModelsHost(noticeTarget?: HTMLElement): ModelsHost {
+/** 建一个模型配置 host。noticeTarget 指定提示文案写到哪个元素（独立页）；
+ *  notice 回调优先（设置页接入全局 toast/状态栏），两者都没有则回退到 #models-notice。 */
+export function createModelsHost(noticeTarget?: HTMLElement, notice?: (text: string) => void): ModelsHost {
   const shellApi = (window as unknown as { shellApi?: ShellCredentialApi }).shellApi
   let demoState: ModelsState = { ...DEMO_STATE }
   let offline = false
@@ -81,6 +82,7 @@ export function createModelsHost(noticeTarget?: HTMLElement): ModelsHost {
       return { ...next, demo: true }
     },
     notice(text: string): void {
+      if (notice !== undefined) { notice(text); return }
       const target = noticeTarget ?? document.getElementById('models-notice')
       if (target !== null && target !== undefined) target.textContent = text
     },

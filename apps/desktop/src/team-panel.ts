@@ -115,7 +115,7 @@ export function mountTeamPanel(host: HTMLElement, services: PanelServices): Pane
         <div class="lrow"><span class="lname">${escapeHtml(services.t('team.permissionLevel'))}</span>
           <span class="ldetail">${escapeHtml(permission)}</span></div>
         <div class="lrow"><span class="ldetail">${escapeHtml(services.t('team.permissionHint'))}</span></div></section>`
-    statusEl.textContent = services.t('common.refresh')
+    statusEl.textContent = services.t('common.ready')
   }
 
   host.addEventListener('click', event => {
@@ -128,7 +128,7 @@ export function mountTeamPanel(host: HTMLElement, services: PanelServices): Pane
       const agentId = services.agentId() ?? ''
       void safeCall(() => services.transport.call('agentTeams/setEnabled' as never, { agentId, enabled: !enabled } as never))
         .then(result => {
-          services.notice(result.ok ? services.t('common.done') : result.reason)
+          services.notice(result.ok ? services.t('common.saved') : result.reason)
           void load()
         })
     }

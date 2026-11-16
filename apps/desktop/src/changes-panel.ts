@@ -7,7 +7,7 @@
  */
 import { parseUnifiedDiff, type ChangedFile } from '@dsh-ghost/git-view'
 import {
-  escapeHtml, record, safeCall, unavailableHtml,
+  armConfirm, escapeHtml, record, safeCall, unavailableHtml,
   type PanelInstance, type PanelServices,
 } from './panels.ts'
 
@@ -149,6 +149,10 @@ export function mountChangesPanel(host: HTMLElement, services: PanelServices): P
         const path = button.dataset.value ?? ''
         const side = button.dataset.side === 'theirs' ? 'theirs' : 'ours'
         if (bridge?.git === undefined) return
+        if (!armConfirm(button, {
+          idle: services.t(side === 'theirs' ? 'changes.theirs' : 'changes.ours'),
+          armed: services.t('common.confirm'),
+        })) return
         void safeCall(() => bridge.git!('resolve', { path, side })).then(result => {
           services.notice(result.ok ? services.t('changes.resolved') : result.reason)
           void load()

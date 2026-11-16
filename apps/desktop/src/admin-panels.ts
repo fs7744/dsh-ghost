@@ -5,7 +5,7 @@
  * 纯逻辑：归一化、权限开关（enabled / 内置不可切换）、排序、启用数统计。
  */
 import {
-  asList, bool, escapeHtml, num, paintText, pickStr, record, safeCall, unavailableHtml,
+  armConfirm, asList, bool, escapeHtml, num, paintText, pickStr, record, safeCall, unavailableHtml,
   type PanelInstance, type PanelServices,
 } from './panels.ts'
 import { applyCustomSkin, invokeSlot, slotSection } from './extensions.ts'
@@ -255,7 +255,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
   ]
   // 模型配置面板只挂载一次：它自己管理表单状态，重复挂载会叠加事件监听。
   const modelsRoot = host.querySelector<HTMLElement>('#models-root')
-  if (modelsRoot !== null) mountModelsPanel(modelsRoot, createModelsHost())
+  if (modelsRoot !== null) mountModelsPanel(modelsRoot, createModelsHost(undefined, text => services.notice(text)))
 
   const showCategory = (id: SettingsCategoryId): void => {
     for (const button of host.querySelectorAll<HTMLElement>('.setnav')) {
@@ -288,7 +288,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     await renderPermissionSection(host, services)
     await renderSchedulesSection(host, services)
     await renderExtensionSlots(host, services)
-    statusEl.textContent = `${okCount} / ${jobs.length}`
+    statusEl.textContent = `${okCount} / ${jobs.length} · ${services.t('common.ready')}`
   }
   host.addEventListener('click', event => {
     const target = event.target as HTMLElement
@@ -334,7 +334,9 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       return
     }
     if (action === 'delete-schedule') {
-      void scheduleAction(host, services, button.dataset.value ?? '', 'delete')
+      if (armConfirm(button, { idle: services.t('settings.schedules.delete'), armed: services.t('common.confirm.delete') })) {
+        void scheduleAction(host, services, button.dataset.value ?? '', 'delete')
+      }
       return
     }
     if (action === 'create-schedule') {
@@ -350,7 +352,9 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       return
     }
     if (action === 'remove-peer') {
-      void removePeer(host, services, button.dataset.value ?? '')
+      if (armConfirm(button, { idle: services.t('settings.peers.remove'), armed: services.t('common.confirm.delete') })) {
+        void removePeer(host, services, button.dataset.value ?? '')
+      }
       return
     }
     if (action === 'generate-pairing') {
@@ -629,7 +633,9 @@ async function renderExtensionSlots(host: HTMLElement, services: PanelServices):
   }
   const slots = asList(record(result.value).slots).map(item => record(item))
   const html = slotSection(slots as never, 'settings.sections')
-  box.innerHTML = html === '' ? `<div class="empty">${escapeHtml(services.t('common.empty'))}</div>` : html
+  box.innerHTML = html === ''
+    ? `<div class="empty">${escapeHtml(services.t('common.empty'))}<div class="empty-hint">${escapeHtml(services.t('common.firstHint'))}</div></div>`
+    : html
 }
 
 /** C8-17 插件管理与市场：bundles / plugins / 市场三分区，带启用开关与安装动作。 */
@@ -644,7 +650,7 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
       <section><h3 data-t="admin.plugins"></h3><div data-sec="plugins"></div></section>
       <section><h3 data-t="admin.market"></h3>
         <div class="marketbar"><input data-role="query" placeholder="搜索插件市场" />
-          <button data-act="search" data-t="common.preview"></button></div>
+          <button data-act="search" data-t="common.search"></button></div>
         <div class="marketbar"><input data-role="index" placeholder="市场索引 URL" />
           <button data-act="add-index" data-t="admin.market.addIndex"></button></div>
         <div data-sec="market"></div></section>
@@ -707,7 +713,7 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
           : renderMarket(found.value, services)
       }
     }
-    statusEl.textContent = services.t('common.refresh')
+    statusEl.textContent = services.t('common.ready')
     paintText(host, services)
   }
 
@@ -722,7 +728,7 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
       void safeCall(() => services.transport.call('pluginManager/setBundleEnabled' as never, {
         name, enabled: next,
       } as never)).then(result => {
-        services.notice(result.ok ? services.t('common.refresh') : result.reason)
+        services.notice(result.ok ? services.t('common.done') : result.reason)
         void load()
       })
       return
@@ -759,7 +765,7 @@ export function mountPluginsPanel(host: HTMLElement, services: PanelServices): P
       void safeCall(() => services.transport.call('pluginManager/installBundle' as never, {
         spec, options: {},
       } as never)).then(result => {
-        services.notice(result.ok ? services.t('runtime.done') : result.reason)
+        services.notice(result.ok ? services.t('common.done') : result.reason)
         void load()
       })
     }

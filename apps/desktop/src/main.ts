@@ -19,7 +19,7 @@ import { findRewindPoints, forkRequest, rewindLabel, type RewindPoint } from './
 import { mountMemoryPanel, type MemoryHost, type MemoryWriteResult } from './memory-panel.ts'
 import type { MemoryEntry } from './memory-view.ts'
 import { initLocale, makeTranslator, subscribeLocale, toggleLocale } from './i18n.ts'
-import { initTheme, subscribeTheme, toggleTheme } from './theme.ts'
+import { getTheme, initTheme, subscribeTheme, toggleTheme } from './theme.ts'
 import { defaultCombos, registerShortcuts, type ShortcutBinding } from './shortcuts.ts'
 import { mountPanels, paintText, type MountedPanels, type PanelServices } from './panels.ts'
 import { mountWorkspacePanel } from './workspace.ts'
@@ -50,6 +50,8 @@ const app = document.querySelector<HTMLDivElement>('#app')!
 const ICONS: Record<string, string> = {
   panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+  auto: '<circle cx="12" cy="12" r="9"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>',
   dots: '<circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   chevron: '<path d="m6 9 6 6 6-6"/>',
@@ -192,7 +194,10 @@ app.innerHTML = `
     <button id="link-models" data-t="tab.models" title="打开设置里的模型配置"></button>
     <button data-export="md" data-t="ui.exportMd"></button>
     <button data-export="jsonl" data-t="ui.exportJsonl"></button>
-    <div class="popfoot">Ctrl+K 指令 · Ctrl+B 侧栏 · Ctrl+, 设置</div>
+    <div class="popfoot">
+      <span data-t="shortcut.palette"></span><span data-t="shortcut.sidebar"></span><span data-t="shortcut.settings"></span>
+      <span data-t="shortcut.export"></span><span data-t="shortcut.theme"></span><span data-t="shortcut.language"></span>
+    </div>
   </div>
   <div id="toast" class="hidden"></div>
 `
@@ -1179,7 +1184,7 @@ async function main(): Promise<void> {
     groups: [
       { before: 'chat', labelKey: 'sidebar.conversations' },
       { before: 'workspace', labelKey: 'sidebar.workspaceGroup', collapsible: true },
-      { before: 'team', labelKey: 'sidebar.agents', collapsible: true, collapsed: true },
+      { before: 'team', labelKey: 'sidebar.agents', collapsible: true },
       { before: 'settings', labelKey: 'sidebar.system' },
       { before: 'stats', labelKey: 'sidebar.advanced', collapsible: true, collapsed: true },
     ],
@@ -1220,6 +1225,13 @@ async function main(): Promise<void> {
     renderCommandMenu()
     applySearch()
     updateHeadTitle()
+    // 主题按钮反映当前态：深/浅/跟随用不同图标 + title，用户一眼看出处于哪一档。
+    const theme = getTheme()
+    const themeBtn = el<HTMLButtonElement>('btn-theme')
+    themeBtn.innerHTML = icon(theme === 'dark' ? 'moon' : theme === 'light' ? 'sun' : 'auto')
+    const themeTitle = T(`theme.${theme}`)
+    themeBtn.title = themeTitle
+    themeBtn.setAttribute('aria-label', themeTitle)
   }
   subscribeLocale(repaint)
   subscribeTheme(() => repaint())

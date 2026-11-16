@@ -17,6 +17,21 @@ test('签名：正确通过，篡改拒绝，缺失拒绝', () => {
   assert.equal(verifySignature({ secret }, body, 'sha1=abc').ok, false)
 })
 
+test('签名：长度相等但含非 hex 字符的头被拒，不抛异常', () => {
+  const secret = 's3cret'
+  const body = '{"hello":"world"}'
+  // 64 个 z：长度与 sha256 十六进制串相同，但 Buffer.from(...,'hex') 会得到空 buffer，
+  // 旧实现会让 timingSafeEqual 抛 ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH。
+  const badHeader = `sha256=${'z'.repeat(64)}`
+  assert.doesNotThrow(() => {
+    const result = verifySignature({ secret }, body, badHeader)
+    assert.deepEqual(result, { ok: false, reason: 'bad-signature-format' })
+  })
+  // 大小写混用的合法 hex 仍应通过（正则含 i 标志，Buffer 大小写不敏感）。
+  const good = sign(secret, body).replace('sha256=', '').toUpperCase()
+  assert.deepEqual(verifySignature({ secret }, body, `sha256=${good}`), { ok: true })
+})
+
 test('没有密钥时默认拒绝；显式 allowUnsigned 才放行（本地调试）', () => {
   assert.equal(verifySignature({}, 'x', undefined).ok, false)
   assert.deepEqual(verifySignature({ allowUnsigned: true }, 'x', undefined), { ok: true })

@@ -341,6 +341,17 @@ export function mountModelsPanel(root: HTMLElement, host: ModelsHost): void {
     }
     if (action === 'delete') {
       const id = button.dataset.provider ?? ''
+      if (button.dataset.armed !== '1') {
+        button.dataset.armed = '1'
+        button.classList.add('armed')
+        button.textContent = '确认删除？'
+        window.setTimeout(() => {
+          button.dataset.armed = '0'
+          button.classList.remove('armed')
+          button.textContent = '删除'
+        }, 4000)
+        return
+      }
       state = removeProviderView(state, id)
       void host.save(state).then(() => { host.notice(`已删除服务 ${id}`); draw() })
       return

@@ -42,6 +42,20 @@ test('拉一次失败给原因，不抛异常', async () => {
   assert.equal(empty.ok, false)
 })
 
+test('拉取地址拒绝非 http(s) 协议与非法格式（防 SSRF / 文件读取）', async () => {
+  let called = false
+  const fetchImpl = async (): Promise<Response> => { called = true; return jsonResponse({}) }
+  for (const url of ['file:///etc/passwd', 'ftp://example.test/x', 'javascript:alert(1)', 'not a url']) {
+    const result = await pullFromApi({ url }, { fetchImpl })
+    assert.equal(result.ok, false, url)
+    assert.equal(called, false, `${url} 不应发出请求`)
+  }
+  // http(s) 仍正常放行
+  const ok = await pullFromApi({ url: 'http://example.test/api' }, { fetchImpl })
+  assert.equal(ok.ok, true)
+  assert.equal(called, true)
+})
+
 test('拉一次带上鉴权头（值来自环境变量）', async () => {
   let seen: Record<string, string> = {}
   await pullFromApi({ url: 'https://example.test/api', headers: { authorization: 'env:TOKEN' } }, {
