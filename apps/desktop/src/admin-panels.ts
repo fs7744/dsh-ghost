@@ -202,7 +202,6 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
         <section data-pane="model" id="pane-model" role="tabpanel">
           <p class="set-hint" data-t="settings.model.hint"></p>
           <div id="models-root" class="settings-models"></div>
-          <h3 data-t="admin.providers"></h3><div data-sec="providers"></div>
         </section>
         <section data-pane="mcp" id="pane-mcp" role="tabpanel" class="hidden">
           <p class="set-hint" data-t="settings.cat.mcp.hint"></p>
@@ -227,15 +226,6 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     </div>`
   const statusEl = host.querySelector<HTMLElement>('.panelstatus')!
   const jobs: SectionJob[] = [
-    {
-      selector: '[data-sec="providers"]', endpoint: 'llm/listProviders', args: EMPTY_ARGS,
-      render: (raw, s) => {
-        const rows = normalizeProviders(raw)
-        return rows.length === 0 ? `<div class="empty">${escapeHtml(s.t('common.empty'))}</div>`
-          : rows.map(row => `<div class="lrow"><span class="lname">${escapeHtml(row.name)}</span>
-              <span class="ldetail">${row.models} models</span></div>`).join('')
-      },
-    },
     {
       selector: '[data-sec="mcp"]', endpoint: 'mcpManager/watch', args: EMPTY_ARGS,
       render: (raw, s) => {
