@@ -196,7 +196,7 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       <div class="settings-panes">
         <section data-pane="general" id="pane-general" role="tabpanel" class="hidden">
           <p class="set-hint" data-t="settings.cat.general.hint"></p>
-          <h3 data-t="settings.skin"></h3><div data-sec="skin"></div>
+          <h3 data-t="settings.skin.title"></h3><div data-sec="skin"></div>
           <h3 data-t="ui.extensions"></h3><div data-sec="slots"></div>
         </section>
         <section data-pane="model" id="pane-model" role="tabpanel">
@@ -305,6 +305,9 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
     await renderPermissionSection(host, services)
     await renderSchedulesSection(host, services)
     await renderExtensionSlots(host, services)
+    // 异步渲染（各 renderXxxSection / job.render）插入的 data-t 按钮与文案，
+    // 在全部完成后统一填充一次——否则这些按钮会是空的（宽高塌成几个像素，看不见）。
+    paintText(host, services)
     statusEl.textContent = `${okCount} / ${jobs.length} · ${services.t('common.ready')}`
   }
   // WAI-ARIA tab 模式：左右方向键在同组分类间移动焦点并激活。
@@ -393,6 +396,28 @@ export function mountSettingsPanel(host: HTMLElement, services: PanelServices): 
       void generatePairingCode(host, services)
       return
     }
+    if (action === 'save-skin') {
+      const editor = host.querySelector<HTMLTextAreaElement>('[data-skin-editor]')
+      const css = editor?.value ?? ''
+      void safeCall(() => services.transport.call('ghostUI/customCssSave' as never, {
+        input: { css },
+      } as never)).then(result => {
+        if (!result.ok) { services.notice(result.reason); return }
+        services.notice(services.t('settings.skin.saved'))
+        void applyCustomSkin(services).then(() => void load())
+      })
+      return
+    }
+    if (action === 'reset-skin') {
+      void safeCall(() => services.transport.call('ghostUI/customCssSave' as never, {
+        input: { css: '' },
+      } as never)).then(result => {
+        if (!result.ok) { services.notice(result.reason); return }
+        services.notice(services.t('settings.skin.reset'))
+        void applyCustomSkin(services).then(() => void load())
+      })
+      return
+    }
     if (action === 'reload-skin') {
       void applyCustomSkin(services).then(applied => {
         services.notice(applied ? services.t('settings.skin.applied') : services.t('settings.skin.empty'))
@@ -456,29 +481,51 @@ async function submitProxy(host: HTMLElement, services: PanelServices): Promise<
   services.notice(services.t('settings.proxy.saved'))
 }
 
-/** 自定义皮肤区：内置预设 + 自定义 CSS（放哪、覆盖了哪些变量、如何改）。 */
+/** 皮肤区：① 内置预设（一键应用）② 自定义皮肤编辑器（用户自己写 CSS，存到 custom.css）。 */
 async function renderSkinSection(host: HTMLElement, services: PanelServices): Promise<void> {
   const box = host.querySelector<HTMLElement>('[data-sec="skin"]')
   if (box === null) return
   const result = await safeCall(() => services.transport.call('ghostUI/customCss' as never, {} as never))
   const css = result.ok ? String(record(result.value).css ?? '') : ''
-  const vars = [...css.matchAll(/(--[a-z-]+)\s*:/g)].map(match => match[1] ?? '').filter(name => name !== '')
+  const vars = [...new Set([...css.matchAll(/(--[a-z-]+)\s*:/g)].map(match => match[1] ?? '').filter(name => name !== ''))]
   const active = activePresetId()
-  const presets = SKIN_PRESETS.map(preset => `<div class="skin-card${preset.id === active ? ' active' : ''}">
+
+  // ① 内置预设：选中的是一张中性高亮卡 + 勾选标记，不用 accent 色，避免看起来像报错。
+  const presets = SKIN_PRESETS.map(preset => {
+    const current = preset.id === active
+    return `<div class="skin-card${current ? ' active' : ''}" data-preset="${escapeHtml(preset.id)}">
       <div class="skin-head"><span class="skin-name">${escapeHtml(preset.label)}</span>
-        ${preset.id === active ? `<span class="skin-current">${escapeHtml(services.t('settings.permission.current'))}</span>` : ''}</div>
+        ${current ? `<span class="skin-current">✓ ${escapeHtml(services.t('settings.skin.current'))}</span>` : ''}</div>
       <div class="skin-desc">${escapeHtml(preset.description)}</div>
       <div class="skin-actions">
         <button data-act="apply-preset" data-value="${escapeHtml(preset.id)}"
-          ${preset.id === active ? 'disabled' : ''} data-t="settings.skin.apply"></button>
+          ${current ? 'disabled' : ''} data-t="settings.skin.apply"></button>
         ${preset.css === '' ? '' : `<button data-act="copy-preset" data-value="${escapeHtml(preset.id)}" data-t="settings.skin.copy"></button>`}
       </div>
-    </div>`).join('')
-  box.innerHTML = `<div class="skin-grid">${presets}</div>`
-    + `<div class="lrow"><span class="ldetail">${escapeHtml(services.t('settings.skin.hint'))}</span></div>`
-    + (vars.length === 0 ? '' : `<div class="lrow skin-vars"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
-        <span class="var-chips">${vars.map(v => `<code>${escapeHtml(v)}</code>`).join('')}</span></div>`)
-    + `<div class="lrow"><button data-act="reload-skin" data-t="settings.skin.reload"></button></div>`
+    </div>`
+  }).join('')
+
+  // ② 自定义皮肤：直接编辑 CSS 并保存；这就是"用户自己改"的入口。
+  const emptyHint = vars.length === 0
+    ? `<div class="empty-hint">${escapeHtml(services.t('settings.skin.empty'))}</div>` : ''
+  box.innerHTML = `<div class="skin-subtitle" data-t="settings.skin.presets"></div>
+    <div class="skin-grid">${presets}</div>
+    <div class="skin-subtitle" data-t="settings.skin.custom"></div>
+    <p class="set-hint" data-t="settings.skin.hint"></p>
+    ${css.trim() === '' ? '' : `<p class="skin-overriding">● ${escapeHtml(services.t('settings.skin.overriding'))}</p>`}
+    <textarea class="skin-editor" data-skin-editor spellcheck="false"
+      placeholder="${escapeHtml(services.t('settings.skin.placeholder'))}">${escapeHtml(css)}</textarea>
+    <div class="lrow skin-editor-actions">
+      <button data-act="save-skin" data-t="settings.skin.save"></button>
+      <button data-act="reset-skin" data-t="settings.skin.reset"></button>
+      <button data-act="reload-skin" data-t="settings.skin.reload"></button>
+    </div>
+    ${vars.length === 0 ? '' : `<div class="lrow skin-vars"><span class="lname">${escapeHtml(services.t('settings.skin.vars'))}</span>
+        <span class="var-chips">${vars.map(v => `<code>${escapeHtml(v)}</code>`).join('')}</span></div>`}
+    ${emptyHint}`
+  // textarea 是异步插入的，手动 paint（load 末尾的 paintText 只管 [data-t]）。
+  const editor = box.querySelector<HTMLTextAreaElement>('[data-skin-editor]')
+  if (editor !== null) editor.value = css
 }
 
 /** 权限档位区：列出宿主给的档位，标出当前生效的档位（改完要重启宿主）。 */

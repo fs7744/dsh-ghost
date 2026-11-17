@@ -522,15 +522,16 @@ details.tool pre { white-space: pre-wrap; background: var(--surface-mid); paddin
 .panelstatus { font-variant-numeric: tabular-nums; }
 .panelbar button, .marketbar button, .flowbar button, .febtns button, #fe-form button,
 .membar button, .mcard button, .mcreate button, .lrow button, .ctxmenu button,
-.pricing-foot button,
+.skin-actions button, .pricing-foot button,
 .approval-options button, .approval-close {
   border: 1px solid var(--outline); border-radius: var(--radius-md);
   background: var(--surface-low); color: var(--on-surface);
   padding: 5px 11px; font-size: 11.8px; cursor: pointer; white-space: nowrap; }
 .panelbar button:hover, .marketbar button:hover, .flowbar button:hover, .febtns button:hover,
 #fe-form button:hover, .membar button:hover, .mcard button:hover, .mcreate button:hover,
-.lrow button:hover, .ctxmenu button:hover, .pricing-foot button:hover { border-color: var(--accent); color: var(--accent); }
-.panelbar button:disabled, .lrow button:disabled, .ctxmenu button:disabled { opacity: .45; cursor: default; }
+.lrow button:hover, .ctxmenu button:hover, .skin-actions button:hover, .pricing-foot button:hover { border-color: var(--accent); color: var(--accent); }
+.panelbar button:disabled, .lrow button:disabled, .ctxmenu button:disabled,
+.skin-actions button:disabled { opacity: .45; cursor: default; }
 .flowbar button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 .flowbar button.danger, #fe-form button.danger, .mcard button.danger { color: var(--danger); }
 input, select, textarea { font-family: inherit; }
@@ -596,13 +597,23 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .skin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .skin-card { padding: 12px 14px; border: 1px solid var(--hairline); border-radius: var(--radius-md);
   background: var(--surface-low); display: flex; flex-direction: column; gap: 7px; }
-.skin-card.active { border-color: var(--accent); background: var(--accent-container); }
+.skin-card.active { border-color: var(--ok); background: var(--surface-mid); }
 .skin-head { display: flex; align-items: center; gap: 8px; }
 .skin-name { font-weight: 600; font-size: 12.5px; color: var(--on-surface); }
 .skin-current { margin-left: auto; padding: 1px 8px; border-radius: 999px; font-size: 10px;
-  background: var(--accent); color: var(--canvas); }
+  background: transparent; color: var(--ok); border: 1px solid var(--ok); }
 .skin-desc { color: var(--faint); font-size: 11px; line-height: 1.5; min-height: 30px; }
 .skin-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.skin-subtitle { font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--on-surface-variant);
+  margin: 4px 0 9px; text-transform: uppercase; }
+.skin-subtitle:not(:first-child) { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.skin-editor { width: 100%; min-height: 132px; box-sizing: border-box; resize: vertical;
+  font-family: var(--font-mono, ui-monospace, monospace); font-size: 11.5px; line-height: 1.6;
+  padding: 10px 12px; border: 1px solid var(--outline); border-radius: var(--radius-md);
+  background: var(--surface-lowest); color: var(--on-surface); }
+.skin-editor::placeholder { color: var(--faint); }
+.skin-editor-actions { border: 0 !important; padding-top: 10px; gap: 8px; }
+.skin-overriding { color: var(--warn); font-size: 11px; margin: 0 0 8px; }
 .skin-vars { flex-wrap: wrap; gap: 8px; }
 .var-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .var-chips code { padding: 2px 7px; border-radius: 6px; background: var(--surface-high);
